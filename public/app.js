@@ -811,7 +811,7 @@ function renderEditorSlide(idx) {
     const band = document.createElement('div');
     band.className = 'drag-band';
     band.style.top = initY + '%';
-    band.innerHTML = '<span class="drag-band-label">TEXTO</span><span class="drag-band-hint">arrastrá</span>';
+    band.innerHTML = '<span class="drag-band-label">≡ TEXTO — arrastrá para mover</span><span class="drag-band-hint">re-renderizá para aplicar</span>';
     wrap.appendChild(band);
 
     let dragging = false, startY = 0, startTopPx = 0;

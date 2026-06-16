@@ -93,14 +93,19 @@ function buildSlide(slide, idx, total) {
     section.classList.add('has-photo');
 
     // Posición manual del texto (drag en el editor → _textY en %)
+    // Agrupa TODOS los elementos de contenido en un wrapper absoluto para
+    // que se muevan juntos sin que se superpongan entre sí.
     if (slide._textY != null) {
-      const content = section.querySelector('.cover-main, .cta-main, .stmt-top, .stmt-body-wrap, h2.c-headline, .quote-top, ul.list-items');
-      if (content) {
-        content.style.position  = 'absolute';
-        content.style.top       = slide._textY + '%';
-        content.style.left      = '0';
-        content.style.right     = '0';
-        content.style.transform = 'translateY(-50%)';
+      const FIXED = new Set(['slide-bg', 'slide-tag', 'brand-logo', 'c-swipe', 'cta-footer']);
+      const toWrap = [...section.children].filter(c =>
+        ![...c.classList].some(cls => FIXED.has(cls))
+      );
+      if (toWrap.length) {
+        const wrap = document.createElement('div');
+        wrap.className = 'text-y-wrap';
+        wrap.style.cssText = `position:absolute;top:${slide._textY}%;left:0;right:0;transform:translateY(-50%);padding:var(--pad);box-sizing:border-box;display:flex;flex-direction:column;gap:var(--gap);`;
+        toWrap.forEach(c => wrap.appendChild(c));
+        section.appendChild(wrap);
       }
     }
   }
