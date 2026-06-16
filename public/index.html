@@ -221,7 +221,30 @@
     </div>
     <div class="lightbox-footer">
       <a id="lightboxDownload" class="lightbox-download" download>↓ Descargar</a>
+      <button id="lightboxCaption" class="lightbox-edit hidden">✍ Caption</button>
       <button id="lightboxEdit" class="lightbox-edit hidden">✎ Editar</button>
+    </div>
+  </div>
+
+  <!-- ── MODAL CAPTION ─────────────────────────────── -->
+  <div id="modalCaption" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="section-title">Caption</span>
+        <button class="modal-close" id="captionClose">×</button>
+      </div>
+      <div id="captionLoader" class="caption-loader">
+        <span class="preguntar-dots"><span></span><span></span><span></span></span>
+        <span>Generando caption...</span>
+      </div>
+      <div id="captionContent" class="hidden">
+        <textarea id="captionText" class="caption-textarea" rows="10"></textarea>
+        <div class="caption-actions">
+          <button id="btnCopiarCaption" class="btn-primary btn-grow">Copiar</button>
+          <button id="btnRegenerarCaption" class="btn-secondary">Regenerar</button>
+        </div>
+        <span id="captionStatus" class="status"></span>
+      </div>
     </div>
   </div>
 

@@ -923,6 +923,36 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   cursor: pointer;
 }
 
+/* ── CAPTION MODAL ───────────────────────────────── */
+.caption-loader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 20px 0;
+}
+
+.caption-textarea {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 12px;
+  resize: vertical;
+  margin-top: 4px;
+}
+
+.caption-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 /* ── EDITOR ──────────────────────────────────────── */
 .editor-box { max-height: 92dvh; }
 

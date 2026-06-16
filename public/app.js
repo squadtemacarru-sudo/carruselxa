@@ -605,9 +605,9 @@ function openLightbox(slides, index, tandaId = null) {
   currentTandaId = tandaId;
   showSlide();
   $('#lightbox').classList.remove('hidden');
-  const editBtn = $('#lightboxEdit');
-  if (tandaId) editBtn.classList.remove('hidden');
-  else         editBtn.classList.add('hidden');
+  const hasId = !!tandaId;
+  $('#lightboxEdit').classList.toggle('hidden', !hasId);
+  $('#lightboxCaption').classList.toggle('hidden', !hasId);
 }
 
 function showSlide() {
@@ -627,6 +627,56 @@ $('#lightboxEdit').addEventListener('click',  () => {
   $('#lightbox').classList.add('hidden');
   editarTanda(currentTandaId);
 });
+
+$('#lightboxCaption').addEventListener('click', () => {
+  $('#lightbox').classList.add('hidden');
+  abrirCaption(currentTandaId);
+});
+
+$('#captionClose').addEventListener('click', () => $('#modalCaption').classList.add('hidden'));
+$('#modalCaption').addEventListener('click', e => { if (e.target === $('#modalCaption')) $('#modalCaption').classList.add('hidden'); });
+
+$('#btnCopiarCaption').addEventListener('click', () => {
+  navigator.clipboard.writeText($('#captionText').value).then(() => {
+    const st = $('#captionStatus');
+    st.textContent = 'Copiado';
+    st.className = 'status ok';
+    setTimeout(() => { st.textContent = ''; st.className = 'status'; }, 2000);
+  });
+});
+
+$('#btnRegenerarCaption').addEventListener('click', () => generarCaption(captionTandaId));
+
+let captionTandaId = null;
+
+function abrirCaption(tandaId) {
+  captionTandaId = tandaId;
+  $('#modalCaption').classList.remove('hidden');
+  generarCaption(tandaId);
+}
+
+async function generarCaption(tandaId) {
+  $('#captionLoader').classList.remove('hidden');
+  $('#captionContent').classList.add('hidden');
+  $('#captionStatus').textContent = '';
+  $('#btnRegenerarCaption').disabled = true;
+
+  try {
+    const res = await fetch(`/api/tandas/${tandaId}/caption`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al generar');
+    $('#captionText').value = data.caption;
+    $('#captionLoader').classList.add('hidden');
+    $('#captionContent').classList.remove('hidden');
+  } catch (e) {
+    $('#captionLoader').classList.add('hidden');
+    $('#captionContent').classList.remove('hidden');
+    $('#captionStatus').textContent = e.message;
+    $('#captionStatus').className = 'status error';
+  } finally {
+    $('#btnRegenerarCaption').disabled = false;
+  }
+}
 
 async function cargarGaleria() {
   tandas = await (await fetch('/api/tandas')).json();

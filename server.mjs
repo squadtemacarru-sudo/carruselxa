@@ -565,6 +565,49 @@ app.put('/api/tandas/:id/contenido', async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/tandas/:id/caption', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+
+  let contenido, marca = {};
+  try {
+    contenido = JSON.parse(await readFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), 'utf-8'));
+  } catch {
+    return res.status(404).json({ error: 'Contenido no encontrado' });
+  }
+  try { marca = JSON.parse(await readFile(path.join(__dirname, 'marcas', contenido._marca || 'squadteam', 'marca.json'), 'utf-8')); } catch {}
+
+  const resumen = contenido.slides.map((s, i) => {
+    const titulo = s.headline || s.title || s.stat || '';
+    const sub    = s.subheadline || s.body || s.caption || '';
+    return `Slide ${i + 1} (${s.type}): ${titulo}${sub ? ' — ' + sub : ''}`.trim();
+  }).join('\n');
+
+  const prompt = `Sos un experto en Instagram para la marca "${marca.nombre || id}".
+Industria: ${marca.industria || 'no especificada'}. Audiencia: ${marca.audiencia || 'no especificada'}.
+Voz: ${marca.voz || 'directa y cercana'}.
+
+Este es el resumen del carrusel que acabás de crear:
+${resumen}
+
+Escribí un caption para Instagram que acompañe este carrusel. Tiene que tener:
+1. Una primera línea GANCHO (máximo 10 palabras, que detenga el scroll)
+2. 2-4 líneas de cuerpo que desarrollen el tema con valor real
+3. Una línea de CTA clara y directa
+4. Un salto de línea y luego 20-25 hashtags relevantes (en minúsculas, sin espacios entre #)
+
+Idioma: español rioplatense (vos, usás, etc).
+Sin emojis a menos que sean muy naturales. Sin frases genéricas ni motivacionales vacías.
+Devolvé SOLO el caption, sin explicaciones ni comillas.`;
+
+  try {
+    const caption = await callBlackboxText(prompt, 800);
+    res.json({ caption: caption.trim() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/tandas/:id/rerenderizar', (req, res) => {
   if (jobRunning) return res.status(409).json({ error: 'Hay una generación en curso' });
   const { id } = req.params;
