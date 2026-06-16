@@ -71,20 +71,71 @@ CONTEXTO DE MARCA (mantené coherencia con esto):
 `;
 }
 
-// Carga las metodologías de copy (skills/*.md) como guía para la IA
-async function loadSkills() {
+// Lee el frontmatter (name + description) de un skill .md sin cargar el cuerpo entero
+function parseSkillMeta(content, filename) {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return { name: filename.replace('.md', ''), description: '' };
+  const nameM = match[1].match(/^name:\s*(.+)$/m);
+  const descM  = match[1].match(/^description:\s*(.+)$/m);
+  return {
+    name:        nameM ? nameM[1].trim() : filename.replace('.md', ''),
+    description: descM ? descM[1].replace(/^["']|["']$/g, '').trim() : ''
+  };
+}
+
+// Elige las 3-4 skills más relevantes para el tema dado (llamada ligera a la API)
+async function selectSkills(tema, allSkills) {
+  const index = allSkills.map(s => `- ${s.name}: ${s.description}`).join('\n');
+  const prompt = `Dado este tema de carrusel de Instagram: "${tema}"
+
+Estas son las metodologías de copywriting disponibles:
+${index}
+
+Elegí las 3 que serían MÁS útiles para escribir este carrusel específico.
+Respondé SOLO con un array JSON de nombres exactos, por ejemplo: ["headline-formulas","copy-frameworks","made-to-stick"]
+Sin explicaciones, sin markdown.`;
+
+  try {
+    const raw = await callBlackbox(prompt);
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const selected = JSON.parse(cleaned);
+    if (Array.isArray(selected) && selected.length > 0) return selected;
+  } catch {
+    // Si falla la selección, usamos todas
+  }
+  return allSkills.map(s => s.name);
+}
+
+// Carga las metodologías de copy (skills/*.md) — selecciona dinámicamente las más relevantes
+async function loadSkills(tema) {
   const dir = path.join(__dirname, 'skills');
   let files;
   try {
-    files = await readdir(dir);
+    files = (await readdir(dir)).filter(f => f.endsWith('.md'));
   } catch {
     return '';
   }
-  const docs = [];
-  for (const f of files.filter(f => f.endsWith('.md'))) {
-    docs.push(await readFile(path.join(dir, f), 'utf-8'));
+  if (!files.length) return '';
+
+  // Lee meta de todos los skills
+  const allSkills = await Promise.all(
+    files.map(async f => {
+      const content = await readFile(path.join(dir, f), 'utf-8');
+      return { filename: f, content, ...parseSkillMeta(content, f) };
+    })
+  );
+
+  // Seleccioná las más relevantes (si hay tema)
+  let chosen = allSkills;
+  if (tema && allSkills.length > 4) {
+    console.log('🧠 Seleccionando metodologías relevantes para el tema...');
+    const selectedNames = await selectSkills(tema, allSkills);
+    const filtered = allSkills.filter(s => selectedNames.includes(s.name));
+    chosen = filtered.length >= 2 ? filtered : allSkills.slice(0, 4);
+    console.log(`   → Skills elegidas: ${chosen.map(s => s.name).join(', ')}`);
   }
-  return docs.join('\n\n---\n\n');
+
+  return chosen.map(s => s.content).join('\n\n---\n\n');
 }
 
 // Carga notas de perfiles de IG de referencia (referencias-ig.md), si existen
@@ -193,10 +244,11 @@ async function main() {
   const fotos = (process.argv[5] || '').split(',').map(f => f.trim()).filter(Boolean);
 
   const marca = await loadMarca(marcaId);
-  const skillsDocs = await loadSkills();
+  const skillsDocs = await loadSkills(tema);
   const referenciasIG = await loadReferenciasIG(marcaId);
 
   console.log(`✍️  Generando contenido para: "${tema}" (marca: ${marcaId}${fotos.length ? `, ${fotos.length} foto(s)` : ''})...`);
+  if (skillsDocs) console.log('📚 Skills de copy cargadas.');
   const contenido = await generarContenido(tema, marca, skillsDocs, referenciasIG, fotos);
   contenido._marca = marcaId;
 
