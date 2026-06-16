@@ -69,7 +69,6 @@ button{width:100%;background:#e8ff00;color:#000;border:none;border-radius:10px;p
   </form>
 </div>
 <script>
-$('#f','form') // placeholder
 document.getElementById('f').addEventListener('submit', async e => {
   e.preventDefault();
   const res = await fetch('/api/login', {
