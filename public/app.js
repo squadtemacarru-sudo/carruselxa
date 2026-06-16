@@ -954,6 +954,66 @@ function renderEditorSlide(idx) {
     </div>
   `;
 
+  // Sección CONTENIDO — campos de texto editables
+  const TEXT_FIELDS = [
+    { key: 'headline',     label: 'Titular',    multi: false },
+    { key: 'subheadline',  label: 'Subtitular', multi: false },
+    { key: 'body',         label: 'Cuerpo',     multi: true  },
+    { key: 'caption',      label: 'Caption',    multi: true  },
+    { key: 'stat',         label: 'Estadística',multi: false },
+    { key: 'label',        label: 'Etiqueta',   multi: false },
+    { key: 'quote',        label: 'Cita',       multi: true  },
+    { key: 'author',       label: 'Autor',      multi: false },
+    { key: 'cta',          label: 'CTA',        multi: false },
+  ];
+  const activeFields = TEXT_FIELDS.filter(f => slide[f.key] != null);
+  const hasItems     = Array.isArray(slide.items) && slide.items.length;
+
+  if (activeFields.length || hasItems) {
+    const section = document.createElement('div');
+    section.className = 'ctrl-section';
+    section.innerHTML = `<p class="ctrl-label">CONTENIDO — slide ${num}</p>`;
+
+    activeFields.forEach(({ key, label, multi }) => {
+      const fieldId = `ctrlText_${key}`;
+      const row = document.createElement('div');
+      row.className = 'ctrl-row ctrl-row-col';
+      row.innerHTML = `
+        <span class="ctrl-row-label">${label}</span>
+        ${multi
+          ? `<textarea id="${fieldId}" class="ctrl-textarea" rows="3">${slide[key]}</textarea>`
+          : `<input  id="${fieldId}" class="ctrl-input" type="text" value="${String(slide[key]).replace(/"/g, '&quot;')}">`}
+      `;
+      section.appendChild(row);
+    });
+
+    if (hasItems) {
+      const fieldId = 'ctrlText_items';
+      const row = document.createElement('div');
+      row.className = 'ctrl-row ctrl-row-col';
+      row.innerHTML = `
+        <span class="ctrl-row-label">Items (uno por línea)</span>
+        <textarea id="${fieldId}" class="ctrl-textarea" rows="${Math.min(slide.items.length + 1, 8)}">${slide.items.join('\n')}</textarea>
+      `;
+      section.appendChild(row);
+    }
+
+    $('#editorControls').appendChild(section);
+
+    // Bind texto → editorContenido
+    activeFields.forEach(({ key }) => {
+      const el = document.getElementById(`ctrlText_${key}`);
+      if (!el) return;
+      el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; });
+    });
+    if (hasItems) {
+      const el = document.getElementById('ctrlText_items');
+      if (el) el.addEventListener('input', () => {
+        editorContenido.slides[editorSlideIdx].items = el.value.split('\n').filter(l => l.trim());
+      });
+    }
+  }
+
   // Bind controls → editorContenido
   const bind = (id, valId, update, fmt = v => v) => {
     const el = document.getElementById(id);

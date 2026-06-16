@@ -1022,6 +1022,32 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .ctrl-row:last-child { margin-bottom: 0; }
 .ctrl-row-label { flex: 1; white-space: nowrap; }
 
+.ctrl-row-col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+.ctrl-row-col .ctrl-row-label { white-space: normal; }
+
+.ctrl-input,
+.ctrl-textarea {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  resize: vertical;
+}
+.ctrl-input:focus,
+.ctrl-textarea:focus {
+  outline: none;
+  border-color: var(--acc);
+}
+
 .ctrl-right {
   display: flex;
   align-items: center;
