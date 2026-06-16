@@ -40,6 +40,7 @@ async function cargarMarcas(seleccionar) {
 marcaSelect.addEventListener('change', async () => {
   marcaActual = marcaSelect.value;
   await Promise.all([cargarTemas(), cargarIdentidad(), cargarReferencias()]);
+  renderTemplatesList();
 });
 
 $('#btnNuevaMarca').addEventListener('click', async () => {
@@ -147,6 +148,7 @@ async function abrirModalPreguntar(tema) {
   rotacionesPendientes = {};
   fotosPorSlide = {};
   $('#instruccionesLibres').value = '';
+  renderTplPickerChips();
 
   loader.classList.remove('hidden');
   content.classList.add('hidden');
@@ -1063,10 +1065,75 @@ $('#btnRerenderizar').addEventListener('click', async () => {
   }
 });
 
+// ── TEMPLATES ─────────────────────────────────────────
+function tplKey()           { return `templates_${marcaActual || 'default'}`; }
+function getTemplates()     { try { return JSON.parse(localStorage.getItem(tplKey()) || '[]'); } catch { return []; } }
+function saveTemplatesLS(t) { localStorage.setItem(tplKey(), JSON.stringify(t)); }
+
+function renderTemplatesList() {
+  const list = $('#templatesList');
+  if (!list) return;
+  const tpls = getTemplates();
+  if (!tpls.length) {
+    list.innerHTML = '<p class="hint" style="margin:0 0 10px">Todavía no hay templates.</p>';
+    return;
+  }
+  list.innerHTML = tpls.map(t => `
+    <div class="tpl-item">
+      <div class="tpl-item-info">
+        <span class="tpl-item-name">${t.nombre}</span>
+        <span class="tpl-item-preview">${t.instrucciones.slice(0, 80)}${t.instrucciones.length > 80 ? '…' : ''}</span>
+      </div>
+      <button class="btn-ghost btn-sm tpl-delete" data-id="${t.id}">✕</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('.tpl-delete').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const updated = getTemplates().filter(t => t.id !== btn.dataset.id);
+      saveTemplatesLS(updated);
+      renderTemplatesList();
+      renderTplPickerChips();
+    });
+  });
+}
+
+function renderTplPickerChips() {
+  const block = $('#tplPickerBlock');
+  const chips = $('#tplPickerChips');
+  if (!block || !chips) return;
+  const tpls = getTemplates();
+  block.classList.toggle('hidden', !tpls.length);
+  chips.innerHTML = tpls.map(t =>
+    `<button class="tpl-chip" data-id="${t.id}">${t.nombre}</button>`
+  ).join('');
+  chips.querySelectorAll('.tpl-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = getTemplates().find(x => x.id === btn.dataset.id);
+      if (!t) return;
+      $('#instruccionesLibres').value = t.instrucciones;
+      chips.querySelectorAll('.tpl-chip').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+}
+
+$('#btnGuardarTemplate').addEventListener('click', () => {
+  const nombre        = $('#tplNombre').value.trim();
+  const instrucciones = $('#tplInstrucciones').value.trim();
+  if (!nombre || !instrucciones) return;
+  const tpls = getTemplates();
+  tpls.push({ id: Date.now().toString(), nombre, instrucciones });
+  saveTemplatesLS(tpls);
+  $('#tplNombre').value        = '';
+  $('#tplInstrucciones').value = '';
+  renderTemplatesList();
+});
+
 // ── INIT ──────────────────────────────────────────────
 (async () => {
   await cargarMarcas();
   await Promise.all([cargarTemas(), cargarIdentidad(), cargarReferencias()]);
+  renderTemplatesList();
   cargarGaleria();
   checkStatus();
   connectStream();

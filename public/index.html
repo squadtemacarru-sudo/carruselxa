@@ -177,6 +177,22 @@
     </div>
 
     <div class="config-block">
+      <div class="config-block-header" data-toggle="bloque-templates">
+        <span class="section-title">Templates de generación</span>
+        <span class="toggle-icon">›</span>
+      </div>
+      <div class="config-block-body collapsed" id="bloque-templates">
+        <p class="hint">Guardá instrucciones que usás seguido. Se pueden aplicar al generar con un click.</p>
+        <div id="templatesList"></div>
+        <div class="tpl-form">
+          <input id="tplNombre" type="text" placeholder="Nombre del template">
+          <textarea id="tplInstrucciones" rows="3" placeholder="Instrucciones para la IA (tono, estructura, restricciones...)"></textarea>
+          <button id="btnGuardarTemplate" class="btn-secondary btn-full">+ Guardar template</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-block">
       <div class="config-block-header" data-toggle="bloque-nueva-marca">
         <span class="section-title">Nueva marca</span>
         <span class="toggle-icon">›</span>
@@ -307,6 +323,11 @@
         </div>
         <!-- Preguntas generadas por la IA -->
         <div id="preguntasContainer"></div>
+        <!-- Templates -->
+        <div id="tplPickerBlock" class="pregunta-block hidden">
+          <p class="pregunta-label">Aplicar template</p>
+          <div id="tplPickerChips" class="tpl-chips"></div>
+        </div>
         <!-- Campo libre -->
         <div class="pregunta-block">
           <p class="pregunta-label">¿Algo más para la IA?</p>
