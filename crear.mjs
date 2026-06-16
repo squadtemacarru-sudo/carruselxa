@@ -38,7 +38,7 @@ async function callBlackbox(content) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 2000,
+      max_tokens: 3500,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content }
@@ -234,8 +234,20 @@ Reglas generales:
 - Usá "\\n" dentro de los textos para cortar líneas como en un carrusel real (nunca un solo párrafo largo en headlines).
 - Nunca uses comillas dobles rectas (") dentro de un valor de texto — para citas o términos entre comillas usá comillas tipográficas “ ” curvas.`;
 
+  const parse = (raw) => JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));
+
+  let contenido;
   const text = await callBlackbox(promptText);
-  const contenido = JSON.parse(sanitizeJson(text.replace(/```json|```/g, '').trim()));
+  contenido = parse(text);
+
+  // Si la IA devolvió menos slides de lo pedido, reintentamos una vez
+  if (!contenido.slides || contenido.slides.length < 5) {
+    console.warn(`⚠ Solo ${contenido.slides?.length ?? 0} slides — reintentando...`);
+    const text2 = await callBlackbox(promptText);
+    const retry  = parse(text2);
+    if ((retry.slides?.length ?? 0) > (contenido.slides?.length ?? 0)) contenido = retry;
+  }
+
   if (USER_OVERLAY !== null && !isNaN(USER_OVERLAY)) contenido.overlay = USER_OVERLAY;
   return contenido;
 }
