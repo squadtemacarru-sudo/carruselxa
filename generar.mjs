@@ -31,6 +31,15 @@ async function fileToDataUrl(abs) {
 }
 
 async function photoToDataUrl(relPath) {
+  // Soporta URLs absolutas (Cloudinary) además de rutas locales relativas
+  if (relPath.startsWith('http://') || relPath.startsWith('https://')) {
+    const res = await fetch(relPath);
+    if (!res.ok) throw new Error(`No se pudo descargar foto: ${relPath}`);
+    const buf  = Buffer.from(await res.arrayBuffer());
+    const ext  = relPath.split('?')[0].split('.').pop().toLowerCase();
+    const mime = MIME[`.${ext}`] || 'image/jpeg';
+    return `data:${mime};base64,${buf.toString('base64')}`;
+  }
   return fileToDataUrl(path.join(__dirname, 'fotos', relPath));
 }
 

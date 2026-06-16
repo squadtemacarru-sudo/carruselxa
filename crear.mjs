@@ -189,7 +189,7 @@ function slugify(str) {
 function fotosContext(fotos) {
   if (!fotos?.length) return '';
   return `
-FOTOS DISPONIBLES PARA ESTE CARRUSEL (rutas relativas a fotos/, usalas EXACTAMENTE con estos nombres). TODAS deben quedar asignadas, y NINGUNA puede repetirse en más de un campo/slide:
+FOTOS DISPONIBLES PARA ESTE CARRUSEL (copiá el valor exacto de cada foto, puede ser URL https:// o nombre de archivo). TODAS deben quedar asignadas, y NINGUNA puede repetirse en más de un campo/slide:
 ${fotos.map(f => `- ${f}`).join('\n')}
 
 Elegí 2-3 slides (de las 6) para que usen estas fotos con alguno de estos tipos multi-foto, según lo que mejor sirva al tema:

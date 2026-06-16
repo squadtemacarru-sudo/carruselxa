@@ -175,7 +175,9 @@ app.post('/api/generar', async (req, res) => {
     try {
       const carpeta = path.join('tandas', `${Date.now()}_${slugify(tema)}`);
       broadcast(`\n=== Generando: ${tema} (marca: ${marcaId}) ===\n`);
-      const fotos = Array.isArray(req.body.fotos) ? req.body.fotos.filter(f => EXT_RE.test(f)) : [];
+      // Resuelve nombres de archivo a URLs de Cloudinary si están disponibles
+      const fotosRaw = Array.isArray(req.body.fotos) ? req.body.fotos.filter(f => EXT_RE.test(f)) : [];
+      const fotos = fotosRaw.map(f => fotosCloud.get(f) || f);
       const crearArgs = ['crear.mjs', tema, carpeta, marcaId];
       if (fotos.length) crearArgs.push(fotos.join(','));
       await runStep(crearArgs);
@@ -364,11 +366,39 @@ app.get('/api/tandas', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────
 const EXT_RE = /\.(jpe?g|png|webp)$/i;
 
+// Mapa en memoria: filename → cloudinary URL (se pierde en restart pero las fotos quedan en Cloudinary)
+const fotosCloud = new Map();
+
+async function uploadFotoToCloudinary(filePath, filename) {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const preset    = process.env.CLOUDINARY_UPLOAD_PRESET;
+  if (!cloudName || !preset) return null;
+
+  const ext  = path.extname(filename).toLowerCase();
+  const mime = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' }[ext] || 'image/jpeg';
+  const buf  = await readFile(filePath);
+  const form = new FormData();
+  form.append('file', new Blob([buf], { type: mime }), filename);
+  form.append('upload_preset', preset);
+  form.append('folder', 'carruselesgen/fotos');
+
+  const res  = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: form });
+  const data = await res.json();
+  if (!res.ok) {
+    console.error('Cloudinary fotos error:', data.error?.message);
+    return null;
+  }
+  return data.secure_url;
+}
+
 // Listar fotos disponibles
 app.get('/api/fotos', async (req, res) => {
   try {
     const files = (await readdir(FOTOS_DIR)).filter(f => EXT_RE.test(f) && !f.startsWith('.'));
-    res.json(files.map(nombre => ({ nombre, url: `/fotos/${encodeURIComponent(nombre)}` })));
+    res.json(files.map(nombre => ({
+      nombre,
+      url: fotosCloud.get(nombre) || `/fotos/${encodeURIComponent(nombre)}`
+    })));
   } catch {
     res.json([]);
   }
@@ -407,7 +437,14 @@ app.post('/api/fotos', async (req, res) => {
     const filename = path.basename(match[1]);
     if (!EXT_RE.test(filename)) continue;
     const body = part.slice(headerEnd + 4, part.length - 2);
-    await writeFile(path.join(FOTOS_DIR, filename), body);
+    const localPath = path.join(FOTOS_DIR, filename);
+    await writeFile(localPath, body);
+
+    // Subir a Cloudinary en background (no bloquea la respuesta)
+    uploadFotoToCloudinary(localPath, filename)
+      .then(url => { if (url) fotosCloud.set(filename, url); })
+      .catch(() => {});
+
     return res.json({ ok: true, nombre: filename });
   }
   res.status(400).json({ error: 'No se encontró archivo en el body' });
@@ -419,6 +456,7 @@ app.delete('/api/fotos/:nombre', async (req, res) => {
   if (!EXT_RE.test(nombre)) return res.status(400).json({ error: 'Nombre inválido' });
   try {
     await unlink(path.join(FOTOS_DIR, nombre));
+    fotosCloud.delete(nombre);
     res.json({ ok: true });
   } catch {
     res.status(404).json({ error: 'No encontrada' });
