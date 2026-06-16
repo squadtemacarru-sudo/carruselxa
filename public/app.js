@@ -111,7 +111,11 @@ function connectStream() {
       if (isDone) { editorTs = Date.now(); renderEditorSlide(editorSlideIdx); setTimeout(cargarGaleria, 500); }
       return;
     }
-    if (isDone) { setRunning(false); setTimeout(cargarGaleria, 1000); }
+    if (isDone) {
+      setRunning(false);
+      cargarGaleria();
+      document.querySelector('.nav-btn[data-tab="tab-galeria"]')?.click();
+    }
     if (isError) { setRunning(false); logStatus.style.color = 'var(--red)'; logStatus.textContent = 'Error'; }
   };
 }
