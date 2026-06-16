@@ -91,6 +91,18 @@ function buildSlide(slide, idx, total) {
     section.style.setProperty('--overlay', String(ovVal));
     section.insertBefore(bg, section.firstChild);
     section.classList.add('has-photo');
+
+    // Posición manual del texto (drag en el editor → _textY en %)
+    if (slide._textY != null) {
+      const content = section.querySelector('.cover-main, .cta-main, .stmt-top, .stmt-body-wrap, h2.c-headline, .quote-top, ul.list-items');
+      if (content) {
+        content.style.position  = 'absolute';
+        content.style.top       = slide._textY + '%';
+        content.style.left      = '0';
+        content.style.right     = '0';
+        content.style.transform = 'translateY(-50%)';
+      }
+    }
   }
 
   // Logo de marca (watermark)
@@ -350,6 +362,11 @@ function buildFullImpact(slide, i, total) {
   sec.id = `slide-${i+1}`;
   if (slide.photo) { const bg = el('div','fi-bg'); bg.style.backgroundImage=`url(${slide.photo})`; sec.appendChild(bg); }
   const content = el('div','fi-content');
+  if (slide._textY != null) {
+    content.style.position  = 'absolute';
+    content.style.top       = slide._textY + '%';
+    content.style.transform = 'translateY(-50%)';
+  }
   content.appendChild(el('span','fi-tag', `0${i+1} — 0${total}`));
   if (slide.line1) content.appendChild(el('p','fi-line1',esc(slide.line1)));
   if (slide.line2) content.appendChild(el('p','fi-line2',esc(slide.line2)));

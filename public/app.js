@@ -800,7 +800,36 @@ function renderEditorSlide(idx) {
     return m ? parseFloat(m[1]) : 50;
   })();
   const headlineAj = slide._headlineAjuste || 'normal';
-  const textPos    = slide._textPosition   || '';
+
+  // Drag band — solo para slides con foto
+  const wrap = $('.editor-preview-wrap');
+  wrap.querySelectorAll('.drag-band').forEach(b => b.remove());
+  if (hasPhoto) {
+    const initY = slide._textY != null ? slide._textY :
+                  slide._textPosition === 'top' ? 20 :
+                  slide._textPosition === 'bottom' ? 75 : 50;
+    const band = document.createElement('div');
+    band.className = 'drag-band';
+    band.style.top = initY + '%';
+    band.innerHTML = '<span class="drag-band-label">TEXTO</span><span class="drag-band-hint">arrastrá</span>';
+    wrap.appendChild(band);
+
+    let dragging = false, startY = 0, startTopPx = 0;
+    band.addEventListener('pointerdown', e => {
+      dragging    = true;
+      startY      = e.clientY;
+      startTopPx  = (parseFloat(band.style.top) / 100) * wrap.offsetHeight;
+      band.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    band.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const newTop = Math.max(5, Math.min(90, ((startTopPx + e.clientY - startY) / wrap.offsetHeight) * 100));
+      band.style.top = newTop + '%';
+      editorContenido.slides[editorSlideIdx]._textY = Math.round(newTop);
+    });
+    band.addEventListener('pointerup', () => { dragging = false; });
+  }
 
   $('#editorControls').innerHTML = `
     <div class="ctrl-section">
@@ -819,7 +848,7 @@ function renderEditorSlide(idx) {
       <p class="ctrl-label">FOTO — slide ${num}</p>
       ${hasPhotoPos ? `
       <div class="ctrl-row">
-        <span class="ctrl-row-label">Posición vertical</span>
+        <span class="ctrl-row-label">Posición vertical de foto</span>
         <div class="ctrl-right">
           <input type="range" id="ctrlPhotoY" min="0" max="100" step="5" value="${photoPosY}">
           <span class="ctrl-val" id="ctrlPhotoYVal">${photoPosY}%</span>
@@ -846,18 +875,7 @@ function renderEditorSlide(idx) {
           </select>
         </div>
       </div>
-      ${hasPhoto ? `
-      <div class="ctrl-row">
-        <span class="ctrl-row-label">Posición</span>
-        <div class="ctrl-right">
-          <select id="ctrlTextPos">
-            <option value=""       ${textPos === ''       ? 'selected' : ''}>Auto</option>
-            <option value="top"    ${textPos === 'top'    ? 'selected' : ''}>Arriba</option>
-            <option value="center" ${textPos === 'center' ? 'selected' : ''}>Centro</option>
-            <option value="bottom" ${textPos === 'bottom' ? 'selected' : ''}>Abajo</option>
-          </select>
-        </div>
-      </div>` : ''}
+      ${hasPhoto ? `<p class="ctrl-hint">Arrastrá la banda amarilla en el preview para mover el texto.</p>` : ''}
     </div>
   `;
 
@@ -878,10 +896,6 @@ function renderEditorSlide(idx) {
   bind('ctrlPhotoY',   'ctrlPhotoYVal',   v => { editorContenido.slides[editorSlideIdx]._photoPos = `center ${v}%`; }, v => `${v}%`);
   bind('ctrlSlideOv',  'ctrlSlideOvVal',  v => { editorContenido.slides[editorSlideIdx]._overlay = v; });
   bind('ctrlHsAjuste', null, v => { editorContenido.slides[editorSlideIdx]._headlineAjuste = v; });
-  bind('ctrlTextPos',  null, v => {
-    if (v) editorContenido.slides[editorSlideIdx]._textPosition = v;
-    else   delete editorContenido.slides[editorSlideIdx]._textPosition;
-  });
 }
 
 $('#editorClose').addEventListener('click', () => $('#modalEditor').classList.add('hidden'));

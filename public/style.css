@@ -1048,3 +1048,43 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   gap: 12px;
   margin-top: 14px;
 }
+
+.ctrl-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ── DRAG BAND ───────────────────────────────────────── */
+.editor-preview-wrap { position: relative; }
+
+.drag-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 32px;
+  background: rgba(232, 255, 0, 0.15);
+  border-top: 2px solid var(--acc);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  user-select: none;
+  touch-action: none;
+  transform: translateY(-50%);
+  z-index: 10;
+}
+.drag-band:active { cursor: grabbing; }
+
+.drag-band-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--acc);
+}
+
+.drag-band-hint {
+  font-size: 10px;
+  color: rgba(232, 255, 0, 0.5);
+}
