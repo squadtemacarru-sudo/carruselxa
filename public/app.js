@@ -39,7 +39,7 @@ async function cargarMarcas(seleccionar) {
 
 marcaSelect.addEventListener('change', async () => {
   marcaActual = marcaSelect.value;
-  await Promise.all([cargarTemas(), cargarIdentidad()]);
+  await Promise.all([cargarTemas(), cargarIdentidad(), cargarReferencias()]);
 });
 
 $('#btnNuevaMarca').addEventListener('click', async () => {
@@ -400,10 +400,100 @@ async function cargarGaleria() {
 
 $('#btnRefrescar').addEventListener('click', cargarGaleria);
 
+// ── ESTUDIAR CARRUSELES ───────────────────────────────
+let estudiarFiles = [];
+
+async function cargarReferencias() {
+  if (!marcaActual) return;
+  const res = await fetch(`/api/marcas/${marcaActual}/referencias`);
+  const data = res.ok ? await res.json() : {};
+  $('#referenciasArea').value = data.texto || '';
+}
+
+$('#estudiarInput').addEventListener('change', e => {
+  estudiarFiles = [...e.target.files];
+  const previews = $('#estudiarPreviews');
+  previews.innerHTML = estudiarFiles.map(file => {
+    const url = URL.createObjectURL(file);
+    return `<div class="foto-thumb"><img src="${url}" alt="${file.name}"></div>`;
+  }).join('');
+  $('#btnEstudiar').disabled = !estudiarFiles.length;
+});
+
+$('#btnEstudiar').addEventListener('click', async () => {
+  if (!marcaActual || !estudiarFiles.length) return;
+  const btn = $('#btnEstudiar');
+  const st  = $('#estudiarStatus');
+  btn.disabled = true;
+  st.textContent = 'Convirtiendo imágenes...';
+  st.className   = 'status';
+
+  try {
+    const imagenes = await Promise.all(estudiarFiles.map(file => new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload  = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    })));
+
+    st.textContent = `Analizando ${imagenes.length} slide(s) con IA...`;
+    const resp = await fetch(`/api/marcas/${marcaActual}/estudiar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imagenes })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: 'Error desconocido' }));
+      throw new Error(err.error || 'Error en el servidor');
+    }
+
+    st.textContent = '✓ Estilo analizado y guardado';
+    st.className   = 'status ok';
+    await cargarReferencias();
+    $('#estudiarInput').value      = '';
+    $('#estudiarPreviews').innerHTML = '';
+    estudiarFiles = [];
+    btn.disabled  = true;
+  } catch (err) {
+    st.textContent = '✗ ' + err.message;
+    st.className   = 'status err';
+    btn.disabled   = false;
+  }
+  setTimeout(() => { st.textContent = ''; st.className = 'status'; }, 5000);
+});
+
+$('#btnGuardarRefs').addEventListener('click', async () => {
+  if (!marcaActual) return;
+  const texto = $('#referenciasArea').value;
+  const res = await fetch(`/api/marcas/${marcaActual}/referencias`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texto })
+  });
+  const st = $('#estudiarStatus');
+  st.textContent = res.ok ? '✓ Guardado' : '✗ Error al guardar';
+  st.className   = 'status ' + (res.ok ? 'ok' : 'err');
+  setTimeout(() => { st.textContent = ''; st.className = 'status'; }, 3000);
+});
+
+$('#btnBorrarRefs').addEventListener('click', async () => {
+  if (!marcaActual) return;
+  if (!confirm('¿Borrar todo el estilo aprendido para esta marca?')) return;
+  const res = await fetch(`/api/marcas/${marcaActual}/referencias`, { method: 'DELETE' });
+  if (res.ok) {
+    $('#referenciasArea').value = '';
+    const st = $('#estudiarStatus');
+    st.textContent = 'Referencias borradas';
+    st.className   = 'status ok';
+    setTimeout(() => { st.textContent = ''; st.className = 'status'; }, 3000);
+  }
+});
+
 // ── INIT ──────────────────────────────────────────────
 (async () => {
   await cargarMarcas();
-  await Promise.all([cargarTemas(), cargarIdentidad()]);
+  await Promise.all([cargarTemas(), cargarIdentidad(), cargarReferencias()]);
   cargarGaleria();
   checkStatus();
   connectStream();
