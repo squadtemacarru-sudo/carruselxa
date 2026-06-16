@@ -13,37 +13,106 @@
 
 import express from 'express';
 import { spawn } from 'node:child_process';
-import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, readdir, mkdir, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createWriteStream } from 'node:fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '20mb' }));
 
-const APP_USER = process.env.APP_USER || 'squad';
+const APP_USER     = process.env.APP_USER || 'squad';
 const APP_PASSWORD = process.env.APP_PASSWORD;
-if (!APP_PASSWORD) {
-  throw new Error('Falta la variable de entorno APP_PASSWORD');
-}
+if (!APP_PASSWORD) throw new Error('Falta la variable de entorno APP_PASSWORD');
 
-app.use((req, res, next) => {
-  const auth = req.headers.authorization;
-  if (!auth?.startsWith('Basic ')) {
-    res.set('WWW-Authenticate', 'Basic realm="Carrusel Generator"');
-    return res.status(401).send('Autenticación requerida');
-  }
-  const [user, pass] = Buffer.from(auth.slice(6), 'base64').toString().split(':');
-  if (user !== APP_USER || pass !== APP_PASSWORD) {
-    res.set('WWW-Authenticate', 'Basic realm="Carrusel Generator"');
-    return res.status(401).send('Credenciales inválidas');
-  }
-  next();
+const FOTOS_DIR = path.join(__dirname, 'fotos');
+await mkdir(FOTOS_DIR, { recursive: true });
+
+// ── AUTH: token en cookie (no Basic Auth del browser) ──
+const SESSION_TOKEN = Buffer.from(`${APP_USER}:${APP_PASSWORD}`).toString('base64');
+
+// Login page — sin auth
+app.get('/login', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Carrusel Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@1,900&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#040404;color:#fff;font-family:'Inter',sans-serif;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px}
+.box{width:100%;max-width:360px;display:flex;flex-direction:column;gap:20px}
+h1{font-family:'Barlow Condensed',sans-serif;font-style:italic;font-weight:900;font-size:42px;letter-spacing:0.02em}
+h1 em{color:#e8ff00;font-style:normal}
+p{font-size:14px;color:#9090a8}
+input{width:100%;background:#16181c;border:1px solid #1f1f24;border-radius:10px;color:#fff;padding:13px 14px;font-family:'Inter',sans-serif;font-size:15px;outline:none}
+input:focus{border-color:#e8ff00}
+button{width:100%;background:#e8ff00;color:#000;border:none;border-radius:10px;padding:14px;font-family:'Inter',sans-serif;font-weight:700;font-size:15px;cursor:pointer}
+.err{color:#ff3f3f;font-size:13px;display:none}
+</style>
+</head>
+<body>
+<div class="box">
+  <div>
+    <h1>CARRUSEL<em>GEN</em></h1>
+    <p style="margin-top:6px">Generador de carruseles con IA</p>
+  </div>
+  <form id="f" style="display:flex;flex-direction:column;gap:12px">
+    <input id="u" type="text" placeholder="Usuario" autocomplete="username">
+    <input id="p" type="password" placeholder="Contraseña" autocomplete="current-password">
+    <p class="err" id="err">Usuario o contraseña incorrectos</p>
+    <button type="submit">Entrar</button>
+  </form>
+</div>
+<script>
+$('#f','form') // placeholder
+document.getElementById('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const res = await fetch('/api/login', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({user: document.getElementById('u').value, pass: document.getElementById('p').value})
+  });
+  if (res.ok) { location.href = '/'; }
+  else { document.getElementById('err').style.display = 'block'; }
+});
+</script>
+</body>
+</html>`);
 });
 
+app.post('/api/login', (req, res) => {
+  const { user, pass } = req.body || {};
+  if (user === APP_USER && pass === APP_PASSWORD) {
+    res.setHeader('Set-Cookie', `cg_session=${SESSION_TOKEN}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000`);
+    return res.json({ ok: true });
+  }
+  res.status(401).json({ error: 'Credenciales inválidas' });
+});
+
+app.post('/api/logout', (req, res) => {
+  res.setHeader('Set-Cookie', 'cg_session=; Path=/; Max-Age=0');
+  res.json({ ok: true });
+});
+
+function authMiddleware(req, res, next) {
+  const cookies = Object.fromEntries(
+    (req.headers.cookie || '').split(';').map(c => c.trim().split('=').map(decodeURIComponent))
+  );
+  if (cookies.cg_session === SESSION_TOKEN) return next();
+  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'No autenticado' });
+  res.redirect('/login');
+}
+
+app.use(authMiddleware);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/tandas', express.static(path.join(__dirname, 'tandas')));
 app.use('/marcas', express.static(path.join(__dirname, 'marcas')));
+app.use('/fotos',  express.static(FOTOS_DIR));
 
 function isValidMarcaId(id) {
   return typeof id === 'string' && /^[a-z0-9_-]+$/i.test(id);
@@ -107,7 +176,10 @@ app.post('/api/generar', async (req, res) => {
     try {
       const carpeta = path.join('tandas', `${Date.now()}_${slugify(tema)}`);
       broadcast(`\n=== Generando: ${tema} (marca: ${marcaId}) ===\n`);
-      await runStep(['crear.mjs', tema, carpeta, marcaId]);
+      const fotos = Array.isArray(req.body.fotos) ? req.body.fotos.filter(f => EXT_RE.test(f)) : [];
+      const crearArgs = ['crear.mjs', tema, carpeta, marcaId];
+      if (fotos.length) crearArgs.push(fotos.join(','));
+      await runStep(crearArgs);
       await runStep(['analizar.mjs', `${carpeta}/contenido.json`]);
       await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`]);
       broadcast(`\n✅ Listo: ${carpeta}\n`);
@@ -286,6 +358,72 @@ app.get('/api/tandas', async (req, res) => {
 
   items.sort((a, b) => b.ts - a.ts);
   res.json(items);
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Fotos
+// ─────────────────────────────────────────────────────────────────────
+const EXT_RE = /\.(jpe?g|png|webp)$/i;
+
+// Listar fotos disponibles
+app.get('/api/fotos', async (req, res) => {
+  try {
+    const files = (await readdir(FOTOS_DIR)).filter(f => EXT_RE.test(f) && !f.startsWith('.'));
+    res.json(files.map(nombre => ({ nombre, url: `/fotos/${encodeURIComponent(nombre)}` })));
+  } catch {
+    res.json([]);
+  }
+});
+
+// Subir foto — multipart/form-data con campo "foto"
+app.post('/api/fotos', async (req, res) => {
+  const ct = req.headers['content-type'] || '';
+  if (!ct.includes('multipart/form-data')) return res.status(400).json({ error: 'Se esperaba multipart/form-data' });
+
+  const boundary = ct.split('boundary=')[1];
+  if (!boundary) return res.status(400).json({ error: 'Falta boundary' });
+
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const buf = Buffer.concat(chunks);
+
+  const sep = Buffer.from(`--${boundary}`);
+  const parts = [];
+  let start = 0;
+  while (true) {
+    const idx = buf.indexOf(sep, start);
+    if (idx === -1) break;
+    parts.push(buf.slice(start, idx));
+    start = idx + sep.length;
+  }
+
+  for (const part of parts) {
+    const str = part.toString('binary');
+    const headerEnd = str.indexOf('\r\n\r\n');
+    if (headerEnd === -1) continue;
+    const headers = str.slice(0, headerEnd);
+    if (!headers.includes('filename')) continue;
+    const match = /filename="([^"]+)"/.exec(headers);
+    if (!match) continue;
+    const filename = path.basename(match[1]);
+    if (!EXT_RE.test(filename)) continue;
+    const body = part.slice(headerEnd + 4, part.length - 2);
+    await writeFile(path.join(FOTOS_DIR, filename), body);
+    return res.json({ ok: true, nombre: filename });
+  }
+  res.status(400).json({ error: 'No se encontró archivo en el body' });
+});
+
+// Eliminar foto
+app.delete('/api/fotos/:nombre', async (req, res) => {
+  const nombre = path.basename(req.params.nombre);
+  if (!EXT_RE.test(nombre)) return res.status(400).json({ error: 'Nombre inválido' });
+  try {
+    await unlink(path.join(FOTOS_DIR, nombre));
+    res.json({ ok: true });
+  } catch {
+    res.status(404).json({ error: 'No encontrada' });
+  }
 });
 
 const PORT = process.env.PORT || 3000;

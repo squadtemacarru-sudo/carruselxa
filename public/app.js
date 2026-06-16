@@ -1,86 +1,49 @@
 const $ = (sel) => document.querySelector(sel);
 
+// ── TABS ──────────────────────────────────────────────
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tabId = btn.dataset.tab;
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    $('#' + tabId).classList.add('active');
+    if (tabId === 'tab-galeria') cargarGaleria();
+    if (tabId === 'tab-fotos')   cargarFotosGrid();
+  });
+});
+
+// ── COLLAPSIBLES ──────────────────────────────────────
+document.querySelectorAll('.config-block-header').forEach(header => {
+  header.addEventListener('click', () => {
+    const bodyId = header.dataset.toggle;
+    const body   = $('#' + bodyId);
+    const isOpen = !body.classList.contains('collapsed');
+    body.classList.toggle('collapsed', isOpen);
+    header.classList.toggle('open', !isOpen);
+  });
+});
+
+// ── MARCA ─────────────────────────────────────────────
 const marcaSelect = $('#marcaSelect');
-const btnNuevaMarca = $('#btnNuevaMarca');
+let marcaActual   = null;
 
-const temaInput = $('#temaInput');
-const temasList = $('#temasList');
-const minutosInput = $('#minutosInput');
-const btnGenerar = $('#btnGenerar');
-const btnLote = $('#btnLote');
-const log = $('#log');
-
-const temasArea = $('#temasArea');
-const btnGuardarTemas = $('#btnGuardarTemas');
-const temasStatus = $('#temasStatus');
-
-const mNombre = $('#mNombre');
-const mIndustria = $('#mIndustria');
-const mAudiencia = $('#mAudiencia');
-const mPosicionamiento = $('#mPosicionamiento');
-const mProducto = $('#mProducto');
-const mVoz = $('#mVoz');
-const mEvitar = $('#mEvitar');
-const mFondo = $('#mFondo');
-const mAcento = $('#mAcento');
-const logoPreview = $('#logoPreview');
-const logoFile = $('#logoFile');
-const btnGuardarMarca = $('#btnGuardarMarca');
-const marcaStatus = $('#marcaStatus');
-
-const galeria = $('#galeria');
-const btnRefrescar = $('#btnRefrescar');
-
-let marcaActual = null;
-
-function appendLog(line) {
-  log.textContent += line;
-  log.scrollTop = log.scrollHeight;
-}
-
-function setRunning(running) {
-  btnGenerar.disabled = running;
-  btnLote.disabled = running;
-}
-
-async function checkStatus() {
-  const res = await fetch('/api/job/status');
-  const { running } = await res.json();
-  setRunning(running);
-}
-
-function connectStream() {
-  const es = new EventSource('/api/job/stream');
-  es.onmessage = (e) => {
-    appendLog(JSON.parse(e.data));
-    checkStatus();
-    if (e.data.includes('Listo') || e.data.includes('❌')) {
-      setTimeout(cargarGaleria, 1000);
-    }
-  };
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Marcas
-// ─────────────────────────────────────────────────────────────────────
 async function cargarMarcas(seleccionar) {
-  const res = await fetch('/api/marcas');
+  const res    = await fetch('/api/marcas');
   const marcas = await res.json();
-  marcaSelect.innerHTML = marcas.map((m) => `<option value="${m.id}">${m.nombre}</option>`).join('');
-  marcaActual = seleccionar && marcas.some((m) => m.id === seleccionar)
-    ? seleccionar
-    : (marcas[0]?.id || null);
+  marcaSelect.innerHTML = marcas.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+  marcaActual = seleccionar && marcas.some(m => m.id === seleccionar)
+    ? seleccionar : (marcas[0]?.id || null);
   if (marcaActual) marcaSelect.value = marcaActual;
 }
 
 marcaSelect.addEventListener('change', async () => {
   marcaActual = marcaSelect.value;
   await Promise.all([cargarTemas(), cargarIdentidad()]);
-  cargarGaleria();
 });
 
-btnNuevaMarca.addEventListener('click', async () => {
-  const nombre = prompt('Nombre de la nueva marca (ej: Mi marca personal):');
+$('#btnNuevaMarca').addEventListener('click', async () => {
+  const nombre = prompt('Nombre de la nueva marca:');
   if (!nombre) return;
   const id = nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 30);
@@ -89,41 +52,88 @@ btnNuevaMarca.addEventListener('click', async () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, nombre })
   });
-  if (!res.ok) {
-    const { error } = await res.json();
-    alert(error);
-    return;
-  }
+  if (!res.ok) { alert((await res.json()).error); return; }
   await cargarMarcas(id);
   await Promise.all([cargarTemas(), cargarIdentidad()]);
-  cargarGaleria();
 });
 
-// ─────────────────────────────────────────────────────────────────────
-// Generar / tanda
-// ─────────────────────────────────────────────────────────────────────
-btnGenerar.addEventListener('click', async () => {
-  const tema = temaInput.value.trim();
+// ── GENERAR ───────────────────────────────────────────
+const logWrap   = $('#logWrap');
+const log       = $('#log');
+const logStatus = $('#logStatus');
+let logVisible  = true;
+
+function appendLog(line) {
+  log.textContent += line;
+  log.scrollTop = log.scrollHeight;
+}
+
+function setRunning(running) {
+  $('#btnGenerar').disabled = running;
+  $('#btnLote').disabled    = running;
+  if (running) {
+    logWrap.classList.remove('hidden');
+    log.textContent = '';
+    logStatus.textContent = 'Generando...';
+    logStatus.style.color = 'var(--acc)';
+    logVisible = true;
+    log.style.display = '';
+    $('#logToggle').textContent = 'ocultar';
+  } else {
+    logStatus.textContent = 'Listo';
+    logStatus.style.color = 'var(--green)';
+  }
+}
+
+async function checkStatus() {
+  const { running } = await (await fetch('/api/job/status')).json();
+  setRunning(running);
+}
+
+function connectStream() {
+  const es = new EventSource('/api/job/stream');
+  es.onmessage = e => {
+    const line = JSON.parse(e.data);
+    appendLog(line);
+    if (line.includes('✅') || line.includes('Listo')) {
+      setRunning(false);
+      setTimeout(cargarGaleria, 1000);
+    }
+    if (line.includes('❌')) {
+      setRunning(false);
+      logStatus.style.color = 'var(--red)';
+      logStatus.textContent = 'Error';
+    }
+  };
+}
+
+$('#logToggle').addEventListener('click', () => {
+  logVisible = !logVisible;
+  log.style.display = logVisible ? '' : 'none';
+  $('#logToggle').textContent = logVisible ? 'ocultar' : 'ver log';
+});
+
+$('#btnGenerar').addEventListener('click', async () => {
+  const tema = $('#temaInput').value.trim();
   if (!tema || !marcaActual) return;
-  log.textContent = '';
   setRunning(true);
+  const body = { tema, marca: marcaActual };
+  if (fotosSeleccionadas.length) body.fotos = fotosSeleccionadas;
   const res = await fetch('/api/generar', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tema, marca: marcaActual })
+    body: JSON.stringify(body)
   });
   if (!res.ok) {
-    const { error } = await res.json();
-    appendLog(`\n❌ ${error}\n`);
+    appendLog('\n❌ ' + (await res.json()).error + '\n');
     setRunning(false);
   }
 });
 
-btnLote.addEventListener('click', async () => {
-  const minutos = Number(minutosInput.value) || 45;
+$('#btnLote').addEventListener('click', async () => {
+  const minutos = Number($('#minutosInput').value) || 45;
   if (!marcaActual) return;
-  if (!confirm(`¿Iniciar tanda automática de ${minutos} minutos para "${marcaSelect.options[marcaSelect.selectedIndex]?.textContent}"? Va a rotar todos los temas de la marca.`)) return;
-  log.textContent = '';
+  if (!confirm(`¿Iniciar tanda de ${minutos} minutos?`)) return;
   setRunning(true);
   const res = await fetch('/api/lote', {
     method: 'POST',
@@ -131,73 +141,63 @@ btnLote.addEventListener('click', async () => {
     body: JSON.stringify({ minutos, marca: marcaActual })
   });
   if (!res.ok) {
-    const { error } = await res.json();
-    appendLog(`\n❌ ${error}\n`);
+    appendLog('\n❌ ' + (await res.json()).error + '\n');
     setRunning(false);
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────
-// Temas (por marca)
-// ─────────────────────────────────────────────────────────────────────
+// ── TEMAS ─────────────────────────────────────────────
 async function cargarTemas() {
   if (!marcaActual) return;
-  const res = await fetch(`/api/marcas/${marcaActual}/temas`);
-  const temas = await res.json();
-  temasArea.value = temas.join('\n');
-  temasList.innerHTML = temas.map((t) => `<option value="${t.replace(/"/g, '&quot;')}">`).join('');
+  const temas = await (await fetch(`/api/marcas/${marcaActual}/temas`)).json();
+  $('#temasArea').value = temas.join('\n');
 }
 
-btnGuardarTemas.addEventListener('click', async () => {
+$('#btnGuardarTemas').addEventListener('click', async () => {
   if (!marcaActual) return;
-  const temas = temasArea.value.split('\n').map((t) => t.trim()).filter(Boolean);
+  const temas = $('#temasArea').value.split('\n').map(t => t.trim()).filter(Boolean);
   const res = await fetch(`/api/marcas/${marcaActual}/temas`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(temas)
   });
-  if (res.ok) {
-    temasStatus.textContent = `✓ Guardado (${temas.length} temas)`;
-    temasStatus.className = 'status ok';
-    temasList.innerHTML = temas.map((t) => `<option value="${t.replace(/"/g, '&quot;')}">`).join('');
-  } else {
-    temasStatus.textContent = '✗ Error al guardar';
-    temasStatus.className = 'status err';
-  }
-  setTimeout(() => { temasStatus.textContent = ''; }, 3000);
+  const st = $('#temasStatus');
+  st.textContent = res.ok ? `✓ ${temas.length} temas guardados` : '✗ Error al guardar';
+  st.className = 'status ' + (res.ok ? 'ok' : 'err');
+  setTimeout(() => { st.textContent = ''; }, 3000);
 });
 
-// ─────────────────────────────────────────────────────────────────────
-// Identidad de marca
-// ─────────────────────────────────────────────────────────────────────
+// ── IDENTIDAD ─────────────────────────────────────────
 async function cargarIdentidad() {
   if (!marcaActual) return;
   const res = await fetch(`/api/marcas/${marcaActual}/marca`);
-  const m = res.ok ? await res.json() : {};
-  mNombre.value = m.nombre || '';
-  mIndustria.value = m.industria || '';
-  mAudiencia.value = m.audiencia || '';
-  mPosicionamiento.value = m.posicionamiento || '';
-  mProducto.value = m.producto || '';
-  mVoz.value = m.voz || '';
-  mEvitar.value = (m.evitar || []).join(', ');
-  mFondo.value = m.paleta_marca?.fondo || '#040404';
-  mAcento.value = m.paleta_marca?.acento || '#e8ff00';
+  const m   = res.ok ? await res.json() : {};
+  $('#mNombre').value          = m.nombre || '';
+  $('#mIndustria').value       = m.industria || '';
+  $('#mAudiencia').value       = m.audiencia || '';
+  $('#mPosicionamiento').value = m.posicionamiento || '';
+  $('#mProducto').value        = m.producto || '';
+  $('#mVoz').value             = m.voz || '';
+  $('#mEvitar').value          = (m.evitar || []).join(', ');
+  $('#mFondo').value           = m.paleta_marca?.fondo || '#040404';
+  $('#mAcento').value          = m.paleta_marca?.acento || '#e8ff00';
 
-  const marcas = await (await fetch('/api/marcas')).json();
-  const info = marcas.find((x) => x.id === marcaActual);
-  logoPreview.src = info?.logo ? `${info.logo}?t=${Date.now()}` : '';
+  const marcas  = await (await fetch('/api/marcas')).json();
+  const info    = marcas.find(x => x.id === marcaActual);
+  const preview = $('#logoPreview');
+  preview.src           = info?.logo ? `${info.logo}?t=${Date.now()}` : '';
+  preview.style.display = info?.logo ? '' : 'none';
 }
 
-btnGuardarMarca.addEventListener('click', async () => {
+$('#btnGuardarMarca').addEventListener('click', async () => {
   if (!marcaActual) return;
-
+  const logoFile = $('#logoFile');
   if (logoFile.files[0]) {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(logoFile.files[0]);
+    const dataUrl = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload  = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(logoFile.files[0]);
     });
     await fetch(`/api/marcas/${marcaActual}/logo`, {
       method: 'POST',
@@ -208,17 +208,17 @@ btnGuardarMarca.addEventListener('click', async () => {
   }
 
   const body = {
-    nombre: mNombre.value.trim(),
-    industria: mIndustria.value.trim(),
-    audiencia: mAudiencia.value.trim(),
-    posicionamiento: mPosicionamiento.value.trim(),
-    producto: mProducto.value.trim(),
-    voz: mVoz.value.trim(),
-    evitar: mEvitar.value.split(',').map((s) => s.trim()).filter(Boolean),
-    nivel_consciencia: 'problem-aware',
+    nombre:           $('#mNombre').value.trim(),
+    industria:        $('#mIndustria').value.trim(),
+    audiencia:        $('#mAudiencia').value.trim(),
+    posicionamiento:  $('#mPosicionamiento').value.trim(),
+    producto:         $('#mProducto').value.trim(),
+    voz:              $('#mVoz').value.trim(),
+    evitar:           $('#mEvitar').value.split(',').map(s => s.trim()).filter(Boolean),
+    nivel_consciencia:'problem-aware',
     paleta_marca: {
-      fondo: mFondo.value.trim() || '#040404',
-      acento: mAcento.value.trim() || '#e8ff00',
+      fondo:       $('#mFondo').value.trim() || '#040404',
+      acento:      $('#mAcento').value.trim() || '#e8ff00',
       descripcion: ''
     }
   };
@@ -229,56 +229,162 @@ btnGuardarMarca.addEventListener('click', async () => {
     body: JSON.stringify(body)
   });
 
+  const st = $('#marcaStatus');
   if (res.ok) {
-    marcaStatus.textContent = '✓ Guardado';
-    marcaStatus.className = 'status ok';
+    st.textContent = '✓ Guardado';
+    st.className   = 'status ok';
     await cargarMarcas(marcaActual);
     await cargarIdentidad();
   } else {
-    marcaStatus.textContent = '✗ Error al guardar';
-    marcaStatus.className = 'status err';
+    st.textContent = '✗ Error';
+    st.className   = 'status err';
   }
-  setTimeout(() => { marcaStatus.textContent = ''; }, 3000);
+  setTimeout(() => { st.textContent = ''; }, 3000);
 });
 
-// ─────────────────────────────────────────────────────────────────────
-// Galería + lightbox
-// ─────────────────────────────────────────────────────────────────────
-let currentSlides = [];
-let currentIndex = 0;
+// ── FOTOS ─────────────────────────────────────────────
+let fotosDisponibles   = [];
+let fotosSeleccionadas = [];
 
-const lightbox = $('#lightbox');
-const lightboxImg = $('#lightboxImg');
-const lightboxCounter = $('#lightboxCounter');
+async function cargarFotosGrid(targetGrid = '#fotosGrid') {
+  const res   = await fetch('/api/fotos');
+  const fotos = res.ok ? await res.json() : [];
+  fotosDisponibles = fotos;
+
+  const grid  = $(targetGrid);
+  const empty = targetGrid === '#fotosGrid' ? $('#fotosEmpty') : null;
+
+  if (!fotos.length) {
+    grid.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+
+  grid.innerHTML = fotos.map(f => `
+    <div class="foto-thumb ${fotosSeleccionadas.includes(f.nombre) ? 'selected' : ''}" data-nombre="${f.nombre}">
+      <img src="${f.url}" loading="lazy" alt="${f.nombre}">
+      <span class="foto-check">✓</span>
+      ${targetGrid === '#fotosGrid' ? `<button class="foto-del" data-nombre="${f.nombre}" title="Eliminar">×</button>` : ''}
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.foto-thumb').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.classList.contains('foto-del')) return;
+      el.classList.toggle('selected');
+    });
+  });
+
+  if (targetGrid === '#fotosGrid') {
+    grid.querySelectorAll('.foto-del').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.stopPropagation();
+        const nombre = btn.dataset.nombre;
+        if (!confirm(`¿Eliminar ${nombre}?`)) return;
+        await fetch('/api/fotos/' + encodeURIComponent(nombre), { method: 'DELETE' });
+        cargarFotosGrid();
+      });
+    });
+  }
+}
+
+$('#fotosUpload').addEventListener('change', async e => {
+  const files = [...e.target.files];
+  if (!files.length) return;
+
+  const progress = $('#upload-progress');
+  const bar      = $('#upload-bar-inner');
+  const txt      = $('#upload-progress-text');
+  progress.classList.remove('hidden');
+
+  for (let i = 0; i < files.length; i++) {
+    txt.textContent  = `Subiendo ${i + 1}/${files.length}: ${files[i].name}`;
+    bar.style.width  = `${(i / files.length) * 100}%`;
+    const fd = new FormData();
+    fd.append('foto', files[i]);
+    await fetch('/api/fotos', { method: 'POST', body: fd });
+  }
+
+  bar.style.width  = '100%';
+  txt.textContent  = `${files.length} foto(s) subidas`;
+  e.target.value   = '';
+  setTimeout(() => progress.classList.add('hidden'), 2000);
+  cargarFotosGrid();
+});
+
+$('#btnAgregarFotos').addEventListener('click', async () => {
+  await cargarFotosGrid('#modalFotosGrid');
+  $('#modalFotosGrid').querySelectorAll('.foto-thumb').forEach(el => {
+    if (fotosSeleccionadas.includes(el.dataset.nombre)) el.classList.add('selected');
+  });
+  $('#modalFotos').classList.remove('hidden');
+});
+
+$('#modalFotosClose').addEventListener('click', () => $('#modalFotos').classList.add('hidden'));
+
+$('#btnConfirmarFotos').addEventListener('click', () => {
+  fotosSeleccionadas = [...$('#modalFotosGrid').querySelectorAll('.foto-thumb.selected')]
+    .map(el => el.dataset.nombre);
+  $('#modalFotos').classList.add('hidden');
+  renderFotosChips();
+});
+
+function renderFotosChips() {
+  const row   = $('#fotosRow');
+  const chips = $('#fotosChips');
+  if (!fotosSeleccionadas.length) {
+    row.classList.add('hidden');
+    return;
+  }
+  row.classList.remove('hidden');
+  chips.innerHTML = fotosSeleccionadas.map(nombre => {
+    const foto = fotosDisponibles.find(f => f.nombre === nombre);
+    return `<span class="foto-chip">${foto ? `<img src="${foto.url}" alt="">` : ''}${nombre}</span>`;
+  }).join('');
+}
+
+$('#btnClearFotos').addEventListener('click', () => {
+  fotosSeleccionadas = [];
+  renderFotosChips();
+});
+
+// ── GALERÍA ───────────────────────────────────────────
+let currentSlides = [];
+let currentIndex  = 0;
 
 function openLightbox(slides, index) {
   currentSlides = slides;
-  currentIndex = index;
+  currentIndex  = index;
   showSlide();
-  lightbox.classList.remove('hidden');
+  $('#lightbox').classList.remove('hidden');
 }
 
 function showSlide() {
-  lightboxImg.src = currentSlides[currentIndex];
-  lightboxCounter.textContent = `${currentIndex + 1} / ${currentSlides.length}`;
+  const url = currentSlides[currentIndex];
+  $('#lightboxImg').src = url;
+  $('#lightboxCounter').textContent = `${currentIndex + 1} / ${currentSlides.length}`;
+  const dl = $('#lightboxDownload');
+  dl.href     = url;
+  dl.download = url.split('/').pop();
 }
 
-$('#lightboxClose').addEventListener('click', () => lightbox.classList.add('hidden'));
-$('#lightboxPrev').addEventListener('click', () => {
-  currentIndex = (currentIndex - 1 + currentSlides.length) % currentSlides.length;
-  showSlide();
-});
-$('#lightboxNext').addEventListener('click', () => {
-  currentIndex = (currentIndex + 1) % currentSlides.length;
-  showSlide();
-});
-lightbox.addEventListener('click', (e) => {
-  if (e.target === lightbox) lightbox.classList.add('hidden');
-});
+$('#lightboxClose').addEventListener('click', () => $('#lightbox').classList.add('hidden'));
+$('#lightboxPrev').addEventListener('click',  () => { currentIndex = (currentIndex - 1 + currentSlides.length) % currentSlides.length; showSlide(); });
+$('#lightboxNext').addEventListener('click',  () => { currentIndex = (currentIndex + 1) % currentSlides.length; showSlide(); });
+$('#lightbox').addEventListener('click',      e  => { if (e.target === $('#lightbox')) $('#lightbox').classList.add('hidden'); });
 
 async function cargarGaleria() {
-  const res = await fetch('/api/tandas');
-  const tandas = await res.json();
+  const tandas  = await (await fetch('/api/tandas')).json();
+  const galeria = $('#galeria');
+  const empty   = $('#galeriaEmpty');
+
+  if (!tandas.length) {
+    galeria.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
   galeria.innerHTML = tandas.map((t, i) => `
     <div class="tanda" data-idx="${i}">
       <img src="${t.slides[0]}" alt="${t.tema}" loading="lazy">
@@ -287,16 +393,14 @@ async function cargarGaleria() {
     </div>
   `).join('');
 
-  galeria.querySelectorAll('.tanda').forEach((el) => {
-    el.addEventListener('click', () => {
-      const t = tandas[Number(el.dataset.idx)];
-      openLightbox(t.slides, 0);
-    });
+  galeria.querySelectorAll('.tanda').forEach(el => {
+    el.addEventListener('click', () => openLightbox(tandas[Number(el.dataset.idx)].slides, 0));
   });
 }
 
-btnRefrescar.addEventListener('click', cargarGaleria);
+$('#btnRefrescar').addEventListener('click', cargarGaleria);
 
+// ── INIT ──────────────────────────────────────────────
 (async () => {
   await cargarMarcas();
   await Promise.all([cargarTemas(), cargarIdentidad()]);

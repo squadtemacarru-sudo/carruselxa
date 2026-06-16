@@ -3,84 +3,180 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Squad Team — Máquina de Carruseles</title>
+<title>Carrusel Generator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,700;1,900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
   <header class="topbar">
-    <h1>MÁQUINA DE CARRUSELES</h1>
-    <div class="row marca-row">
-      <select id="marcaSelect"></select>
-      <button id="btnNuevaMarca" class="btn-secondary">+ Nueva marca</button>
-    </div>
+    <span class="topbar-title">CARRUSEL<em class="acc">GEN</em></span>
+    <select id="marcaSelect"></select>
   </header>
 
-  <main>
-    <section class="card">
-      <h2>Generar carrusel</h2>
-      <div class="row">
-        <input id="temaInput" type="text" placeholder="Tema del carrusel (ej: Cómo calcular tus macros)" list="temasList">
-        <datalist id="temasList"></datalist>
-        <button id="btnGenerar" class="btn-primary">Generar</button>
+  <!-- ── TAB: GENERAR ───────────────────────────────── -->
+  <section class="tab active" id="tab-generar">
+
+    <div class="gen-hero">
+      <p class="gen-label">Tema del carrusel</p>
+      <textarea id="temaInput" rows="3" placeholder="Ej: Por qué entrenar solo no alcanza después de los 30"></textarea>
+
+      <!-- Fotos seleccionadas -->
+      <div id="fotosRow" class="fotos-row hidden">
+        <div id="fotosChips" class="fotos-chips"></div>
+        <button class="btn-ghost btn-sm" id="btnClearFotos">Quitar fotos</button>
       </div>
 
-      <div class="row">
-        <input id="minutosInput" type="number" min="5" max="180" value="45" style="max-width:100px">
-        <button id="btnLote" class="btn-secondary">Iniciar tanda automática (rota los temas de la marca)</button>
+      <div class="gen-actions">
+        <button id="btnAgregarFotos" class="btn-secondary btn-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Fotos
+        </button>
+        <button id="btnGenerar" class="btn-primary btn-grow">Generar</button>
       </div>
+    </div>
 
+    <div class="divider-row">
+      <span class="divider-line"></span>
+      <span class="divider-text">o</span>
+      <span class="divider-line"></span>
+    </div>
+
+    <div class="lote-row">
+      <div class="lote-info">
+        <span class="lote-title">Tanda automática</span>
+        <span class="lote-sub">Rota los temas guardados</span>
+      </div>
+      <div class="lote-controls">
+        <input id="minutosInput" type="number" min="5" max="180" value="45">
+        <span class="lote-min">min</span>
+        <button id="btnLote" class="btn-secondary">Iniciar</button>
+      </div>
+    </div>
+
+    <!-- Log — visible solo cuando hay actividad -->
+    <div id="logWrap" class="log-wrap hidden">
+      <div class="log-header">
+        <span id="logStatus" class="log-status">Generando...</span>
+        <button class="log-toggle" id="logToggle">ocultar</button>
+      </div>
       <pre id="log" class="log"></pre>
-    </section>
+    </div>
 
-    <section class="card">
-      <h2>Identidad de marca</h2>
-      <p class="hint">Esto define la voz, audiencia y paleta que usa la IA al escribir y diseñar.</p>
-      <div class="grid2">
-        <label>Nombre <input id="mNombre" type="text"></label>
-        <label>Industria <input id="mIndustria" type="text"></label>
-        <label>Audiencia <input id="mAudiencia" type="text"></label>
-        <label>Posicionamiento <input id="mPosicionamiento" type="text"></label>
-      </div>
-      <label>Producto / qué ofrecés
-        <textarea id="mProducto" rows="2"></textarea>
+  </section>
+
+  <!-- ── TAB: FOTOS ─────────────────────────────────── -->
+  <section class="tab" id="tab-fotos">
+    <div class="section-header">
+      <span class="section-title">Fotos</span>
+      <label class="btn-primary btn-sm file-btn">
+        + Subir fotos
+        <input id="fotosUpload" type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple hidden>
       </label>
-      <label>Voz y tono
-        <textarea id="mVoz" rows="2"></textarea>
-      </label>
-      <label>Palabras/clichés a evitar (separadas por coma)
-        <input id="mEvitar" type="text">
-      </label>
-      <div class="grid2">
-        <label>Color de fondo <input id="mFondo" type="text" placeholder="#040404"></label>
-        <label>Color de acento <input id="mAcento" type="text" placeholder="#e8ff00"></label>
+    </div>
+    <p class="hint">Las fotos subidas acá se pueden usar como fondo en los carruseles.</p>
+
+    <div id="upload-progress" class="upload-progress hidden">
+      <div class="upload-bar"><div id="upload-bar-inner" class="upload-bar-inner"></div></div>
+      <span id="upload-progress-text"></span>
+    </div>
+
+    <div id="fotosGrid" class="fotos-grid"></div>
+    <p id="fotosEmpty" class="empty-msg hidden">Todavía no hay fotos subidas.</p>
+  </section>
+
+  <!-- ── TAB: GALERÍA ──────────────────────────────── -->
+  <section class="tab" id="tab-galeria">
+    <div class="section-header">
+      <span class="section-title">Galería</span>
+      <button id="btnRefrescar" class="btn-ghost btn-sm">Refrescar</button>
+    </div>
+    <div id="galeria" class="galeria"></div>
+    <p id="galeriaEmpty" class="empty-msg hidden">Todavía no hay carruseles generados.</p>
+  </section>
+
+  <!-- ── TAB: CONFIGURAR ───────────────────────────── -->
+  <section class="tab" id="tab-config">
+
+    <div class="config-block">
+      <div class="config-block-header" data-toggle="bloque-marca">
+        <span class="section-title">Identidad de marca</span>
+        <span class="toggle-icon">›</span>
       </div>
-
-      <div class="row" style="align-items:center; margin-top:8px;">
-        <img id="logoPreview" class="logo-preview" alt="logo">
-        <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp">
+      <div class="config-block-body collapsed" id="bloque-marca">
+        <p class="hint">Define la voz, audiencia y paleta que usa la IA al escribir y diseñar.</p>
+        <div class="field-group">
+          <label>Nombre <input id="mNombre" type="text"></label>
+          <label>Industria <input id="mIndustria" type="text"></label>
+          <label>Audiencia <input id="mAudiencia" type="text"></label>
+          <label>Posicionamiento <input id="mPosicionamiento" type="text"></label>
+          <label class="full">Producto / qué ofrecés <textarea id="mProducto" rows="2"></textarea></label>
+          <label class="full">Voz y tono <textarea id="mVoz" rows="2"></textarea></label>
+          <label class="full">Palabras a evitar (separadas por coma) <input id="mEvitar" type="text"></label>
+          <label>Color fondo <input id="mFondo" type="text" placeholder="#040404"></label>
+          <label>Color acento <input id="mAcento" type="text" placeholder="#e8ff00"></label>
+        </div>
+        <div class="logo-row">
+          <img id="logoPreview" class="logo-preview" alt="">
+          <label class="btn-ghost file-btn">
+            Cambiar logo
+            <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+          </label>
+        </div>
+        <button id="btnGuardarMarca" class="btn-primary btn-full">Guardar identidad</button>
+        <span id="marcaStatus" class="status"></span>
       </div>
+    </div>
 
-      <button id="btnGuardarMarca" class="btn-secondary">Guardar identidad</button>
-      <span id="marcaStatus" class="status"></span>
-    </section>
+    <div class="config-block">
+      <div class="config-block-header" data-toggle="bloque-temas">
+        <span class="section-title">Temas en rotación</span>
+        <span class="toggle-icon">›</span>
+      </div>
+      <div class="config-block-body collapsed" id="bloque-temas">
+        <p class="hint">Uno por línea. Se usan en la tanda automática y como sugerencias al generar.</p>
+        <textarea id="temasArea" rows="10" style="margin-top:8px"></textarea>
+        <button id="btnGuardarTemas" class="btn-primary btn-full" style="margin-top:10px">Guardar temas</button>
+        <span id="temasStatus" class="status"></span>
+      </div>
+    </div>
 
-    <section class="card">
-      <h2>Temas en rotación</h2>
-      <p class="hint">Uno por línea. Se usan para la tanda automática y como sugerencias arriba.</p>
-      <textarea id="temasArea" rows="10"></textarea>
-      <button id="btnGuardarTemas" class="btn-secondary">Guardar temas</button>
-      <span id="temasStatus" class="status"></span>
-    </section>
+    <div class="config-block">
+      <div class="config-block-header" data-toggle="bloque-nueva-marca">
+        <span class="section-title">Nueva marca</span>
+        <span class="toggle-icon">›</span>
+      </div>
+      <div class="config-block-body collapsed" id="bloque-nueva-marca">
+        <p class="hint">Creá un perfil nuevo para otra marca o cliente.</p>
+        <input id="nuevaMarcaNombre" type="text" placeholder="Nombre de la marca">
+        <button id="btnNuevaMarca" class="btn-secondary btn-full" style="margin-top:8px">Crear marca</button>
+      </div>
+    </div>
 
-    <section class="card">
-      <h2>Galería</h2>
-      <button id="btnRefrescar" class="btn-secondary">Refrescar</button>
-      <div id="galeria" class="galeria"></div>
-    </section>
-  </main>
+  </section>
 
+  <!-- ── BOTTOM NAV ────────────────────────────────── -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="tab-generar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span>Generar</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-fotos">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span>Fotos</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-galeria">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <span>Galería</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-config">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Config</span>
+    </button>
+  </nav>
+
+  <!-- ── LIGHTBOX ───────────────────────────────────── -->
   <div id="lightbox" class="lightbox hidden">
     <button id="lightboxClose" class="lightbox-close">×</button>
     <img id="lightboxImg" src="" alt="">
@@ -88,6 +184,20 @@
       <button id="lightboxPrev">‹</button>
       <span id="lightboxCounter"></span>
       <button id="lightboxNext">›</button>
+    </div>
+    <a id="lightboxDownload" class="lightbox-download" download>↓ Descargar</a>
+  </div>
+
+  <!-- Modal selección de fotos para generar -->
+  <div id="modalFotos" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="section-title">Elegí las fotos</span>
+        <button class="modal-close" id="modalFotosClose">×</button>
+      </div>
+      <p class="hint">Seleccioná 2-3 fotos para el carrusel.</p>
+      <div id="modalFotosGrid" class="fotos-grid"></div>
+      <button id="btnConfirmarFotos" class="btn-primary btn-full" style="margin-top:16px">Confirmar selección</button>
     </div>
   </div>
 
