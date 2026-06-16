@@ -130,9 +130,9 @@ function broadcast(line) {
   jobClients.forEach((res) => res.write(`data: ${JSON.stringify(line)}\n\n`));
 }
 
-function runStep(args) {
+function runStep(args, extraEnv = {}) {
   return new Promise((resolve, reject) => {
-    const proc = spawn('node', args, { cwd: __dirname });
+    const proc = spawn('node', args, { cwd: __dirname, env: { ...process.env, ...extraEnv } });
     proc.stdout.on('data', (d) => broadcast(d.toString()));
     proc.stderr.on('data', (d) => broadcast(d.toString()));
     proc.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`${args.join(' ')} → exit ${code}`))));
@@ -175,14 +175,42 @@ app.post('/api/generar', async (req, res) => {
     try {
       const carpeta = path.join('tandas', `${Date.now()}_${slugify(tema)}`);
       broadcast(`\n=== Generando: ${tema} (marca: ${marcaId}) ===\n`);
+
       // Resuelve nombres de archivo a URLs de Cloudinary si están disponibles
       const fotosRaw = Array.isArray(req.body.fotos) ? req.body.fotos.filter(f => EXT_RE.test(f)) : [];
       const fotos = fotosRaw.map(f => fotosCloud.get(f) || f);
+
+      // Construir env extra desde las respuestas del usuario
+      const respuestas = req.body.respuestas || {};
+      const instrLibres = (req.body.instruccionesLibres || '').trim();
+      const extraEnv = {};
+
+      const instrLines = [];
+      if (respuestas.overlay !== undefined) instrLines.push(`El campo "overlay" del JSON DEBE ser exactamente ${respuestas.overlay}`);
+      if (respuestas.texto_size === 'Compacto') instrLines.push('Texto compacto: podés incluir más detalle, frases de 6-10 palabras, párrafos cortos');
+      else if (respuestas.texto_size === 'Grande') instrLines.push('Texto grande: headlines de máximo 4-5 palabras, evitá párrafos largos, priorizá impacto visual');
+      if (respuestas.tono) instrLines.push(`Tono del copy: ${respuestas.tono}`);
+      for (const [id, val] of Object.entries(respuestas)) {
+        if (['overlay', 'texto_size', 'tono', 'rotaciones'].includes(id)) continue;
+        if (typeof val === 'string') instrLines.push(`${id.replace(/_/g, ' ')}: ${val}`);
+      }
+      if (instrLibres) instrLines.push(`Instrucción directa del usuario: "${instrLibres}"`);
+      if (instrLines.length) extraEnv.USER_INSTRUCCIONES = instrLines.join('\n');
+      if (respuestas.overlay !== undefined) extraEnv.USER_OVERLAY = String(respuestas.overlay);
+
+      // Rotaciones: resolver nombres a URLs reales (igual que fotos)
+      const rotacionesResueltas = {};
+      for (const [nombre, grados] of Object.entries(respuestas.rotaciones || {})) {
+        const realKey = fotosCloud.get(nombre) || nombre;
+        rotacionesResueltas[realKey] = grados;
+      }
+      if (Object.keys(rotacionesResueltas).length) extraEnv.USER_ROTATIONS = JSON.stringify(rotacionesResueltas);
+
       const crearArgs = ['crear.mjs', tema, carpeta, marcaId];
       if (fotos.length) crearArgs.push(fotos.join(','));
-      await runStep(crearArgs);
-      await runStep(['analizar.mjs', `${carpeta}/contenido.json`]);
-      await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`]);
+      await runStep(crearArgs, extraEnv);
+      await runStep(['analizar.mjs', `${carpeta}/contenido.json`], extraEnv);
+      await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
       broadcast(`\n✅ Listo: ${carpeta}\n`);
     } catch (e) {
       broadcast(`\n❌ Error: ${e.message}\n`);
@@ -317,8 +345,22 @@ app.post('/api/marcas/:id/logo', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
-// Estudiar carruseles — análisis visual con IA (visión)
+// Helpers IA — texto y visión
 // ─────────────────────────────────────────────────────────────────────
+
+async function callBlackboxText(promptText, maxTokens = 600) {
+  const apiKey = process.env.BLACKBOX_API_KEY;
+  if (!apiKey) throw new Error('Falta BLACKBOX_API_KEY');
+  const model = process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-sonnet-4.6';
+  const res = await fetch('https://api.blackbox.ai/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: 'user', content: promptText }] })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Blackbox: ${data.error?.message || JSON.stringify(data)}`);
+  return data.choices?.[0]?.message?.content || '';
+}
 
 async function callBlackboxVision(imageDataUrls, promptText) {
   const apiKey = process.env.BLACKBOX_API_KEY;
@@ -421,6 +463,57 @@ Devolvé el análisis en markdown limpio y estructurado. Sin intro ni conclusió
     res.json({ ok: true, analisis });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Preguntar — la IA genera preguntas personalizadas antes de generar
+// ─────────────────────────────────────────────────────────────────────
+app.post('/api/preguntar', async (req, res) => {
+  const tema    = (req.body.tema || '').trim();
+  const marcaId = req.body.marca || 'squadteam';
+  const tieneFotos = Array.isArray(req.body.fotoUrls) && req.body.fotoUrls.length > 0;
+  if (!tema) return res.status(400).json({ error: 'Falta el tema' });
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+
+  let marca = {};
+  try { marca = JSON.parse(await readFile(path.join(__dirname, 'marcas', marcaId, 'marca.json'), 'utf-8')); } catch {}
+
+  const prompt = `Vas a generar un carrusel de Instagram de 6 slides para "${marca.nombre || marcaId}" sobre este tema: "${tema}"
+Industria: ${marca.industria || 'no especificada'}. Audiencia: ${marca.audiencia || 'no especificada'}.
+${tieneFotos ? `Hay ${req.body.fotoUrls.length} foto(s) que se usarán como fondo en algunos slides.` : 'Es un carrusel 100% tipográfico (sin fotos de fondo).'}
+
+Hacé exactamente 3 preguntas muy específicas para personalizar el carrusel. Cada pregunta debe impactar directamente en el resultado.
+
+Tipos disponibles:
+- "opciones": el usuario elige entre 3-4 alternativas concretas
+- "slider": para valores numéricos — SOLO para overlay (oscuridad de la foto, min 0.2 max 0.8, default 0.45)
+
+Preguntas sugeridas (elegí las 3 más relevantes para ESTE tema):
+- Oscuridad del fondo de fotos (solo si hay fotos): tipo slider
+- Tamaño del texto en los titulares: tipo opciones, valores ["Compacto", "Normal", "Grande"], default "Normal"
+- Tono del copy: tipo opciones, elige 3 de ["Directo y corto", "Educativo y detallado", "Provocador", "Motivacional", "Técnico y preciso", "Conversacional"]
+- Ángulo del tema: tipo opciones, inventá 3 ángulos ESPECÍFICOS para este tema exacto (ej. para "errores en dieta" podría ser "Por qué los comete la gente", "Cómo identificarlos", "Cómo corregirlos")
+- Foco del primer slide: tipo opciones, valores concretos relacionados al tema
+- Estructura interna: tipo opciones, relacionada a cómo presentar la info de este tema
+
+Respondé SOLO con un JSON array de exactamente 3 objetos. Sin markdown, sin explicaciones.
+Formato opciones: {"id":"tono","pregunta":"¿Qué tono?","tipo":"opciones","opciones":["A","B","C"],"default":"A"}
+Formato slider: {"id":"overlay","pregunta":"¿Qué tan oscuro?","tipo":"slider","min":0.2,"max":0.8,"step":0.05,"default":0.45,"label_min":"Claro","label_max":"Oscuro"}`;
+
+  const FALLBACK = [
+    { id: 'tono', pregunta: '¿Qué tono querés para el copy?', tipo: 'opciones', opciones: ['Directo y corto', 'Educativo y detallado', 'Provocador'], default: 'Directo y corto' },
+    { id: 'texto_size', pregunta: '¿Tamaño del texto en los titulares?', tipo: 'opciones', opciones: ['Compacto', 'Normal', 'Grande'], default: 'Normal' },
+    ...(tieneFotos ? [{ id: 'overlay', pregunta: '¿Qué tan oscuro el fondo de las fotos?', tipo: 'slider', min: 0.2, max: 0.8, step: 0.05, default: 0.45, label_min: 'Claro (foto visible)', label_max: 'Oscuro (texto prioritario)' }] : [{ id: 'foco_cover', pregunta: '¿Cómo arrancás el primer slide?', tipo: 'opciones', opciones: ['Afirmación rotunda', 'Pregunta que enganche', 'Dato o estadística'], default: 'Afirmación rotunda' }])
+  ];
+
+  try {
+    const raw = await callBlackboxText(prompt, 700);
+    const preguntas = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    if (!Array.isArray(preguntas) || !preguntas.length) throw new Error('No es array');
+    res.json({ preguntas });
+  } catch {
+    res.json({ preguntas: FALLBACK });
   }
 });
 

@@ -15,6 +15,9 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const USER_INSTRUCCIONES = process.env.USER_INSTRUCCIONES || '';
+const USER_OVERLAY = process.env.USER_OVERLAY != null && process.env.USER_OVERLAY !== '' ? parseFloat(process.env.USER_OVERLAY) : null;
+
 const SYSTEM_PROMPT = `Sos un equipo de élite de 2 personas trabajando como una sola: un director de arte senior con más de 15 años en agencias top de contenido para Instagram, y un estratega de marketing/copywriting senior especializado en marcas personales de fitness y coaching premium.
 
 Como estratega de marketing entendés copywriting persuasivo, niveles de consciencia de audiencia (Schwartz), psicología del scroll-stop, y cómo cada decisión de contenido sirve al objetivo de retención y conversión del carrusel — no es decoración, es estrategia aplicada.
@@ -210,6 +213,7 @@ ${marcaContext(marca)}
 GUÍAS DE COPY (aplicá lo que tenga sentido para este tema, no todo a la fuerza):
 ${skillsDocs}
 ${referenciasIG ? `\nESTILO DE REFERENCIA (notas sobre perfiles de IG que le gustan al cliente):\n${referenciasIG}\n` : ''}
+${USER_INSTRUCCIONES ? `\nINSTRUCCIONES ESPECÍFICAS DEL USUARIO — PRIORIDAD MÁXIMA, seguí estas al pie de la letra:\n${USER_INSTRUCCIONES}\n` : ''}
 ${fotosContext(fotos)}
 Devolvé SOLO JSON (sin markdown) con este formato exacto:
 {
@@ -231,7 +235,9 @@ Reglas generales:
 - Nunca uses comillas dobles rectas (") dentro de un valor de texto — para citas o términos entre comillas usá comillas tipográficas “ ” curvas.`;
 
   const text = await callBlackbox(promptText);
-  return JSON.parse(sanitizeJson(text.replace(/```json|```/g, '').trim()));
+  const contenido = JSON.parse(sanitizeJson(text.replace(/```json|```/g, '').trim()));
+  if (USER_OVERLAY !== null && !isNaN(USER_OVERLAY)) contenido.overlay = USER_OVERLAY;
+  return contenido;
 }
 
 async function main() {

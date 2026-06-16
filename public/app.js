@@ -116,8 +116,155 @@ $('#logToggle').addEventListener('click', () => {
 $('#btnGenerar').addEventListener('click', async () => {
   const tema = $('#temaInput').value.trim();
   if (!tema || !marcaActual) return;
+  await abrirModalPreguntar(tema);
+});
+
+// ── MODAL PREGUNTAR ───────────────────────────────────
+let preguntasActuales = [];
+let rotacionesPendientes = {};
+
+async function abrirModalPreguntar(tema) {
+  const modal    = $('#modalPreguntar');
+  const loader   = $('#preguntarLoader');
+  const content  = $('#preguntarContent');
+  const btnConf  = $('#btnConfirmarPreguntas');
+  preguntasActuales = [];
+  rotacionesPendientes = {};
+  $('#instruccionesLibres').value = '';
+
+  loader.classList.remove('hidden');
+  content.classList.add('hidden');
+  btnConf.classList.add('hidden');
+  modal.classList.remove('hidden');
+
+  // Sección de rotación — solo con fotos
+  const rotSection = $('#rotacionSection');
+  if (fotosSeleccionadas.length) {
+    rotSection.classList.remove('hidden');
+    renderRotacionGrid();
+  } else {
+    rotSection.classList.add('hidden');
+  }
+
+  // Preguntas de la IA
+  try {
+    const fotoUrls = fotosSeleccionadas.map(n => {
+      const f = fotosDisponibles.find(x => x.nombre === n);
+      return f ? f.url : `/fotos/${n}`;
+    });
+    const res = await fetch('/api/preguntar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tema, marca: marcaActual, fotoUrls })
+    });
+    const data = await res.json();
+    preguntasActuales = data.preguntas || [];
+  } catch {
+    preguntasActuales = [];
+  }
+
+  renderPreguntas(preguntasActuales);
+  loader.classList.add('hidden');
+  content.classList.remove('hidden');
+  btnConf.classList.remove('hidden');
+}
+
+function renderRotacionGrid() {
+  const grid = $('#rotacionGrid');
+  grid.innerHTML = fotosSeleccionadas.map(nombre => {
+    const foto = fotosDisponibles.find(f => f.nombre === nombre);
+    const url  = foto ? foto.url : `/fotos/${nombre}`;
+    return `<div class="rot-item" data-nombre="${nombre}">
+      <div class="rot-img-wrap">
+        <img src="${url}" class="rot-img" data-rot="0" alt="${nombre}">
+      </div>
+      <div class="rot-controls">
+        <button class="rot-btn btn-ghost btn-sm" data-nombre="${nombre}" data-dir="-1">↺</button>
+        <span class="rot-deg" data-nombre="${nombre}">0°</span>
+        <button class="rot-btn btn-ghost btn-sm" data-nombre="${nombre}" data-dir="1">↻</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.rot-btn').forEach(btn => {
+    btn.addEventListener('click', () => rotarFoto(btn.dataset.nombre, parseInt(btn.dataset.dir) * 90));
+  });
+}
+
+function rotarFoto(nombre, delta) {
+  const img = document.querySelector(`.rot-item[data-nombre="${nombre}"] .rot-img`);
+  const deg = document.querySelector(`.rot-deg[data-nombre="${nombre}"]`);
+  const actual  = parseInt(img?.dataset.rot || '0');
+  const nuevo   = ((actual + delta) + 360) % 360;
+  if (img) { img.style.transform = `rotate(${nuevo}deg)`; img.dataset.rot = nuevo; }
+  if (deg) deg.textContent = `${nuevo}°`;
+  if (nuevo === 0) delete rotacionesPendientes[nombre];
+  else rotacionesPendientes[nombre] = nuevo;
+}
+
+function renderPreguntas(preguntas) {
+  const container = $('#preguntasContainer');
+  container.innerHTML = preguntas.map(p => {
+    if (p.tipo === 'slider') {
+      return `<div class="pregunta-block">
+        <p class="pregunta-label">${p.pregunta}</p>
+        <div class="slider-row">
+          <span class="slider-lbl">${p.label_min || ''}</span>
+          <input type="range" id="preg_${p.id}" class="preg-slider"
+            min="${p.min}" max="${p.max}" step="${p.step || 0.05}" value="${p.default}">
+          <span class="slider-lbl">${p.label_max || ''}</span>
+        </div>
+        <div style="text-align:center;margin-top:4px">
+          <span class="slider-val" id="preg_${p.id}_val">${p.default}</span>
+        </div>
+      </div>`;
+    }
+    if (p.tipo === 'opciones') {
+      return `<div class="pregunta-block">
+        <p class="pregunta-label">${p.pregunta}</p>
+        <div class="opciones-row">
+          ${(p.opciones || []).map(op =>
+            `<button class="opcion-btn${op === p.default ? ' selected' : ''}" data-preg="${p.id}">${op}</button>`
+          ).join('')}
+        </div>
+      </div>`;
+    }
+    return '';
+  }).join('');
+
+  container.querySelectorAll('.preg-slider').forEach(sl => {
+    const valEl = document.getElementById(`${sl.id}_val`);
+    sl.addEventListener('input', () => { if (valEl) valEl.textContent = parseFloat(sl.value).toFixed(2); });
+  });
+
+  container.querySelectorAll('.opcion-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      container.querySelectorAll(`.opcion-btn[data-preg="${btn.dataset.preg}"]`)
+        .forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+}
+
+function collectRespuestas() {
+  const respuestas = {};
+  preguntasActuales.forEach(p => {
+    if (p.tipo === 'slider') {
+      const el = document.getElementById(`preg_${p.id}`);
+      if (el) respuestas[p.id] = parseFloat(el.value);
+    }
+    if (p.tipo === 'opciones') {
+      const sel = document.querySelector(`#preguntasContainer .opcion-btn[data-preg="${p.id}"].selected`);
+      if (sel) respuestas[p.id] = sel.textContent;
+    }
+  });
+  if (Object.keys(rotacionesPendientes).length) respuestas.rotaciones = { ...rotacionesPendientes };
+  return respuestas;
+}
+
+async function dispararGenerar(respuestas = {}, instruccionesLibres = '') {
   setRunning(true);
-  const body = { tema, marca: marcaActual };
+  const body = { tema: $('#temaInput').value.trim(), marca: marcaActual, respuestas, instruccionesLibres };
   if (fotosSeleccionadas.length) body.fotos = fotosSeleccionadas;
   const res = await fetch('/api/generar', {
     method: 'POST',
@@ -128,6 +275,18 @@ $('#btnGenerar').addEventListener('click', async () => {
     appendLog('\n❌ ' + (await res.json()).error + '\n');
     setRunning(false);
   }
+}
+
+$('#modalPreguntarClose').addEventListener('click', () => $('#modalPreguntar').classList.add('hidden'));
+
+$('#btnSaltarPreguntas').addEventListener('click', () => {
+  $('#modalPreguntar').classList.add('hidden');
+  dispararGenerar();
+});
+
+$('#btnConfirmarPreguntas').addEventListener('click', () => {
+  $('#modalPreguntar').classList.add('hidden');
+  dispararGenerar(collectRespuestas(), $('#instruccionesLibres').value.trim());
 });
 
 $('#btnLote').addEventListener('click', async () => {

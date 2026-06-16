@@ -58,14 +58,62 @@ async function main() {
   const inputPath = path.join(__dirname, contentFile);
   const raw = JSON.parse(await readFile(inputPath, 'utf-8'));
 
+  // Rotaciones solicitadas por el usuario
+  let USER_ROTATIONS = {};
+  try { if (process.env.USER_ROTATIONS) USER_ROTATIONS = JSON.parse(process.env.USER_ROTATIONS); } catch {}
+
+  // El browser se lanza antes de procesar fotos para poder rotar con canvas
+  const browser = await puppeteer.launch({
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+
+  // Pre-rotar fotos si el usuario lo pidió
+  const rotatedCache = {};
+  if (Object.keys(USER_ROTATIONS).length) {
+    const rotPage = await browser.newPage();
+    await rotPage.setContent('<!DOCTYPE html><html><body></body></html>');
+    for (const [photoRef, degrees] of Object.entries(USER_ROTATIONS)) {
+      try {
+        const src = await photoToDataUrl(photoRef);
+        rotatedCache[photoRef] = await rotPage.evaluate(
+          async ({ src, deg }) => {
+            const img = await new Promise(res => {
+              const i = new Image(); i.onload = () => res(i); i.src = src;
+            });
+            const rad = deg * Math.PI / 180;
+            const sin = Math.abs(Math.sin(rad));
+            const cos = Math.abs(Math.cos(rad));
+            const w = Math.round(img.width * cos + img.height * sin);
+            const h = Math.round(img.width * sin + img.height * cos);
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const ctx = c.getContext('2d');
+            ctx.translate(w / 2, h / 2);
+            ctx.rotate(rad);
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+            return c.toDataURL('image/jpeg', 0.9);
+          },
+          { src, deg: degrees }
+        );
+        console.log(`↻ Rotado ${degrees}° → ${photoRef}`);
+      } catch (e) {
+        console.error(`No se pudo rotar ${photoRef}: ${e.message}`);
+      }
+    }
+    await rotPage.close();
+  }
+
+  const resolvePhoto = async (ref) => rotatedCache[ref] ?? (await photoToDataUrl(ref));
+
   const photoFields = ['photo', 'photo_top', 'photo_bottom', 'photo_before', 'photo_after'];
   for (const slide of raw.slides) {
     for (const field of photoFields) {
-      if (slide[field]) slide[field] = await photoToDataUrl(slide[field]);
+      if (slide[field]) slide[field] = await resolvePhoto(slide[field]);
     }
     if (Array.isArray(slide.rows)) {
       for (const row of slide.rows) {
-        if (row.photo) row.photo = await photoToDataUrl(row.photo);
+        if (row.photo) row.photo = await resolvePhoto(row.photo);
       }
     }
   }
@@ -86,10 +134,6 @@ async function main() {
   const tmpHtml = path.join(baseDir, '_tmp_render.html');
   await writeFile(tmpHtml, html, 'utf-8');
 
-  const browser = await puppeteer.launch({
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
   const page = await browser.newPage();
   await page.setViewport({ width: 1080, height: 1350, deviceScaleFactor: 1 });
   await page.goto(`file://${tmpHtml}`, { waitUntil: 'networkidle0' });
