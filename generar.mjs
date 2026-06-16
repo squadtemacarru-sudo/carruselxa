@@ -64,8 +64,13 @@ async function main() {
 
   // El browser se lanza antes de procesar fotos para poder rotar con canvas
   const browser = await puppeteer.launch({
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+    ],
   });
 
   // Pre-rotar fotos si el usuario lo pidió
