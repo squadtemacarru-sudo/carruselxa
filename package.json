@@ -1,0 +1,17 @@
+{
+  "name": "carrusel-generator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Generador local de carruseles de Instagram (6 slides, 1080x1350) a partir de un contenido.json",
+  "scripts": {
+    "generar": "node generar.mjs",
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.22.2",
+    "heic-convert": "^2.1.0",
+    "puppeteer": "^23.0.0",
+    "sharp": "^0.35.0"
+  }
+}

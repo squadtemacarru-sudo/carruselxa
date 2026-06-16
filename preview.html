@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Preview en vivo — Carrusel</title>
+<link id="font-display-link" rel="stylesheet" href="">
+<link id="font-body-link"    rel="stylesheet" href="">
+<link id="font-mono-link"    rel="stylesheet" href="">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  body {
+    background: #040404;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    min-height: 100vh;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 48px;
+    padding: 48px;
+  }
+  .stage { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+  .scale-wrap {
+    width: 432px; height: 540px;
+    overflow: hidden;
+    border: 1px solid #1f1f24;
+    border-radius: 8px;
+  }
+  .scale-wrap .slide-wrapper {
+    transform: scale(0.4);
+    transform-origin: top left;
+  }
+  .thumbs { display: flex; gap: 8px; flex-wrap: wrap; max-width: 432px; }
+  .thumb {
+    width: 60px; height: 75px;
+    border: 1px solid #1f1f24;
+    border-radius: 4px;
+    background: #16181c;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: monospace; font-size: 11px; color: #9090a8;
+  }
+  .thumb.active { border-color: #e8ff00; color: #e8ff00; }
+  .panel { width: 420px; display: flex; flex-direction: column; gap: 12px; }
+  .panel h1 { font-size: 22px; font-family: 'Barlow Condensed', sans-serif; font-style: italic; font-weight: 900; }
+  .log {
+    background: #0a0b0d;
+    border: 1px solid #1f1f24;
+    border-radius: 8px;
+    padding: 16px;
+    font-family: monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #9090a8;
+    height: 60vh;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+  .log .hl { color: #e8ff00; }
+  .status-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: #ff9500; margin-right: 8px;
+  }
+  .status-dot.live { background: #00d084; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="scale-wrap"><div class="slide-wrapper" id="slideWrapper"></div></div>
+  <div class="thumbs" id="thumbs"></div>
+</div>
+<div class="panel">
+  <h1><span class="status-dot" id="statusDot"></span>Preview en vivo</h1>
+  <div class="log" id="log"></div>
+</div>
+
+<script src="/render-core.js"></script>
+<script>
+  const wrapper  = document.getElementById('slideWrapper');
+  const thumbs   = document.getElementById('thumbs');
+  const logEl    = document.getElementById('log');
+  const statusDot = document.getElementById('statusDot');
+
+  RC.wrapper = wrapper;
+
+  let slides = []; // estado actual, indexado por posición
+
+  function logLine(text, hl) {
+    const line = document.createElement('div');
+    if (hl) line.className = 'hl';
+    line.textContent = text;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // Durante el análisis las fotos son rutas relativas a fotos/ — el render
+  // final las convierte a data-url, pero para el preview alcanza con
+  // servirlas desde /fotos/
+  function rewritePhotos(slide) {
+    const s = { ...slide };
+    ['photo', 'photo_top', 'photo_bottom', 'photo_before', 'photo_after'].forEach((f) => {
+      if (s[f] && !s[f].startsWith('/fotos/') && !s[f].startsWith('data:')) s[f] = '/fotos/' + s[f];
+    });
+    if (Array.isArray(s.rows)) {
+      s.rows = s.rows.map((row) => {
+        if (row.photo && !row.photo.startsWith('/fotos/') && !row.photo.startsWith('data:')) {
+          return { ...row, photo: '/fotos/' + row.photo };
+        }
+        return row;
+      });
+    }
+    return s;
+  }
+
+  function renderSlide(slide, index, total) {
+    slides[index] = slide;
+    const existing = document.getElementById(`slide-${index + 1}`);
+    if (existing) existing.remove();
+    const el = buildAny(rewritePhotos(slide), index, total);
+    wrapper.appendChild(el);
+    showSlide(index);
+    renderThumbs(total);
+  }
+
+  function showSlide(i) {
+    slides.forEach((_, idx) => {
+      const sec = document.getElementById(`slide-${idx + 1}`);
+      if (sec) sec.classList.toggle('active', idx === i);
+    });
+    const active = document.getElementById(`slide-${i + 1}`);
+    if (!active) return;
+    if (active.classList.contains('slide')) autofitHeadlines(active);
+    if (active.classList.contains('slide-split-v')) autofitSvContrast(active);
+    [...thumbs.children].forEach((t, idx) => t.classList.toggle('active', idx === i));
+  }
+
+  function renderThumbs(total) {
+    if (thumbs.children.length === total) return;
+    thumbs.innerHTML = '';
+    for (let i = 0; i < total; i++) {
+      const t = document.createElement('div');
+      t.className = 'thumb';
+      t.textContent = `0${i + 1}`;
+      t.onclick = () => showSlide(i);
+      thumbs.appendChild(t);
+    }
+  }
+
+  function reset() {
+    wrapper.innerHTML = '';
+    thumbs.innerHTML = '';
+    logEl.innerHTML = '';
+    slides = [];
+    RC.gOverlay = 0.65;
+    RC.logo = null;
+    RC.ARROW = '→';
+  }
+
+  const evtSource = new EventSource('/events');
+  evtSource.onopen = () => statusDot.classList.add('live');
+  evtSource.onerror = () => statusDot.classList.remove('live');
+  evtSource.onmessage = (e) => {
+    const event = JSON.parse(e.data);
+    switch (event.type) {
+      case 'reset':
+        reset();
+        logLine('— nuevo análisis —', true);
+        break;
+      case 'status':
+        logLine(event.payload.message);
+        break;
+      case 'sistema': {
+        const { sistema, overlay, logoUrl } = event.payload;
+        aplicarSistema(sistema || {}, wrapper);
+        RC.gOverlay = overlay ?? 0.65;
+        RC.logo = logoUrl || null;
+        RC.ARROW = sistema?.iconos?.flecha_derecha || '→';
+        logLine(`✓ Sistema: ${sistema?.nombre_sistema || '(default)'}`, true);
+        break;
+      }
+      case 'slide':
+        renderSlide(event.payload.slide, event.payload.index, event.payload.total);
+        logLine(`✓ Slide 0${event.payload.index + 1} renderizada`, true);
+        break;
+      case 'done':
+        logLine('— listo —', true);
+        break;
+    }
+  };
+</script>
+</body>
+</html>

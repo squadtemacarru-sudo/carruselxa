@@ -1,0 +1,16 @@
+{
+  "nombre": "Mi marca personal",
+  "industria": "Completá tu rubro/nicho",
+  "producto": "Qué ofrecés o de qué hablás en tu contenido",
+  "audiencia": "A quién le hablás",
+  "nivel_consciencia": "problem-aware",
+  "diferenciador": "Qué te hace distinto",
+  "posicionamiento": "Tu frase de posicionamiento",
+  "voz": "Cómo sonás: directo, cercano, técnico, irónico, etc.",
+  "evitar": ["clichés", "frases que no querés usar"],
+  "paleta_marca": {
+    "fondo": "#040404",
+    "acento": "#e8ff00",
+    "descripcion": "Describí tu paleta de marca"
+  }
+}

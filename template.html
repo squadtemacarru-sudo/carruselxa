@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Carrusel</title>
+<link id="font-display-link" rel="stylesheet" href="">
+<link id="font-body-link"    rel="stylesheet" href="">
+<link id="font-mono-link"    rel="stylesheet" href="">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: var(--font-body); background: #0a0a0a; }
+
+  :root {
+    --font-display:   'Inter', sans-serif;
+    --font-body:      'Inter', sans-serif;
+    --font-mono:      monospace;
+    --color-fondo:    #0a0a0a;
+    --color-headline: #ffffff;
+    --color-body:     rgba(255,255,255,0.75);
+    --color-acento:   #e8ff00;
+    --color-sec:      rgba(255,255,255,0.25);
+    --pad:            108px;
+    --gap:            64px;
+    --lh-headline:    0.88;
+    --lh-body:        1.75;
+  }
+
+  /* ══════════════════════════════════════════
+     SLIDE SHELL
+  ══════════════════════════════════════════ */
+  .slide-wrapper {
+    width: 1080px;
+    aspect-ratio: 4/5;
+    background: var(--color-fondo);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slide {
+    width: 100%; height: 100%;
+    display: none;
+    position: relative;
+    padding: var(--pad);
+  }
+  .slide.active { display: flex; }
+
+  /* ── Foto de fondo ── */
+  .slide > .slide-bg {
+    position: absolute; inset: 0;
+    background-size: cover;
+    background-position: center top;
+    z-index: 0;
+  }
+  .slide-bg::after {
+    content: ''; position: absolute; inset: 0;
+    /* Capa plana de oscurecido (--overlay, decidida por la IA por foto)
+       sobre el degradé direccional (--grad, según zona de texto) */
+    background: linear-gradient(rgba(0,0,0, var(--overlay, 0.45)), rgba(0,0,0, var(--overlay, 0.45))), var(--grad);
+  }
+
+  /* ── Gradientes ── */
+  .grad-top_heavy    { --grad: linear-gradient(to bottom, rgba(0,0,0,0.93) 0%, rgba(0,0,0,0.70) 40%, transparent 70%, rgba(0,0,0,0.55) 100%); }
+  .grad-bottom_heavy { --grad: linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 35%, rgba(0,0,0,0.75) 65%, rgba(0,0,0,0.97) 100%); }
+  .grad-both         { --grad: linear-gradient(to bottom, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.35) 32%, rgba(0,0,0,0.35) 62%, rgba(0,0,0,0.92) 100%); }
+  .grad-center_clear { --grad: linear-gradient(to bottom, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.42) 28%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.88) 100%); }
+  .grad-full         { --grad: linear-gradient(rgba(0,0,0,0.75),rgba(0,0,0,0.75)); }
+
+  .slide > * { position: relative; z-index: 1; }
+
+  /* ── Tag ── */
+  .slide-tag {
+    position: absolute;
+    top: var(--pad); left: var(--pad);
+    font-family: var(--font-mono);
+    font-size: 26px; letter-spacing: 0.22em;
+    color: var(--color-sec);
+  }
+
+  /* ── Logo de marca (watermark) ── */
+  .brand-logo {
+    position: absolute;
+    bottom: var(--pad);
+    right: var(--pad);
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+    opacity: 0.55;
+  }
+
+  /* ── Text shadows ── */
+  .ts-suave  * { text-shadow: 0 2px 12px rgba(0,0,0,0.55); }
+  .ts-medio  * { text-shadow: 0 2px 8px rgba(0,0,0,0.88), 0 4px 24px rgba(0,0,0,0.72); }
+  .ts-fuerte * { text-shadow: 0 1px 4px rgba(0,0,0,0.97), 0 3px 16px rgba(0,0,0,0.92), 0 6px 40px rgba(0,0,0,0.85); }
+
+  /* ── Glass ── */
+  .glass-wrap {
+    background: var(--glass-bg, rgba(4,4,6,0.82));
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    border-radius: 10px;
+    padding: 48px; margin: -48px;
+  }
+
+  /* ── Headline sizes ── */
+  .hs-reducir_20  .h-display { font-size: 80px !important; }
+  .hs-reducir_10  .h-display { font-size: 90px !important; }
+  .hs-normal      .h-display { }
+  .hs-aumentar_10 .h-display { font-size: 110px !important; }
+
+  /* ══════════════════════════════════════════
+     COMPONENTES COMPARTIDOS
+  ══════════════════════════════════════════ */
+
+  .c-eyebrow {
+    font-family: var(--font-body);
+    font-size: 26px; font-weight: 600;
+    color: var(--color-sec);
+    text-transform: uppercase; letter-spacing: 0.18em;
+    line-height: 1.6;
+  }
+  .c-headline {
+    font-family: var(--font-display);
+    font-size: 100px; font-weight: 900;
+    color: var(--color-headline);
+    text-transform: uppercase;
+    line-height: var(--lh-headline);
+    white-space: pre-line;
+    overflow-wrap: break-word;
+  }
+  .c-body {
+    font-family: var(--font-body);
+    font-size: 38px; color: var(--color-body);
+    line-height: var(--lh-body);
+    white-space: pre-line;
+  }
+  .c-kicker {
+    display: flex; align-items: center; gap: 40px;
+    min-width: 0;
+  }
+  .c-kicker-line { width: 80px; height: 3px; background: var(--color-acento); flex-shrink: 0; }
+  .c-kicker-text {
+    font-family: var(--font-display);
+    font-size: 48px; font-weight: 700;
+    color: var(--color-headline);
+    overflow-wrap: break-word;
+    min-width: 0;
+  }
+  .c-divider-slash {
+    display: flex; gap: 18px; align-items: center;
+  }
+  .c-divider-slash span {
+    font-size: 52px; font-weight: 300;
+    color: var(--color-acento); opacity: 0.9;
+    line-height: 1;
+  }
+  .c-divider-line {
+    width: 80px; height: 3px;
+    background: var(--color-acento); opacity: 0.6;
+  }
+  .c-swipe {
+    font-family: var(--font-mono);
+    font-size: 26px; letter-spacing: 0.25em;
+    color: var(--color-sec);
+  }
+  .c-handle {
+    font-family: var(--font-mono);
+    font-size: 26px; letter-spacing: 0.18em;
+    color: var(--color-sec);
+  }
+  .c-arrow-box {
+    width: 72px; height: 72px;
+    border: 2px solid var(--color-acento);
+    opacity: 0.5;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; color: var(--color-acento);
+  }
+
+  /* ══════════════════════════════════════════
+     COVER — layouts
+  ══════════════════════════════════════════ */
+
+  /* cover-top: headline arriba, footer abajo */
+  .layout-cover-top {
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .layout-cover-top .cover-main {
+    display: flex; flex-direction: column;
+    gap: var(--gap);
+    margin-top: calc(var(--pad) * 1.2);
+  }
+
+  /* tp-middle / tp-bottom: la IA detectó que el sujeto ocupa la zona
+     superior de la foto — bajamos el bloque de texto para no tapar
+     caras/cuerpos. El swipe se ancla abajo-izquierda como en cover-center. */
+  .layout-cover-top.tp-middle { justify-content: center; }
+  .layout-cover-top.tp-bottom { justify-content: flex-end; }
+  .layout-cover-top.tp-middle .cover-main,
+  .layout-cover-top.tp-bottom .cover-main {
+    margin-top: 0;
+  }
+  .layout-cover-top.tp-middle .c-swipe,
+  .layout-cover-top.tp-bottom .c-swipe {
+    position: absolute; bottom: var(--pad); left: var(--pad);
+  }
+
+  /* cover-center: todo centrado verticalmente */
+  .layout-cover-center {
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--gap);
+  }
+  .layout-cover-center .cover-main {
+    display: flex; flex-direction: column; gap: var(--gap);
+  }
+  .layout-cover-center .c-swipe {
+    margin-top: auto;
+    position: absolute;
+    bottom: var(--pad); left: var(--pad);
+  }
+
+  /* cover-split: headline izquierda grande, detail derecha */
+  .layout-cover-split {
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .layout-cover-split .cover-main {
+    margin-top: calc(var(--pad) * 1.2);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 48px;
+    align-items: end;
+  }
+  .layout-cover-split .cover-left,
+  .layout-cover-split .cover-right {
+    min-width: 0;
+  }
+  .layout-cover-split .cover-right {
+    display: flex; flex-direction: column; gap: 32px;
+    padding-bottom: 8px;
+  }
+
+  /* ══════════════════════════════════════════
+     LIST — layouts
+  ══════════════════════════════════════════ */
+
+  /* list-full: distribuye los items en todo el alto de la slide */
+  .layout-list-full {
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .layout-list-full .list-header {
+    margin-top: calc(var(--pad) * 1.2);
+  }
+  .layout-list-full .list-items {
+    flex: 1;
+    display: flex; flex-direction: column;
+    justify-content: space-evenly;
+    list-style: none;
+    padding: 32px 0;
+  }
+  .layout-list-full .list-item {
+    display: flex; align-items: center; gap: 36px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 20px 0;
+  }
+  .layout-list-full .list-item:last-child { border-bottom: none; }
+
+  /* list-compact: items juntos, centrados verticalmente */
+  .layout-list-compact {
+    flex-direction: column;
+    justify-content: center;
+    gap: 56px;
+  }
+  .layout-list-compact .list-items {
+    list-style: none;
+    display: flex; flex-direction: column; gap: 44px;
+  }
+  .layout-list-compact .list-item {
+    display: flex; align-items: flex-start; gap: 32px;
+  }
+
+  /* list-numbered-hero: números grandes como elemento visual */
+  .layout-list-hero {
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .layout-list-hero .list-header {
+    margin-top: calc(var(--pad) * 1.2);
+  }
+  .layout-list-hero .list-items {
+    flex: 1; list-style: none;
+    display: flex; flex-direction: column;
+    justify-content: space-evenly;
+    padding: 24px 0;
+  }
+  .layout-list-hero .list-item {
+    display: flex; align-items: center; gap: 32px;
+  }
+  .layout-list-hero .list-num-hero {
+    font-family: var(--font-display);
+    font-size: 80px; font-weight: 900;
+    color: var(--color-acento);
+    opacity: 0.18; line-height: 1;
+    min-width: 80px; flex-shrink: 0;
+  }
+
+  /* Shared list num */
+  .list-num {
+    font-family: var(--font-mono);
+    font-size: 24px; color: var(--color-acento);
+    opacity: 0.5; flex-shrink: 0;
+    min-width: 48px;
+  }
+  .list-num-bracket {
+    font-family: var(--font-mono);
+    font-size: 22px; color: var(--color-sec);
+    flex-shrink: 0; min-width: 52px;
+  }
+  .list-text {
+    font-family: var(--font-body);
+    font-size: 42px; font-weight: 600;
+    color: var(--color-headline);
+    line-height: 1.25;
+  }
+  .list-text-sm {
+    font-family: var(--font-body);
+    font-size: 36px; font-weight: 500;
+    color: var(--color-headline);
+    line-height: 1.3;
+  }
+
+  /* ══════════════════════════════════════════
+     STATEMENT — layouts
+  ══════════════════════════════════════════ */
+
+  /* statement-anchored: headline + divider + body como bloque único, centrado */
+  .layout-statement-anchored {
+    flex-direction: column;
+    justify-content: center;
+    gap: 52px;
+  }
+
+  /* statement-top: headline top, body bottom */
+  .layout-statement-top {
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .layout-statement-top .stmt-top {
+    margin-top: calc(var(--pad) * 1.2);
+    display: flex; flex-direction: column; gap: 48px;
+  }
+  .layout-statement-top .stmt-bottom {
+    display: flex; flex-direction: column; gap: 32px;
+  }
+
+  /* tp-middle / tp-bottom: mismo criterio que cover-top — bajamos el
+     headline si el sujeto de la foto está arriba. */
+  .layout-statement-top.tp-middle { justify-content: center; gap: 52px; }
+  .layout-statement-top.tp-bottom { justify-content: flex-end; }
+  .layout-statement-top.tp-middle .stmt-top,
+  .layout-statement-top.tp-bottom .stmt-top {
+    margin-top: 0;
+  }
+
+  /* statement-impact: headline XL ocupa más, body pequeño abajo */
+  .layout-statement-impact {
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .layout-statement-impact .stmt-headline {
+    margin-top: calc(var(--pad) * 1.2);
+    font-size: 128px !important;
+  }
+  .layout-statement-impact .stmt-body-wrap {
+    display: flex; flex-direction: column; gap: 28px;
+  }
+
+  /* ══════════════════════════════════════════
+     SPLIT — layouts
+  ══════════════════════════════════════════ */
+
+  /* split-full: columnas llenan todo el alto disponible */
+  .layout-split-full {
+    flex-direction: column;
+  }
+  .layout-split-full .split-tag-row {
+    display: flex; align-items: center;
+    padding-top: calc(var(--pad) * 1.2);
+    margin-bottom: 36px;
+  }
+  .layout-split-full .split-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    padding-bottom: 0;
+  }
+  .layout-split-full .split-col {
+    display: flex; flex-direction: column;
+    padding: 44px;
+  }
+  .layout-split-full .split-col.dark {
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+  .layout-split-full .split-col.light { background: #fff; }
+  .layout-split-full .split-items {
+    flex: 1; list-style: none;
+    display: flex; flex-direction: column;
+    justify-content: space-evenly;
+    margin-top: 32px;
+  }
+  .layout-split-full .split-items li {
+    font-family: var(--font-body);
+    font-size: 34px; line-height: 1.35;
+    padding: 18px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .layout-split-full .split-items li:last-child { border-bottom: none; }
+  .layout-split-full .split-col.light .split-items li {
+    color: #000; font-weight: 600;
+    border-bottom-color: rgba(0,0,0,0.08);
+  }
+  .layout-split-full .split-col.dark .split-items li { color: var(--color-body); }
+
+  /* split-compact: columnas con altura fija, centradas */
+  .layout-split-compact {
+    flex-direction: column;
+    justify-content: center;
+    gap: 48px;
+  }
+  .layout-split-compact .split-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .split-label {
+    font-family: var(--font-mono);
+    font-size: 22px; letter-spacing: 0.2em;
+    text-transform: uppercase; line-height: 1.4;
+  }
+  .split-col.dark  .split-label { color: var(--color-acento); opacity: 0.6; }
+  .split-col.light .split-label { color: #000; opacity: 0.5; }
+
+  /* ══════════════════════════════════════════
+     QUOTE — layouts
+  ══════════════════════════════════════════ */
+
+  /* quote-dominant: quote XL domina, attr + note abajo anclados */
+  .layout-quote-dominant {
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .layout-quote-dominant .quote-top {
+    margin-top: calc(var(--pad) * 1.1);
+    flex: 1;
+    display: flex; align-items: flex-start;
+  }
+  .layout-quote-dominant .quote-text {
+    font-family: var(--font-display);
+    font-size: 72px; font-weight: 900;
+    color: var(--color-headline);
+    line-height: 1.05;
+    text-transform: uppercase;
+  }
+  .layout-quote-dominant .quote-bottom {
+    display: flex; flex-direction: column; gap: 20px;
+    border-top: 2px solid var(--color-acento);
+    padding-top: 40px;
+    opacity: 0.9;
+  }
+  .layout-quote-dominant .quote-attr {
+    font-family: var(--font-display);
+    font-size: 52px; font-weight: 900;
+    color: var(--color-acento);
+    text-transform: uppercase; letter-spacing: 0.02em;
+  }
+  .layout-quote-dominant .quote-note {
+    font-family: var(--font-body);
+    font-size: 30px; color: var(--color-body);
+    line-height: 1.7;
+  }
+
+  /* quote-centered: todo centrado, minimalista */
+  .layout-quote-centered {
+    flex-direction: column;
+    justify-content: center;
+    gap: 56px;
+  }
+  .layout-quote-centered .quote-text {
+    font-family: var(--font-display);
+    font-size: 64px; font-weight: 700;
+    color: var(--color-headline);
+    line-height: 1.1;
+  }
+  .layout-quote-centered .quote-attr {
+    font-family: var(--font-display);
+    font-size: 44px; font-weight: 900;
+    color: var(--color-acento);
+    text-transform: uppercase;
+  }
+  .layout-quote-centered .quote-note {
+    font-family: var(--font-body);
+    font-size: 30px; color: var(--color-body);
+    line-height: 1.7;
+  }
+
+  /* ══════════════════════════════════════════
+     CTA — layouts
+  ══════════════════════════════════════════ */
+
+  /* cta-top: headline arriba, sub + footer abajo */
+  .layout-cta-top {
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .layout-cta-top .cta-main {
+    margin-top: calc(var(--pad) * 1.2);
+    display: flex; flex-direction: column; gap: 48px;
+  }
+  .layout-cta-top .cta-footer {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  /* cta-center: todo centrado */
+  .layout-cta-center {
+    flex-direction: column;
+    justify-content: center;
+    gap: 48px;
+  }
+  .layout-cta-center .cta-footer {
+    position: absolute;
+    bottom: var(--pad); left: var(--pad); right: var(--pad);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  /* cta-impact: headline XL ocupa casi todo */
+  .layout-cta-impact {
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .layout-cta-impact .cta-main {
+    flex: 1;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    gap: 40px;
+  }
+  .layout-cta-impact .cta-footer {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .layout-cta-impact .cta-hl {
+    font-size: 160px !important;
+    line-height: 0.80 !important;
+  }
+
+  .cta-hl {
+    font-family: var(--font-display);
+    font-size: 140px; font-weight: 900;
+    color: var(--color-headline);
+    text-transform: uppercase;
+    line-height: 0.82; white-space: pre-line;
+  }
+  .cta-sub {
+    font-family: var(--font-body);
+    font-size: 36px; color: var(--color-body);
+    line-height: 1.8; white-space: pre-line;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     MODELO A — SPLIT VERTICAL (split_v)
+     Dos fotos apiladas, texto sobre cada mitad
+  ════════════════════════════════════════════════════════ */
+  .slide-split-v {
+    width: 100%; height: 100%;
+    display: none; flex-direction: column;
+    position: relative;
+  }
+  .slide-split-v.active { display: flex; }
+  .sv-half {
+    flex: 1; position: relative; overflow: hidden;
+    display: flex;
+  }
+  .sv-half .sv-bg {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center;
+    z-index: 0;
+  }
+  .sv-half .sv-bg::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.12) 55%, rgba(0,0,0,0.82) 100%);
+  }
+  .sv-half .sv-text {
+    position: relative; z-index: 1;
+    padding: 52px 64px;
+    display: flex; flex-direction: column; gap: 8px;
+    align-self: flex-end;
+  }
+  /* Default: ambas mitades anclan el texto contra el divisor central,
+     donde el scrim es más denso — evita tapar caras/cuerpos que suelen
+     quedar centrados en cada foto. */
+  .sv-half.top .sv-text { align-items: flex-end; width: 100%; text-align: right; }
+  .sv-half.bottom .sv-text { align-items: flex-start; }
+
+  /* Overrides según el análisis de composición por foto (FASE 3B) —
+     misma especificidad que las reglas .top/.bottom de arriba, así que
+     gana por orden de declaración cuando la IA eligió otra esquina. */
+  .sv-half .sv-text.align-left  { align-items: flex-start; text-align: left; width: auto; }
+  .sv-half .sv-text.align-right { align-items: flex-end; text-align: right; width: 100%; }
+  .sv-half .sv-text.valign-top    { align-self: flex-start; }
+  .sv-half .sv-text.valign-bottom { align-self: flex-end; }
+
+  /* Si el texto va arriba de su mitad (lejos del divisor), el scrim
+     denso también se mueve arriba */
+  .sv-half.scrim-top .sv-bg::after {
+    background: linear-gradient(to bottom, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.12) 45%, rgba(0,0,0,0.08) 100%);
+  }
+  .sv-label {
+    font-family: var(--font-body); font-size: 32px; font-weight: 500;
+    color: rgba(255,255,255,0.90); line-height: 1.35; white-space: pre-line;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.85);
+  }
+  .sv-contrast {
+    font-family: var(--font-display); font-size: 100px; font-weight: 900;
+    color: #fff; line-height: 0.88; text-transform: uppercase;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.92), 0 4px 24px rgba(0,0,0,0.72);
+  }
+  .sv-divider { height: 3px; background: var(--color-acento); opacity: 0.45; flex-shrink: 0; z-index: 2; }
+
+  /* ════════════════════════════════════════════════════════
+     MODELO B — FULL IMPACT (full_impact)
+     Foto full, texto en capas sobre gradiente denso
+  ════════════════════════════════════════════════════════ */
+  .slide-full-impact {
+    width: 100%; height: 100%;
+    display: none; flex-direction: column;
+    justify-content: flex-end; position: relative;
+  }
+  .slide-full-impact.active { display: flex; }
+  .fi-bg {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center top; z-index: 0;
+  }
+  .fi-bg::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, transparent 15%, rgba(0,0,0,0.58) 52%, rgba(0,0,0,0.96) 100%);
+  }
+  .fi-content {
+    position: relative; z-index: 1;
+    padding: 0 72px 80px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .fi-tag {
+    font-family: var(--font-mono); font-size: 24px;
+    color: rgba(255,255,255,0.32); letter-spacing: 0.2em;
+  }
+  .fi-line1 {
+    font-family: var(--font-body); font-size: 42px; font-weight: 500;
+    color: rgba(255,255,255,0.90); line-height: 1.25;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.85);
+  }
+  .fi-line2 {
+    font-family: var(--font-display); font-size: 118px; font-weight: 900;
+    color: var(--color-acento); text-transform: uppercase; line-height: 0.82;
+    white-space: pre-line;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.92);
+  }
+  .fi-footer { display: flex; align-items: center; gap: 24px; margin-top: 8px; }
+  .fi-footer-text {
+    font-family: var(--font-body); font-size: 32px; font-weight: 600;
+    color: rgba(255,255,255,0.72);
+    text-shadow: 0 1px 8px rgba(0,0,0,0.72);
+  }
+  .fi-arrow { font-size: 34px; color: var(--color-acento); }
+
+  /* ════════════════════════════════════════════════════════
+     MODELO C — ANTES / DESPUÉS (before_after)
+     Dos fotos side-by-side + texto debajo
+  ════════════════════════════════════════════════════════ */
+  .slide-before-after {
+    width: 100%; height: 100%;
+    display: none; flex-direction: column;
+    position: relative; background: #000;
+  }
+  .slide-before-after.active { display: flex; }
+  .ba-photos {
+    flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+    gap: 3px; position: relative;
+  }
+  .ba-photo { position: relative; overflow: hidden; }
+  .ba-photo .ba-bg {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center top;
+  }
+  .ba-photo .ba-bg::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.72) 100%);
+  }
+  .ba-pill {
+    position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.62); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 99px;
+    padding: 7px 18px; z-index: 2;
+    font-family: var(--font-mono); font-size: 21px;
+    color: rgba(255,255,255,0.72); letter-spacing: 0.12em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .ba-vline {
+    position: absolute; left: 50%; top: 0; bottom: 0; width: 3px;
+    background: var(--color-acento); opacity: 0.5;
+    transform: translateX(-50%); z-index: 3;
+  }
+  .ba-footer {
+    padding: 44px 72px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .ba-headline {
+    font-family: var(--font-display); font-size: 72px; font-weight: 900;
+    color: #fff; text-transform: uppercase; line-height: 0.90; white-space: pre-line;
+  }
+  .ba-sub {
+    font-family: var(--font-body); font-size: 30px;
+    color: rgba(255,255,255,0.55); line-height: 1.6;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     MODELO D — TRIPLE VERTICAL (triple_v)
+     Tres fotos apiladas con labels
+  ════════════════════════════════════════════════════════ */
+  .slide-triple-v {
+    width: 100%; height: 100%;
+    display: none; flex-direction: column; position: relative;
+  }
+  .slide-triple-v.active { display: flex; }
+  .tv-row { flex: 1; position: relative; overflow: hidden; }
+  .tv-row .tv-bg {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center 25%;
+  }
+  .tv-row .tv-bg::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.80) 100%);
+  }
+  .tv-label-wrap {
+    position: absolute; inset: 0; z-index: 2;
+    display: flex; align-items: flex-end; padding: 0 64px 36px; gap: 20px;
+  }
+  /* Overrides según el análisis de composición por foto (FASE 3B) */
+  .tv-label-wrap.justify-end { justify-content: flex-end; }
+  .tv-label-wrap.justify-end .tv-text { text-align: right; }
+  .tv-label-wrap.align-top { align-items: flex-start; padding: 36px 64px 0; }
+  /* Si el label va arriba de la fila, el scrim denso también se mueve arriba */
+  .tv-row.scrim-top .tv-bg::after {
+    background: linear-gradient(to bottom, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.12) 45%, rgba(0,0,0,0.10) 100%);
+  }
+  .tv-num {
+    font-family: var(--font-display); font-size: 80px; font-weight: 900;
+    color: var(--color-acento); line-height: 1; flex-shrink: 0;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.88);
+  }
+  .tv-text {
+    font-family: var(--font-display); font-size: 58px; font-weight: 900;
+    color: #fff; line-height: 1; white-space: pre-line;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.90), 0 4px 24px rgba(0,0,0,0.70);
+  }
+  .tv-sep { height: 3px; background: rgba(255,255,255,0.10); flex-shrink: 0; }
+
+</style>
+</head>
+<body>
+<div class="slide-wrapper" id="slideWrapper"></div>
+<script id="slide-data" type="application/json">__DATA__</script>
+<script src="render-core.js"></script>
+<script>
+  const data    = JSON.parse(document.getElementById('slide-data').textContent);
+  const wrapper = document.getElementById('slideWrapper');
+  const sistema = data._sistema || {};
+
+  RC.wrapper  = wrapper;
+  RC.gOverlay = data.overlay ?? 0.65;
+  RC.logo     = data._logo || null;
+  RC.ARROW    = sistema.iconos?.flecha_derecha || '→';
+
+  aplicarSistema(sistema, wrapper);
+
+  data.slides.forEach((s, i) => wrapper.appendChild(buildAny(s, i, data.slides.length)));
+
+  window.__showSlide = (i) => {
+    data.slides.forEach((_, idx) => {
+      const sec = document.getElementById(`slide-${idx+1}`);
+      if (sec) sec.classList.toggle('active', idx === i);
+    });
+    const active = document.getElementById(`slide-${i+1}`);
+    if (!active) return;
+    if (active.classList.contains('slide')) autofitHeadlines(active);
+    if (active.classList.contains('slide-split-v')) autofitSvContrast(active);
+  };
+</script>
+</body>
+</html>

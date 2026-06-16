@@ -1,0 +1,14 @@
+node_modules
+tandas
+tandas-lote2
+tandas-lote3
+output
+fotos
+*.log
+*.bak*
+.env
+_tmp_render.html
+contenido.json
+contenido.analizado.json
+nb-test*.json
+files.zip

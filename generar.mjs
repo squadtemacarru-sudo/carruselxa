@@ -1,0 +1,121 @@
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import puppeteer from 'puppeteer';
+
+async function uploadToCloudinary(filePath, folder) {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const preset   = process.env.CLOUDINARY_UPLOAD_PRESET;
+  if (!cloudName || !preset) return null;
+
+  const buf  = await readFile(filePath);
+  const form = new FormData();
+  form.append('file', new Blob([buf], { type: 'image/png' }), path.basename(filePath));
+  form.append('upload_preset', preset);
+  form.append('folder', folder);
+
+  const res  = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: form });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Cloudinary: ${data.error?.message}`);
+  return data.secure_url;
+}
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+
+async function fileToDataUrl(abs) {
+  const buf = await readFile(abs);
+  const mime = MIME[path.extname(abs).toLowerCase()] || 'image/jpeg';
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
+async function photoToDataUrl(relPath) {
+  return fileToDataUrl(path.join(__dirname, 'fotos', relPath));
+}
+
+// Logo de marca para el watermark — cada marca tiene su propio
+// marcas/<id>/logo.png, opcional
+async function loadLogo(marcaId) {
+  try {
+    return await fileToDataUrl(path.join(__dirname, 'marcas', marcaId, 'logo.png'));
+  } catch {
+    return null;
+  }
+}
+
+async function main() {
+  const contentFile = process.argv[2] || 'contenido.json';
+  const inputPath = path.join(__dirname, contentFile);
+  const raw = JSON.parse(await readFile(inputPath, 'utf-8'));
+
+  const photoFields = ['photo', 'photo_top', 'photo_bottom', 'photo_before', 'photo_after'];
+  for (const slide of raw.slides) {
+    for (const field of photoFields) {
+      if (slide[field]) slide[field] = await photoToDataUrl(slide[field]);
+    }
+    if (Array.isArray(slide.rows)) {
+      for (const row of slide.rows) {
+        if (row.photo) row.photo = await photoToDataUrl(row.photo);
+      }
+    }
+  }
+
+  raw._logo = await loadLogo(raw._marca || 'squadteam');
+
+  const template = await readFile(path.join(__dirname, 'template.html'), 'utf-8');
+  const renderCore = await readFile(path.join(__dirname, 'render-core.js'), 'utf-8');
+  const html = template
+    .replace('<script src="render-core.js"></script>', `<script>${renderCore}</script>`)
+    .replace('__DATA__', JSON.stringify(raw));
+
+  // Output e intermedios viven junto al contenido, así corridas en
+  // carpetas distintas (ej. tandas/<id>/) nunca se pisan entre sí
+  const baseDir = path.dirname(inputPath);
+  const outDir = path.join(baseDir, 'output');
+  await mkdir(outDir, { recursive: true });
+  const tmpHtml = path.join(baseDir, '_tmp_render.html');
+  await writeFile(tmpHtml, html, 'utf-8');
+
+  const browser = await puppeteer.launch({
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1080, height: 1350, deviceScaleFactor: 1 });
+  await page.goto(`file://${tmpHtml}`, { waitUntil: 'networkidle0' });
+
+  const total = raw.slides.length;
+  for (let i = 0; i < total; i++) {
+    await page.evaluate((idx) => window.__showSlide(idx), i);
+    await new Promise((r) => setTimeout(r, 150));
+    const wrapper = await page.$('#slideWrapper');
+    const file = path.join(outDir, `slide-0${i + 1}.png`);
+    await wrapper.screenshot({ path: file });
+    console.log(`✓ ${file}`);
+  }
+
+  await browser.close();
+  await import('node:fs/promises').then((fs) => fs.unlink(tmpHtml));
+
+  const tandaId = path.basename(baseDir);
+  const cloudFolder = `carrusel-generator/${tandaId}`;
+  const cloudUrls = [];
+  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_UPLOAD_PRESET) {
+    console.log('\n☁️  Subiendo a Cloudinary...');
+    for (let i = 0; i < total; i++) {
+      const file = path.join(outDir, `slide-0${i + 1}.png`);
+      const url  = await uploadToCloudinary(file, cloudFolder);
+      cloudUrls.push(url);
+      console.log(`  ↑ slide-0${i + 1} → ${url}`);
+    }
+    await writeFile(path.join(outDir, 'cloudinary.json'), JSON.stringify(cloudUrls, null, 2), 'utf-8');
+  }
+
+  console.log(`\nListo. ${total} slides en ${outDir}`);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

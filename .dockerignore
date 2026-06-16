@@ -1,0 +1,9 @@
+node_modules
+tandas
+tandas-lote2
+tandas-lote3
+output
+fotos
+*.log
+*.bak*
+.env

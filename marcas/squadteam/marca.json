@@ -1,0 +1,16 @@
+{
+  "nombre": "SQUAD TEAM",
+  "industria": "Fitness coaching premium",
+  "producto": "Plataforma de coaching fitness personalizado con dos coaches simultáneos (mindset + biomecánica).",
+  "audiencia": "Hombres adultos en Uruguay que quieren resultados reales en el gym, hartos de rutinas genéricas y sin seguimiento real",
+  "nivel_consciencia": "problem-aware",
+  "diferenciador": "Dos coaches al mismo tiempo (Lucas en mindset/motivación, Tomás en biomecánica/técnica). Atención premium que los gimnasios y coaches masivos no pueden dar. Equipo deliberadamente chico (cupos limitados) — un dato real, pero usalo como gancho puntual en algún CTA suelto, NO en todos los carruseles.",
+  "posicionamiento": "No te damos una rutina. Te damos un equipo.",
+  "voz": "Directo, auténtico, sin clichés motivacionales, brutalista, sin suavizar nada. Rioplatense casual. Autoridad sin arrogancia.",
+  "evitar": ["motivacional", "transformación", "cambio de vida", "sueños", "tu mejor versión", "roster (palabra poco clara, no usar)", "decir que somos pocos clientes activos en cada carrusel", "mencionar cupos limitados salvo cada tanto, como gancho puntual"],
+  "paleta_marca": {
+    "fondo": "#040404",
+    "acento": "#e8ff00",
+    "descripcion": "Negro absoluto con lima neón como acento puntual — no protagonista"
+  }
+}

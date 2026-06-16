@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: carrusel-generator
+    runtime: docker
+    plan: free
+    envVars:
+      - key: APP_PASSWORD
+        sync: false
+      - key: BLACKBOX_API_KEY
+        sync: false

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Squad Team — Máquina de Carruseles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,700;1,900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>MÁQUINA DE CARRUSELES</h1>
+    <div class="row marca-row">
+      <select id="marcaSelect"></select>
+      <button id="btnNuevaMarca" class="btn-secondary">+ Nueva marca</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Generar carrusel</h2>
+      <div class="row">
+        <input id="temaInput" type="text" placeholder="Tema del carrusel (ej: Cómo calcular tus macros)" list="temasList">
+        <datalist id="temasList"></datalist>
+        <button id="btnGenerar" class="btn-primary">Generar</button>
+      </div>
+
+      <div class="row">
+        <input id="minutosInput" type="number" min="5" max="180" value="45" style="max-width:100px">
+        <button id="btnLote" class="btn-secondary">Iniciar tanda automática (rota los temas de la marca)</button>
+      </div>
+
+      <pre id="log" class="log"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Identidad de marca</h2>
+      <p class="hint">Esto define la voz, audiencia y paleta que usa la IA al escribir y diseñar.</p>
+      <div class="grid2">
+        <label>Nombre <input id="mNombre" type="text"></label>
+        <label>Industria <input id="mIndustria" type="text"></label>
+        <label>Audiencia <input id="mAudiencia" type="text"></label>
+        <label>Posicionamiento <input id="mPosicionamiento" type="text"></label>
+      </div>
+      <label>Producto / qué ofrecés
+        <textarea id="mProducto" rows="2"></textarea>
+      </label>
+      <label>Voz y tono
+        <textarea id="mVoz" rows="2"></textarea>
+      </label>
+      <label>Palabras/clichés a evitar (separadas por coma)
+        <input id="mEvitar" type="text">
+      </label>
+      <div class="grid2">
+        <label>Color de fondo <input id="mFondo" type="text" placeholder="#040404"></label>
+        <label>Color de acento <input id="mAcento" type="text" placeholder="#e8ff00"></label>
+      </div>
+
+      <div class="row" style="align-items:center; margin-top:8px;">
+        <img id="logoPreview" class="logo-preview" alt="logo">
+        <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp">
+      </div>
+
+      <button id="btnGuardarMarca" class="btn-secondary">Guardar identidad</button>
+      <span id="marcaStatus" class="status"></span>
+    </section>
+
+    <section class="card">
+      <h2>Temas en rotación</h2>
+      <p class="hint">Uno por línea. Se usan para la tanda automática y como sugerencias arriba.</p>
+      <textarea id="temasArea" rows="10"></textarea>
+      <button id="btnGuardarTemas" class="btn-secondary">Guardar temas</button>
+      <span id="temasStatus" class="status"></span>
+    </section>
+
+    <section class="card">
+      <h2>Galería</h2>
+      <button id="btnRefrescar" class="btn-secondary">Refrescar</button>
+      <div id="galeria" class="galeria"></div>
+    </section>
+  </main>
+
+  <div id="lightbox" class="lightbox hidden">
+    <button id="lightboxClose" class="lightbox-close">×</button>
+    <img id="lightboxImg" src="" alt="">
+    <div class="lightbox-nav">
+      <button id="lightboxPrev">‹</button>
+      <span id="lightboxCounter"></span>
+      <button id="lightboxNext">›</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
