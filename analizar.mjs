@@ -556,6 +556,8 @@ ${contenido}
 
 Analizá la imagen con precisión y devolvé SOLO JSON (sin markdown) con ajustes ESPECÍFICOS para esta foto dentro del sistema:
 
+REGLA CRÍTICA para text_y_percent: es el % vertical (0=tope, 100=base) donde va el CENTRO del bloque de texto. Mirá dónde está la persona/cara/cuerpo y elegí la zona OPUESTA para que el texto no tape al sujeto. Si el sujeto ocupa el centro o el abajo del frame → elegí entre 8 y 22. Si ocupa el arriba → elegí entre 70 y 85. Si no hay sujeto claro → 18. NUNCA pongas el texto encima del cuerpo o la cara.
+
 {
   "zonas": {
     "descripcion": "composición exacta: sujeto, zonas claras/oscuras, puntos de interés",
@@ -575,11 +577,12 @@ Analizá la imagen con precisión y devolvé SOLO JSON (sin markdown) con ajuste
   },
   "ajustes_texto": {
     "posicion": "top|middle|bottom",
+    "text_y_percent": 15,
     "text_shadow": "suave|medio|fuerte",
     "glass_necesario": false,
     "glass_opacidad": 0.0,
     "headline_size": "normal|reducir_10|reducir_20|aumentar_10",
-    "razon": "decisión milimétrica basada en la composición real"
+    "razon": "decisión milimétrica basada en la composición real — incluí dónde está el sujeto y por qué ese text_y_percent lo evita"
   },
   "recomendacion": "una línea específica para hacer esta slide irresistible",
   "layout_sugerido": "null o uno de: cover-top|cover-center|cover-split|list-full|list-compact|list-hero|statement-anchored|statement-top|statement-impact|split-full|quote-dominant|quote-centered|cta-top|cta-center|cta-impact — solo si la lógica default no es la mejor opción para esta foto específica"
@@ -727,6 +730,17 @@ function aplicarDecisiones(slide, analisis, sistema) {
       sujeto:        analisis.sujeto,
       recomendacion: analisis.recomendacion,
     };
+
+    // Posición Y precisa del texto para evitar tapar al sujeto
+    const rawTextY = analisis.ajustes_texto?.text_y_percent;
+    if (rawTextY != null && !isNaN(Number(rawTextY))) {
+      s._textY = Math.round(Math.max(5, Math.min(88, Number(rawTextY))));
+    } else if (analisis.sujeto?.posicion !== 'sin_sujeto') {
+      // Fallback heurístico: si la IA no dio porcentaje, deducirlo de la zona del sujeto
+      const zona = analisis.sujeto?.ocupa_zona;
+      if (zona === 'top')                                      s._textY = 78;
+      else if (['middle', 'bottom', 'full'].includes(zona))   s._textY = 15;
+    }
 
     // Guardia de contraste: si la zona donde se ancla el texto quedó
     // "clara"/"mixta" y el overlay decidido es muy liviano, reforzar
@@ -1085,9 +1099,11 @@ async function main() {
       } : slide;
       const final = aplicarDecisiones(slideParaDecisiones, analisis, sistema);
       slidesFinales.push(final);
-      const pos = analisis?.ajustes_texto?.posicion || '?';
-      const rec = analisis?.recomendacion || '';
-      console.log(` ✓  [${pos}]`);
+      const pos   = analisis?.ajustes_texto?.posicion || '?';
+      const textY = analisis?.ajustes_texto?.text_y_percent;
+      const rec   = analisis?.recomendacion || '';
+      const yLabel = textY != null ? ` y=${textY}%` : '';
+      console.log(` ✓  [${pos}${yLabel}]`);
       if (rec) console.log(`     💡 ${rec}`);
       broadcast('slide', { slide: final, index: i, total: slidesAdaptadas.length });
       if (rec) broadcast('status', { message: `  💡 ${rec}` });
