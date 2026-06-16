@@ -62,10 +62,15 @@ const logWrap   = $('#logWrap');
 const log       = $('#log');
 const logStatus = $('#logStatus');
 let logVisible  = true;
+let editorRerenderizing = false;
 
 function appendLog(line) {
   log.textContent += line;
   log.scrollTop = log.scrollHeight;
+  if (editorRerenderizing) {
+    const edLog = $('#editorLog');
+    if (edLog) { edLog.textContent += line; edLog.scrollTop = edLog.scrollHeight; }
+  }
 }
 
 function setRunning(running) {
@@ -95,15 +100,19 @@ function connectStream() {
   es.onmessage = e => {
     const line = JSON.parse(e.data);
     appendLog(line);
-    if (line.includes('✅') || line.includes('Listo')) {
-      setRunning(false);
-      setTimeout(cargarGaleria, 1000);
+    const isDone  = line.includes('✅') || line.includes('Listo');
+    const isError = line.includes('❌');
+    if (editorRerenderizing && (isDone || isError)) {
+      editorRerenderizing = false;
+      const btn = $('#btnRerenderizar');
+      if (btn) btn.disabled = false;
+      const st = $('#editorStatus');
+      if (st) { st.textContent = isDone ? '✓ Listo' : '✗ Error'; st.className = 'status ' + (isDone ? 'ok' : 'err'); }
+      if (isDone) { editorTs = Date.now(); renderEditorSlide(editorSlideIdx); setTimeout(cargarGaleria, 500); }
+      return;
     }
-    if (line.includes('❌')) {
-      setRunning(false);
-      logStatus.style.color = 'var(--red)';
-      logStatus.textContent = 'Error';
-    }
+    if (isDone) { setRunning(false); setTimeout(cargarGaleria, 1000); }
+    if (isError) { setRunning(false); logStatus.style.color = 'var(--red)'; logStatus.textContent = 'Error'; }
   };
 }
 
@@ -583,12 +592,18 @@ $('#btnClearFotos').addEventListener('click', () => {
 // ── GALERÍA ───────────────────────────────────────────
 let currentSlides = [];
 let currentIndex  = 0;
+let currentTandaId = null;
+let tandas = [];
 
-function openLightbox(slides, index) {
-  currentSlides = slides;
-  currentIndex  = index;
+function openLightbox(slides, index, tandaId = null) {
+  currentSlides  = slides;
+  currentIndex   = index;
+  currentTandaId = tandaId;
   showSlide();
   $('#lightbox').classList.remove('hidden');
+  const editBtn = $('#lightboxEdit');
+  if (tandaId) editBtn.classList.remove('hidden');
+  else         editBtn.classList.add('hidden');
 }
 
 function showSlide() {
@@ -604,9 +619,13 @@ $('#lightboxClose').addEventListener('click', () => $('#lightbox').classList.add
 $('#lightboxPrev').addEventListener('click',  () => { currentIndex = (currentIndex - 1 + currentSlides.length) % currentSlides.length; showSlide(); });
 $('#lightboxNext').addEventListener('click',  () => { currentIndex = (currentIndex + 1) % currentSlides.length; showSlide(); });
 $('#lightbox').addEventListener('click',      e  => { if (e.target === $('#lightbox')) $('#lightbox').classList.add('hidden'); });
+$('#lightboxEdit').addEventListener('click',  () => {
+  $('#lightbox').classList.add('hidden');
+  editarTanda(currentTandaId);
+});
 
 async function cargarGaleria() {
-  const tandas  = await (await fetch('/api/tandas')).json();
+  tandas = await (await fetch('/api/tandas')).json();
   const galeria = $('#galeria');
   const empty   = $('#galeriaEmpty');
 
@@ -625,7 +644,8 @@ async function cargarGaleria() {
   `).join('');
 
   galeria.querySelectorAll('.tanda').forEach(el => {
-    el.addEventListener('click', () => openLightbox(tandas[Number(el.dataset.idx)].slides, 0));
+    const t = tandas[Number(el.dataset.idx)];
+    el.addEventListener('click', () => openLightbox(t.slides, 0, t.id));
   });
 }
 
@@ -718,6 +738,179 @@ $('#btnBorrarRefs').addEventListener('click', async () => {
     st.textContent = 'Referencias borradas';
     st.className   = 'status ok';
     setTimeout(() => { st.textContent = ''; st.className = 'status'; }, 3000);
+  }
+});
+
+// ── EDITOR DE CARRUSEL ───────────────────────────────
+let editorTandaId   = null;
+let editorContenido = null;
+let editorSlideIdx  = 0;
+let editorTs        = Date.now();
+
+async function editarTanda(tandaId) {
+  editorTandaId = tandaId;
+  try {
+    const res = await fetch(`/api/tandas/${tandaId}/contenido`);
+    if (!res.ok) throw new Error('No se encontró el contenido. Generá primero el carrusel.');
+    editorContenido = await res.json();
+  } catch (e) {
+    alert(e.message);
+    return;
+  }
+  editorSlideIdx = 0;
+  editorTs       = Date.now();
+  $('#editorLog').textContent = '';
+  $('#editorLog').classList.add('hidden');
+  $('#editorStatus').textContent = '';
+  $('#editorStatus').className = 'status';
+  renderEditorChips();
+  renderEditorSlide(0);
+  $('#modalEditor').classList.remove('hidden');
+}
+
+function renderEditorChips() {
+  const chips = $('#editorChips');
+  chips.innerHTML = editorContenido.slides.map((_, i) =>
+    `<button class="editor-chip ${i === editorSlideIdx ? 'active' : ''}" data-idx="${i}">${String(i + 1).padStart(2, '0')}</button>`
+  ).join('');
+  chips.querySelectorAll('.editor-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editorSlideIdx = parseInt(btn.dataset.idx);
+      renderEditorChips();
+      renderEditorSlide(editorSlideIdx);
+    });
+  });
+}
+
+function renderEditorSlide(idx) {
+  const slide = editorContenido.slides[idx];
+  const num   = String(idx + 1).padStart(2, '0');
+  $('#editorSlideImg').src = `/tandas/${editorTandaId}/output/slide-${num}.png?t=${editorTs}`;
+
+  const hasPhotoPos = !!slide.photo;
+  const hasPhoto    = !!(slide.photo || slide.photo_before || slide.photo_after ||
+                         slide.photo_top || slide.photo_bottom ||
+                         (Array.isArray(slide.rows) && slide.rows.some(r => r.photo)));
+
+  const globalOv  = editorContenido.overlay ?? 0.55;
+  const slideOv   = slide._overlay ?? null;
+  const photoPosY = (() => {
+    const pos = slide._photoPos || 'center center';
+    const m   = pos.match(/(\d+(?:\.\d+)?)%/);
+    return m ? parseFloat(m[1]) : 50;
+  })();
+  const headlineAj = slide._headlineAjuste || 'normal';
+  const textPos    = slide._textPosition   || '';
+
+  $('#editorControls').innerHTML = `
+    <div class="ctrl-section">
+      <p class="ctrl-label">GLOBAL</p>
+      <div class="ctrl-row">
+        <span class="ctrl-row-label">Oscuridad global</span>
+        <div class="ctrl-right">
+          <input type="range" id="ctrlGlobalOv" min="0.1" max="0.9" step="0.05" value="${globalOv}">
+          <span class="ctrl-val" id="ctrlGlobalOvVal">${globalOv}</span>
+        </div>
+      </div>
+    </div>
+
+    ${hasPhoto ? `
+    <div class="ctrl-section">
+      <p class="ctrl-label">FOTO — slide ${num}</p>
+      ${hasPhotoPos ? `
+      <div class="ctrl-row">
+        <span class="ctrl-row-label">Posición vertical</span>
+        <div class="ctrl-right">
+          <input type="range" id="ctrlPhotoY" min="0" max="100" step="5" value="${photoPosY}">
+          <span class="ctrl-val" id="ctrlPhotoYVal">${photoPosY}%</span>
+        </div>
+      </div>` : ''}
+      <div class="ctrl-row">
+        <span class="ctrl-row-label">Oscuridad de este slide</span>
+        <div class="ctrl-right">
+          <input type="range" id="ctrlSlideOv" min="0.1" max="0.9" step="0.05" value="${slideOv ?? globalOv}">
+          <span class="ctrl-val" id="ctrlSlideOvVal">${slideOv !== null ? slideOv : globalOv}</span>
+        </div>
+      </div>
+    </div>` : ''}
+
+    <div class="ctrl-section">
+      <p class="ctrl-label">TEXTO — slide ${num}</p>
+      <div class="ctrl-row">
+        <span class="ctrl-row-label">Tamaño</span>
+        <div class="ctrl-right">
+          <select id="ctrlHsAjuste">
+            <option value="normal" ${headlineAj === 'normal'  ? 'selected' : ''}>Normal</option>
+            <option value="small"  ${headlineAj === 'small'   ? 'selected' : ''}>Chico</option>
+            <option value="xsmall" ${headlineAj === 'xsmall'  ? 'selected' : ''}>Muy chico</option>
+          </select>
+        </div>
+      </div>
+      ${hasPhoto ? `
+      <div class="ctrl-row">
+        <span class="ctrl-row-label">Posición</span>
+        <div class="ctrl-right">
+          <select id="ctrlTextPos">
+            <option value=""       ${textPos === ''       ? 'selected' : ''}>Auto</option>
+            <option value="top"    ${textPos === 'top'    ? 'selected' : ''}>Arriba</option>
+            <option value="center" ${textPos === 'center' ? 'selected' : ''}>Centro</option>
+            <option value="bottom" ${textPos === 'bottom' ? 'selected' : ''}>Abajo</option>
+          </select>
+        </div>
+      </div>` : ''}
+    </div>
+  `;
+
+  // Bind controls → editorContenido
+  const bind = (id, valId, update, fmt = v => v) => {
+    const el = document.getElementById(id);
+    const vl = document.getElementById(valId);
+    if (!el) return;
+    const ev = el.tagName === 'SELECT' ? 'change' : 'input';
+    el.addEventListener(ev, () => {
+      const v = el.tagName === 'SELECT' ? el.value : parseFloat(el.value);
+      update(v);
+      if (vl) vl.textContent = fmt(v);
+    });
+  };
+
+  bind('ctrlGlobalOv', 'ctrlGlobalOvVal', v => { editorContenido.overlay = v; });
+  bind('ctrlPhotoY',   'ctrlPhotoYVal',   v => { editorContenido.slides[editorSlideIdx]._photoPos = `center ${v}%`; }, v => `${v}%`);
+  bind('ctrlSlideOv',  'ctrlSlideOvVal',  v => { editorContenido.slides[editorSlideIdx]._overlay = v; });
+  bind('ctrlHsAjuste', null, v => { editorContenido.slides[editorSlideIdx]._headlineAjuste = v; });
+  bind('ctrlTextPos',  null, v => {
+    if (v) editorContenido.slides[editorSlideIdx]._textPosition = v;
+    else   delete editorContenido.slides[editorSlideIdx]._textPosition;
+  });
+}
+
+$('#editorClose').addEventListener('click', () => $('#modalEditor').classList.add('hidden'));
+
+$('#btnRerenderizar').addEventListener('click', async () => {
+  const btn = $('#btnRerenderizar');
+  const st  = $('#editorStatus');
+  try {
+    await fetch(`/api/tandas/${editorTandaId}/contenido`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editorContenido)
+    });
+    const res = await fetch(`/api/tandas/${editorTandaId}/rerenderizar`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json();
+      st.textContent = '✗ ' + err.error;
+      st.className   = 'status err';
+      return;
+    }
+    editorRerenderizing = true;
+    btn.disabled        = true;
+    st.textContent      = '';
+    const edLog = $('#editorLog');
+    edLog.textContent = '';
+    edLog.classList.remove('hidden');
+  } catch (e) {
+    st.textContent = '✗ ' + e.message;
+    st.className   = 'status err';
   }
 });
 

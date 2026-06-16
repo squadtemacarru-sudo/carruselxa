@@ -219,7 +219,34 @@
       <span id="lightboxCounter"></span>
       <button id="lightboxNext">›</button>
     </div>
-    <a id="lightboxDownload" class="lightbox-download" download>↓ Descargar</a>
+    <div class="lightbox-footer">
+      <a id="lightboxDownload" class="lightbox-download" download>↓ Descargar</a>
+      <button id="lightboxEdit" class="lightbox-edit hidden">✎ Editar</button>
+    </div>
+  </div>
+
+  <!-- ── EDITOR DE CARRUSEL ──────────────────────── -->
+  <div id="modalEditor" class="modal hidden">
+    <div class="modal-box editor-box">
+      <div class="modal-header">
+        <span class="section-title">Editor</span>
+        <button class="modal-close" id="editorClose">×</button>
+      </div>
+
+      <div class="editor-chips" id="editorChips"></div>
+
+      <div class="editor-preview-wrap">
+        <img id="editorSlideImg" src="" alt="" class="editor-slide-img">
+      </div>
+
+      <div id="editorControls" class="editor-controls"></div>
+
+      <pre id="editorLog" class="log hidden" style="max-height:110px;margin-top:14px"></pre>
+      <div class="editor-footer-row">
+        <button id="btnRerenderizar" class="btn-primary btn-grow">Re-renderizar</button>
+        <span id="editorStatus" class="status"></span>
+      </div>
+    </div>
   </div>
 
   <!-- Modal preguntar IA antes de generar -->

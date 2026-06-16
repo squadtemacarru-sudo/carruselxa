@@ -542,6 +542,50 @@ Formato slider: {"id":"overlay","pregunta":"¿Qué tan oscuro?","tipo":"slider",
 });
 
 // ─────────────────────────────────────────────────────────────────────
+// Editor — leer / guardar / re-renderizar una tanda existente
+// ─────────────────────────────────────────────────────────────────────
+function isValidTandaId(id) {
+  return typeof id === 'string' && /^\d+_[a-z0-9-]+$/.test(id);
+}
+
+app.get('/api/tandas/:id/contenido', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+  try {
+    res.json(JSON.parse(await readFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), 'utf-8')));
+  } catch {
+    res.status(404).json({ error: 'Contenido no encontrado' });
+  }
+});
+
+app.put('/api/tandas/:id/contenido', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+  await writeFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), JSON.stringify(req.body, null, 2), 'utf-8');
+  res.json({ ok: true });
+});
+
+app.post('/api/tandas/:id/rerenderizar', (req, res) => {
+  if (jobRunning) return res.status(409).json({ error: 'Hay una generación en curso' });
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+  jobRunning = true;
+  jobLog = [];
+  res.json({ ok: true });
+  (async () => {
+    try {
+      broadcast(`\n=== Re-renderizando: ${id} ===\n`);
+      await runStep(['generar.mjs', `tandas/${id}/contenido.analizado.json`]);
+      broadcast(`\n✅ Listo\n`);
+    } catch (e) {
+      broadcast(`\n❌ ${e.message}\n`);
+    } finally {
+      jobRunning = false;
+    }
+  })();
+});
+
+// ─────────────────────────────────────────────────────────────────────
 // Galería de carruseles generados
 // ─────────────────────────────────────────────────────────────────────
 app.get('/api/tandas', async (req, res) => {
