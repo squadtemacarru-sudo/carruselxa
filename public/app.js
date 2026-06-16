@@ -608,6 +608,7 @@ function openLightbox(slides, index, tandaId = null) {
   const hasId = !!tandaId;
   $('#lightboxEdit').classList.toggle('hidden', !hasId);
   $('#lightboxCaption').classList.toggle('hidden', !hasId);
+  $('#lightboxDuplicar').classList.toggle('hidden', !hasId);
 }
 
 function showSlide() {
@@ -631,6 +632,26 @@ $('#lightboxEdit').addEventListener('click',  () => {
 $('#lightboxCaption').addEventListener('click', () => {
   $('#lightbox').classList.add('hidden');
   abrirCaption(currentTandaId);
+});
+
+$('#lightboxDuplicar').addEventListener('click', async () => {
+  const id = currentTandaId;
+  const btn = $('#lightboxDuplicar');
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const res  = await fetch(`/api/tandas/${id}/duplicar`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al clonar');
+    $('#lightbox').classList.add('hidden');
+    await cargarGaleria();
+    editarTanda(data.id);
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⊕ Clonar';
+  }
 });
 
 $('#captionClose').addEventListener('click', () => $('#modalCaption').classList.add('hidden'));

@@ -13,7 +13,7 @@
 
 import express from 'express';
 import { spawn } from 'node:child_process';
-import { readFile, writeFile, readdir, mkdir, unlink } from 'node:fs/promises';
+import { readFile, writeFile, readdir, mkdir, unlink, copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWriteStream } from 'node:fs';
@@ -563,6 +563,32 @@ app.put('/api/tandas/:id/contenido', async (req, res) => {
   if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
   await writeFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), JSON.stringify(req.body, null, 2), 'utf-8');
   res.json({ ok: true });
+});
+
+app.post('/api/tandas/:id/duplicar', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+
+  const slug   = id.split('_').slice(1).join('_');
+  const newId  = `${Date.now()}_${slug}`;
+  const srcDir = path.join(__dirname, 'tandas', id);
+  const dstDir = path.join(__dirname, 'tandas', newId);
+
+  await mkdir(path.join(dstDir, 'output'), { recursive: true });
+
+  for (const f of ['contenido.json', 'contenido.analizado.json']) {
+    try { await copyFile(path.join(srcDir, f), path.join(dstDir, f)); } catch {}
+  }
+
+  try {
+    const slides = (await readdir(path.join(srcDir, 'output'))).filter(f => f.endsWith('.png'));
+    for (const s of slides) {
+      await copyFile(path.join(srcDir, 'output', s), path.join(dstDir, 'output', s));
+    }
+    await copyFile(path.join(srcDir, 'output', 'cloudinary.json'), path.join(dstDir, 'output', 'cloudinary.json'));
+  } catch {}
+
+  res.json({ id: newId });
 });
 
 app.post('/api/tandas/:id/caption', async (req, res) => {
