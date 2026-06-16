@@ -6,7 +6,8 @@
   "description": "Generador local de carruseles de Instagram (6 slides, 1080x1350) a partir de un contenido.json",
   "scripts": {
     "generar": "node generar.mjs",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "postinstall": "puppeteer browsers install chrome"
   },
   "dependencies": {
     "express": "^4.22.2",

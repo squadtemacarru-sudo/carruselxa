@@ -317,6 +317,114 @@ app.post('/api/marcas/:id/logo', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
+// Estudiar carruseles — análisis visual con IA (visión)
+// ─────────────────────────────────────────────────────────────────────
+
+async function callBlackboxVision(imageDataUrls, promptText) {
+  const apiKey = process.env.BLACKBOX_API_KEY;
+  if (!apiKey) throw new Error('Falta BLACKBOX_API_KEY');
+  const model = process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-sonnet-4.6';
+
+  const content = [
+    ...imageDataUrls.map(url => ({ type: 'image_url', image_url: { url, detail: 'high' } })),
+    { type: 'text', text: promptText }
+  ];
+
+  const res = await fetch('https://api.blackbox.ai/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: 'user', content }] })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Blackbox vision: ${data.error?.message || JSON.stringify(data)}`);
+  return data.choices?.[0]?.message?.content || '';
+}
+
+// GET — devuelve el contenido actual de referencias-ig.md
+app.get('/api/marcas/:id/referencias', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  try {
+    const texto = await readFile(path.join(__dirname, 'marcas', id, 'referencias-ig.md'), 'utf-8');
+    res.json({ texto });
+  } catch {
+    res.json({ texto: '' });
+  }
+});
+
+// PUT — guarda edición manual de referencias
+app.put('/api/marcas/:id/referencias', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  const { texto } = req.body;
+  await writeFile(path.join(__dirname, 'marcas', id, 'referencias-ig.md'), texto || '', 'utf-8');
+  res.json({ ok: true });
+});
+
+// DELETE — borra las referencias
+app.delete('/api/marcas/:id/referencias', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  try { await unlink(path.join(__dirname, 'marcas', id, 'referencias-ig.md')); } catch {}
+  res.json({ ok: true });
+});
+
+// POST — recibe imágenes (base64 en JSON), analiza con IA y AGREGA al archivo de referencias
+app.post('/api/marcas/:id/estudiar', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+
+  const { imagenes } = req.body; // array de data URLs (data:image/...;base64,...)
+  if (!Array.isArray(imagenes) || !imagenes.length) {
+    return res.status(400).json({ error: 'Se esperaba un array de imagenes en base64' });
+  }
+  if (imagenes.length > 12) return res.status(400).json({ error: 'Máximo 12 slides por análisis' });
+
+  const prompt = `Analizás estos slides de un carrusel de Instagram. Tu misión es extraer un análisis de estilo VISUAL Y COPY concreto y accionable para que pueda replicarse en carruseles futuros generados con IA.
+
+Analizá cada uno de estos aspectos:
+
+## ESTILO VISUAL
+- Paleta de colores: fondo predominante, colores de texto, colores de acento. Describí los colores con exactitud (oscuro/claro, cálido/frío, hex si podés inferirlo).
+- Tipografía: ¿El titular es grande y condensado o mediano? ¿Hay mezcla de tamaños? ¿Se usan mayúsculas sostenidas?
+- Layout: ¿Texto centrado o alineado a la izquierda? ¿Cómo se distribuyen texto y foto?
+- Uso de espacio: ¿Diseño minimalista con mucho aire o denso con mucha info?
+- Elementos decorativos: líneas, formas, marcos, overlays, gradientes — describí si aparecen y cómo.
+- Ratio de foto/texto: ¿Slides mayoritariamente tipográficas, foto de fondo con overlay, o foto y texto separados?
+
+## COPY Y ESTRUCTURA
+- Tono de voz: directo/conversacional/académico/provocador/educativo
+- Longitud de los textos por slide: ¿Muy cortos (1-5 palabras), medios (1-2 frases), largos (párrafos)?
+- Uso de mayúsculas, signos de exclamación, puntos suspensivos, listas
+- Hook del slide 1: ¿Qué técnica usa para enganchar? (pregunta, dato, afirmación rotunda, promesa, provocación)
+- Flujo entre slides: ¿Cada slide es independiente o hay continuidad narrativa?
+- CTA final: texto exacto o parafraseo, estilo (directo/suave/con urgencia)
+
+## PATRONES REPLICABLES
+Lista de las 5-7 reglas concretas de este estilo que una IA debe seguir para imitarlo. Sé muy específico. Ejemplos:
+- "Titular siempre en mayúsculas, máximo 4 palabras, centrado"
+- "Fondo negro con texto blanco, acento amarillo solo en 1-2 palabras por slide"
+- "Primer slide siempre es una pregunta que el público respondería 'sí'"
+
+Devolvé el análisis en markdown limpio y estructurado. Sin intro ni conclusión genérica — solo los puntos de análisis. Esto se usa directamente como guía para generación de carruseles con IA.`;
+
+  try {
+    const analisis = await callBlackboxVision(imagenes, prompt);
+
+    // Leer el archivo existente y agregar el nuevo análisis
+    let actual = '';
+    try { actual = await readFile(path.join(__dirname, 'marcas', id, 'referencias-ig.md'), 'utf-8'); } catch {}
+    const separador = actual ? '\n\n---\n\n' : '';
+    const nuevo = `${actual}${separador}## Análisis ${new Date().toLocaleDateString('es-UY')} (${imagenes.length} slides)\n\n${analisis}`;
+
+    await writeFile(path.join(__dirname, 'marcas', id, 'referencias-ig.md'), nuevo, 'utf-8');
+    res.json({ ok: true, analisis });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────
 // Galería de carruseles generados
 // ─────────────────────────────────────────────────────────────────────
 app.get('/api/tandas', async (req, res) => {

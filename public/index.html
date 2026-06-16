@@ -143,6 +143,35 @@
     </div>
 
     <div class="config-block">
+      <div class="config-block-header" data-toggle="bloque-estudiar">
+        <span class="section-title">Estudiar carruseles</span>
+        <span class="toggle-icon">›</span>
+      </div>
+      <div class="config-block-body collapsed" id="bloque-estudiar">
+        <p class="hint">Subí slides de carruseles que te gusten. La IA analiza el estilo visual y de copy, y lo usa al generar los tuyos.</p>
+
+        <label class="btn-secondary btn-full file-btn" style="margin-top:8px;justify-content:center">
+          + Elegir slides para analizar
+          <input id="estudiarInput" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        </label>
+
+        <div id="estudiarPreviews" class="fotos-grid" style="margin-top:10px"></div>
+
+        <button id="btnEstudiar" class="btn-primary btn-full" style="margin-top:10px" disabled>Analizar con IA</button>
+        <div id="estudiarStatus" class="status" style="margin-top:6px"></div>
+
+        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+          <div class="section-header" style="margin-bottom:8px">
+            <span style="font-size:13px;font-weight:600;color:var(--text-muted)">ESTILO APRENDIDO</span>
+            <button id="btnBorrarRefs" class="btn-ghost btn-sm">Borrar todo</button>
+          </div>
+          <textarea id="referenciasArea" rows="10" placeholder="Todavía no hay referencias para esta marca. Subí slides arriba para que la IA aprenda el estilo."></textarea>
+          <button id="btnGuardarRefs" class="btn-secondary btn-full" style="margin-top:8px">Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-block">
       <div class="config-block-header" data-toggle="bloque-nueva-marca">
         <span class="section-title">Nueva marca</span>
         <span class="toggle-icon">›</span>
