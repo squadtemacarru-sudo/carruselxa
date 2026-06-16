@@ -24,11 +24,17 @@ Como estratega de marketing entendés copywriting persuasivo, niveles de conscie
 
 Tus respuestas son siempre específicas y accionables — nunca genéricas, nunca clichés motivacionales. Respondés SIEMPRE en el formato exacto solicitado (JSON puro, sin \`\`\`markdown\`\`\` ni texto antes o después), sin explicaciones adicionales fuera del JSON.`;
 
-async function callBlackbox(content) {
+const FALLBACK_MODELS = [
+  'blackboxai/anthropic/claude-sonnet-4.6',
+  'blackboxai/anthropic/claude-sonnet-4.5',
+  'claude-3-5-sonnet-20241022',
+];
+
+async function callBlackbox(content, attempt = 0) {
   const apiKey = process.env.BLACKBOX_API_KEY;
   if (!apiKey) throw new Error('Falta la variable de entorno BLACKBOX_API_KEY');
 
-  const model = process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-sonnet-4.6';
+  const model = process.env.USER_MODEL || process.env.BLACKBOX_MODEL || FALLBACK_MODELS[Math.min(attempt, FALLBACK_MODELS.length - 1)];
 
   const response = await fetch('https://api.blackbox.ai/chat/completions', {
     method: 'POST',
@@ -47,7 +53,15 @@ async function callBlackbox(content) {
   });
 
   const data = await response.json();
+
   if (!response.ok) {
+    const is429 = response.status === 429 || JSON.stringify(data).includes('RESOURCE_EXHAUSTED') || JSON.stringify(data).includes('429');
+    if (is429 && attempt < 3) {
+      const delay = [8000, 20000, 40000][attempt];
+      console.warn(`⏳ Rate limit (intento ${attempt + 1}) — reintentando en ${delay / 1000}s...`);
+      await new Promise(r => setTimeout(r, delay));
+      return callBlackbox(content, attempt + 1);
+    }
     throw new Error(`Blackbox API error: ${data.error?.message || JSON.stringify(data)}`);
   }
   return data.choices?.[0]?.message?.content || '';

@@ -33,6 +33,11 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           Fotos
         </button>
+        <select id="modelSelect" class="model-select">
+          <option value="blackboxai/anthropic/claude-sonnet-4.6">Sonnet 4.6</option>
+          <option value="blackboxai/anthropic/claude-sonnet-4.5">Sonnet 4.5</option>
+          <option value="claude-3-5-sonnet-20241022">Claude 3.5</option>
+        </select>
         <button id="btnGenerar" class="btn-primary btn-grow">Generar</button>
       </div>
     </div>
@@ -238,6 +243,16 @@
         <div id="rotacionSection" class="pregunta-block hidden">
           <p class="pregunta-label">¿Las fotos están bien orientadas?</p>
           <div id="rotacionGrid" class="rotacion-grid"></div>
+        </div>
+
+        <!-- Fotos por slide — solo cuando hay fotos -->
+        <div id="fpsSlidesSection" class="pregunta-block hidden">
+          <p class="pregunta-label">¿Querés asignar fotos a slides específicas? <span class="lbl-opcional">(opcional)</span></p>
+          <div class="fps-slots" id="fpsSlotsGrid"></div>
+          <div class="fps-picker hidden" id="fpsPicker">
+            <p class="fps-picker-label">Elegí la foto para el slide <span id="fpsSlotLabel"></span></p>
+            <div class="fps-picker-grid" id="fpsPickerGrid"></div>
+          </div>
         </div>
         <!-- Preguntas generadas por la IA -->
         <div id="preguntasContainer"></div>

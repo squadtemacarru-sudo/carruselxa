@@ -122,6 +122,8 @@ $('#btnGenerar').addEventListener('click', async () => {
 // ── MODAL PREGUNTAR ───────────────────────────────────
 let preguntasActuales = [];
 let rotacionesPendientes = {};
+let fotosPorSlide = {};  // { "1": "foto.jpg", "4": "foto2.jpg" }
+let fpsSlotActivo = null;
 
 async function abrirModalPreguntar(tema) {
   const modal    = $('#modalPreguntar');
@@ -130,6 +132,7 @@ async function abrirModalPreguntar(tema) {
   const btnConf  = $('#btnConfirmarPreguntas');
   preguntasActuales = [];
   rotacionesPendientes = {};
+  fotosPorSlide = {};
   $('#instruccionesLibres').value = '';
 
   loader.classList.remove('hidden');
@@ -137,13 +140,17 @@ async function abrirModalPreguntar(tema) {
   btnConf.classList.add('hidden');
   modal.classList.remove('hidden');
 
-  // Sección de rotación — solo con fotos
+  // Secciones que solo aparecen cuando hay fotos
   const rotSection = $('#rotacionSection');
+  const fpsSection = $('#fpsSlidesSection');
   if (fotosSeleccionadas.length) {
     rotSection.classList.remove('hidden');
+    fpsSection.classList.remove('hidden');
     renderRotacionGrid();
+    renderFpsSlots();
   } else {
     rotSection.classList.add('hidden');
+    fpsSection.classList.add('hidden');
   }
 
   // Preguntas de la IA
@@ -246,6 +253,64 @@ function renderPreguntas(preguntas) {
   });
 }
 
+// ── FOTOS POR SLIDE ───────────────────────────────────
+function renderFpsSlots() {
+  const grid   = $('#fpsSlotsGrid');
+  const picker = $('#fpsPicker');
+  picker.classList.add('hidden');
+  fpsSlotActivo = null;
+
+  grid.innerHTML = Array.from({ length: 6 }, (_, i) => {
+    const n    = i + 1;
+    const asig = fotosPorSlide[n];
+    const foto = asig ? fotosDisponibles.find(f => f.nombre === asig) : null;
+    return `<div class="fps-slot ${asig ? 'asignada' : ''}" data-slot="${n}">
+      ${foto
+        ? `<img src="${foto.url}" class="fps-slot-img" alt="${asig}"><button class="fps-clear" data-slot="${n}">×</button>`
+        : `<span class="fps-num">0${n}</span>`
+      }
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.fps-slot').forEach(sl => {
+    sl.addEventListener('click', (e) => {
+      if (e.target.classList.contains('fps-clear')) return;
+      abrirFpsPicker(parseInt(sl.dataset.slot));
+    });
+  });
+  grid.querySelectorAll('.fps-clear').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      delete fotosPorSlide[parseInt(btn.dataset.slot)];
+      renderFpsSlots();
+    });
+  });
+}
+
+function abrirFpsPicker(slot) {
+  fpsSlotActivo = slot;
+  $('#fpsSlotLabel').textContent = `0${slot}`;
+  const pickerGrid = $('#fpsPickerGrid');
+  pickerGrid.innerHTML = fotosSeleccionadas.map(nombre => {
+    const foto = fotosDisponibles.find(f => f.nombre === nombre);
+    const url  = foto ? foto.url : `/fotos/${nombre}`;
+    const sel  = fotosPorSlide[slot] === nombre;
+    return `<div class="fps-pick-thumb ${sel ? 'selected' : ''}" data-nombre="${nombre}">
+      <img src="${url}" alt="${nombre}">
+      ${sel ? '<span class="foto-check">✓</span>' : ''}
+    </div>`;
+  }).join('');
+  pickerGrid.querySelectorAll('.fps-pick-thumb').forEach(th => {
+    th.addEventListener('click', () => {
+      fotosPorSlide[fpsSlotActivo] = th.dataset.nombre;
+      $('#fpsPicker').classList.add('hidden');
+      fpsSlotActivo = null;
+      renderFpsSlots();
+    });
+  });
+  $('#fpsPicker').classList.remove('hidden');
+}
+
 function collectRespuestas() {
   const respuestas = {};
   preguntasActuales.forEach(p => {
@@ -258,13 +323,20 @@ function collectRespuestas() {
       if (sel) respuestas[p.id] = sel.textContent;
     }
   });
-  if (Object.keys(rotacionesPendientes).length) respuestas.rotaciones = { ...rotacionesPendientes };
+  if (Object.keys(rotacionesPendientes).length) respuestas.rotaciones   = { ...rotacionesPendientes };
+  if (Object.keys(fotosPorSlide).length)        respuestas.fotosPorSlide = { ...fotosPorSlide };
   return respuestas;
 }
 
 async function dispararGenerar(respuestas = {}, instruccionesLibres = '') {
   setRunning(true);
-  const body = { tema: $('#temaInput').value.trim(), marca: marcaActual, respuestas, instruccionesLibres };
+  const body = {
+    tema: $('#temaInput').value.trim(),
+    marca: marcaActual,
+    model: $('#modelSelect').value,
+    respuestas,
+    instruccionesLibres
+  };
   if (fotosSeleccionadas.length) body.fotos = fotosSeleccionadas;
   const res = await fetch('/api/generar', {
     method: 'POST',

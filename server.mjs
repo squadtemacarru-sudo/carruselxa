@@ -197,6 +197,7 @@ app.post('/api/generar', async (req, res) => {
       if (instrLibres) instrLines.push(`Instrucción directa del usuario: "${instrLibres}"`);
       if (instrLines.length) extraEnv.USER_INSTRUCCIONES = instrLines.join('\n');
       if (respuestas.overlay !== undefined) extraEnv.USER_OVERLAY = String(respuestas.overlay);
+      if (req.body.model) extraEnv.USER_MODEL = req.body.model;
 
       // Rotaciones: resolver nombres a URLs reales (igual que fotos)
       const rotacionesResueltas = {};
@@ -209,6 +210,22 @@ app.post('/api/generar', async (req, res) => {
       const crearArgs = ['crear.mjs', tema, carpeta, marcaId];
       if (fotos.length) crearArgs.push(fotos.join(','));
       await runStep(crearArgs, extraEnv);
+
+      // Parchar fotos asignadas manualmente por slide (ignoramos lo que hizo la IA)
+      const fotosPorSlide = respuestas.fotosPorSlide || {};
+      if (Object.keys(fotosPorSlide).length) {
+        const contenidoPath = path.join(__dirname, carpeta, 'contenido.json');
+        const contenido = JSON.parse(await readFile(contenidoPath, 'utf-8'));
+        for (const [posStr, nombre] of Object.entries(fotosPorSlide)) {
+          const idx = parseInt(posStr) - 1;
+          if (contenido.slides[idx]) {
+            contenido.slides[idx].photo = fotosCloud.get(nombre) || nombre;
+            broadcast(`📌 Slide ${posStr} → ${nombre}\n`);
+          }
+        }
+        await writeFile(contenidoPath, JSON.stringify(contenido, null, 2), 'utf-8');
+      }
+
       await runStep(['analizar.mjs', `${carpeta}/contenido.json`], extraEnv);
       await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
       broadcast(`\n✅ Listo: ${carpeta}\n`);
@@ -348,38 +365,45 @@ app.post('/api/marcas/:id/logo', async (req, res) => {
 // Helpers IA — texto y visión
 // ─────────────────────────────────────────────────────────────────────
 
-async function callBlackboxText(promptText, maxTokens = 600) {
+const BB_FALLBACK_MODELS = [
+  'blackboxai/anthropic/claude-sonnet-4.6',
+  'blackboxai/anthropic/claude-sonnet-4.5',
+  'claude-3-5-sonnet-20241022',
+];
+
+async function bbFetch(body, attempt = 0) {
   const apiKey = process.env.BLACKBOX_API_KEY;
   if (!apiKey) throw new Error('Falta BLACKBOX_API_KEY');
-  const model = process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-sonnet-4.6';
-  const res = await fetch('https://api.blackbox.ai/chat/completions', {
+  const model = process.env.BLACKBOX_MODEL || BB_FALLBACK_MODELS[Math.min(attempt, BB_FALLBACK_MODELS.length - 1)];
+  const res  = await fetch('https://api.blackbox.ai/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: 'user', content: promptText }] })
+    body: JSON.stringify({ ...body, model })
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(`Blackbox: ${data.error?.message || JSON.stringify(data)}`);
+  if (!res.ok) {
+    const is429 = res.status === 429 || JSON.stringify(data).includes('RESOURCE_EXHAUSTED') || JSON.stringify(data).includes('429');
+    if (is429 && attempt < 3) {
+      const delay = [8000, 20000, 40000][attempt];
+      console.warn(`⏳ Rate limit servidor (intento ${attempt + 1}) — reintentando en ${delay / 1000}s...`);
+      await new Promise(r => setTimeout(r, delay));
+      return bbFetch(body, attempt + 1);
+    }
+    throw new Error(`Blackbox: ${data.error?.message || JSON.stringify(data)}`);
+  }
   return data.choices?.[0]?.message?.content || '';
 }
 
-async function callBlackboxVision(imageDataUrls, promptText) {
-  const apiKey = process.env.BLACKBOX_API_KEY;
-  if (!apiKey) throw new Error('Falta BLACKBOX_API_KEY');
-  const model = process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-sonnet-4.6';
+async function callBlackboxText(promptText, maxTokens = 600) {
+  return bbFetch({ max_tokens: maxTokens, messages: [{ role: 'user', content: promptText }] });
+}
 
+async function callBlackboxVision(imageDataUrls, promptText) {
   const content = [
     ...imageDataUrls.map(url => ({ type: 'image_url', image_url: { url, detail: 'high' } })),
     { type: 'text', text: promptText }
   ];
-
-  const res = await fetch('https://api.blackbox.ai/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: 'user', content }] })
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Blackbox vision: ${data.error?.message || JSON.stringify(data)}`);
-  return data.choices?.[0]?.message?.content || '';
+  return bbFetch({ max_tokens: 2000, messages: [{ role: 'user', content }] });
 }
 
 // GET — devuelve el contenido actual de referencias-ig.md
