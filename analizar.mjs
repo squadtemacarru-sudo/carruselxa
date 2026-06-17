@@ -925,10 +925,7 @@ function aplicarDecisiones(slide, analisis, sistema) {
   // Del análisis específico de la foto
   if (analisis) {
     // El overlay plano se suma al degradé direccional (--grad) en el render
-    // (dos capas oscuras apiladas) — por encima de ~0.6 el flat overlay solo
-    // ya deja la foto en <40% de visibilidad incluso en zonas "transparentes"
-    // del degradé, así que se cappea para que la foto no quede negra.
-    s._overlay        = Math.min(analisis.ajustes_foto?.overlay_ajustado ?? sistema.tratamiento_fotos?.overlay_base ?? 0.65, 0.6);
+    s._overlay        = Math.min(analisis.ajustes_foto?.overlay_ajustado ?? sistema.tratamiento_fotos?.overlay_base ?? 0.65, 0.82);
     s._gradiente      = analisis.ajustes_foto?.gradiente_ajustado ?? sistema.tratamiento_fotos?.gradiente_default ?? 'top_heavy';
     s._textPosition   = analisis.ajustes_texto?.posicion ?? 'top';
     s._textShadow     = analisis.ajustes_texto?.text_shadow ?? sistema.efectos?.text_shadow_default ?? 'medio';

@@ -92,20 +92,31 @@ function buildSlide(slide, idx, total) {
     section.insertBefore(bg, section.firstChild);
     section.classList.add('has-photo');
 
-    // Posición manual del texto (drag en el editor → _textY en %)
-    // Agrupa TODOS los elementos de contenido en un wrapper absoluto para
-    // que se muevan juntos sin que se superpongan entre sí.
+    // _textY posiciona el bloque de texto en slides con foto.
+    // Solo aplica a layouts compactos (cover, quote, cta) donde el contenido
+    // es un bloque único. Statement y list tienen su propia lógica CSS
+    // (space-between / flex-full) que funciona mejor que el wrap absoluto.
     if (slide._textY != null) {
-      const FIXED = new Set(['slide-bg', 'slide-tag', 'brand-logo', 'c-swipe', 'cta-footer']);
-      const toWrap = [...section.children].filter(c =>
-        ![...c.classList].some(cls => FIXED.has(cls))
-      );
-      if (toWrap.length) {
-        const wrap = document.createElement('div');
-        wrap.className = 'text-y-wrap';
-        wrap.style.cssText = `position:absolute;top:${slide._textY}%;left:0;right:0;transform:translateY(-50%);padding:var(--pad);box-sizing:border-box;display:flex;flex-direction:column;gap:var(--gap);`;
-        toWrap.forEach(c => wrap.appendChild(c));
-        section.appendChild(wrap);
+      const ly = layout || '';
+      const isCompact = ly.startsWith('cover') || ly.startsWith('quote') || ly.startsWith('cta');
+      if (isCompact) {
+        const FIXED = new Set(['slide-bg', 'slide-tag', 'brand-logo', 'c-swipe', 'cta-footer']);
+        const toWrap = [...section.children].filter(c =>
+          ![...c.classList].some(cls => FIXED.has(cls))
+        );
+        if (toWrap.length) {
+          const wrap = document.createElement('div');
+          wrap.className = 'text-y-wrap';
+          const ty = slide._textY;
+          // Anclar desde arriba si el texto va al top, desde abajo si va al bottom.
+          // Evita que bloques altos desborden sobre el sujeto de la foto.
+          const posStyle = ty <= 50
+            ? `top:${ty}%`
+            : `bottom:${100 - ty}%`;
+          wrap.style.cssText = `position:absolute;${posStyle};left:0;right:0;padding:var(--pad);box-sizing:border-box;display:flex;flex-direction:column;gap:var(--gap);`;
+          toWrap.forEach(c => wrap.appendChild(c));
+          section.appendChild(wrap);
+        }
       }
     }
   }
