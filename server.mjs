@@ -438,11 +438,18 @@ async function bbFetch(body, attempt = 0) {
 
   let res;
   try {
-    res = await fetch('https://api.blackbox.ai/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ ...body, model })
-    });
+    const ac = new AbortController();
+    const abortTimer = setTimeout(() => ac.abort(), 20000);
+    try {
+      res = await fetch('https://api.blackbox.ai/chat/completions', {
+        signal: ac.signal,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({ ...body, model })
+      });
+    } finally {
+      clearTimeout(abortTimer);
+    }
   } catch (netErr) {
     if (attempt < 3) {
       const delay = [3000, 8000, 15000][attempt];

@@ -158,21 +158,28 @@ async function callBlackbox(content, attempt = 0) {
 
   let response;
   try {
-    response = await fetch('https://api.blackbox.ai/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 3000,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content }
-        ]
-      })
-    });
+    const ac = new AbortController();
+    const abortTimer = setTimeout(() => ac.abort(), 20000);
+    try {
+      response = await fetch('https://api.blackbox.ai/chat/completions', {
+        signal: ac.signal,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 3000,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content }
+          ]
+        })
+      });
+    } finally {
+      clearTimeout(abortTimer);
+    }
   } catch (netErr) {
     // Timeout de red (UND_ERR_HEADERS_TIMEOUT, ECONNRESET, etc.) — reintentamos
     if (attempt < 3) {
