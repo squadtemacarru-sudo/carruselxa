@@ -75,6 +75,50 @@ async function loadMarca(marcaId) {
   }
 }
 
+function nivelConscienciaContext(nivel) {
+  const instrucciones = {
+    'unaware': `
+NIVEL DE CONSCIENCIA — UNAWARE (audiencia no sabe que tiene el problema):
+- NO menciones el producto ni la solución todavía
+- Arrancá con una observación de la realidad que el lector reconoce como propia
+- El cover debe hablar de su mundo, no del tuyo
+- Generá tensión cognitiva antes de mencionar cualquier solución
+- El CTA debe invitar a aprender más, no a comprar`,
+
+    'problem-aware': `
+NIVEL DE CONSCIENCIA — PROBLEM-AWARE (saben que tienen el problema, no conocen soluciones):
+- Nombrá el problema con precisión quirúrgica — que sientan "esto me está hablando a mí"
+- No empieces vendiendo: empezá validando la frustración
+- Podés mencionar que existe una solución en los últimos slides, sin detallarla
+- El CTA puede apuntar a descubrir más, no a comprar directo
+- Evitá sonar como si ya hubieras resuelto algo — todavía estás en el diagnóstico`,
+
+    'solution-aware': `
+NIVEL DE CONSCIENCIA — SOLUTION-AWARE (conocen soluciones pero no eligieron ninguna):
+- Asumí que ya saben que existen opciones — no expliques lo básico
+- Diferenciá: ¿por qué esta solución es distinta a las que ya vieron?
+- Atacá las objeciones típicas que tienen contra las opciones del mercado
+- Podés hablar del producto con más detalle
+- El CTA puede ser más directo: "escribinos", "agendá", "entrá"`,
+
+    'product-aware': `
+NIVEL DE CONSCIENCIA — PRODUCT-AWARE (conocen el producto pero no compraron):
+- Habladles como si ya te conocieran — no te presentes de nuevo
+- Atacá la razón por la que no se decidieron: precio, timing, duda puntual
+- Usá prueba social, resultados concretos, garantías
+- El copy puede ser más corto y directo — ya están calentados
+- CTA fuerte y sin fricción`,
+
+    'most-aware': `
+NIVEL DE CONSCIENCIA — MOST-AWARE (están listos para comprar, solo necesitan el empujón):
+- Directo al punto: oferta, beneficio clave, razón para actuar ahora
+- Mínima educación, máxima acción
+- CTA en el primer slide si es posible
+- Podés usar escasez, urgencia o bonos — con autenticidad, no como presión vacía`,
+  };
+  return instrucciones[nivel] || '';
+}
+
 function marcaContext(marca) {
   if (!marca) return '';
   return `
@@ -85,7 +129,7 @@ CONTEXTO DE MARCA (mantené coherencia con esto):
 - Posicionamiento: ${marca.posicionamiento}
 - Voz y tono: ${marca.voz}
 - Palabras/clichés a evitar: ${marca.evitar?.join(', ')}
-`;
+${nivelConscienciaContext(marca.nivel_consciencia)}`;
 }
 
 // Lee el frontmatter (name + description) de un skill .md sin cargar el cuerpo entero
@@ -155,6 +199,50 @@ async function loadSkills(tema) {
   return chosen.map(s => s.content).join('\n\n---\n\n');
 }
 
+// Lee los últimos N contenido.json de una marca para dar contexto de variedad a la IA
+async function loadMemoria(marcaId, limite = 5) {
+  try {
+    const tandasDir = path.join(__dirname, 'tandas');
+    const entries = await readdir(tandasDir, { withFileTypes: true });
+    const carpetas = entries
+      .filter(e => e.isDirectory())
+      .map(e => e.name)
+      .sort()
+      .reverse();
+
+    const resultados = [];
+    for (const carpeta of carpetas) {
+      if (resultados.length >= limite) break;
+      try {
+        const raw = await readFile(path.join(tandasDir, carpeta, 'contenido.json'), 'utf-8');
+        const c = JSON.parse(raw);
+        if (c._marca && c._marca !== marcaId) continue;
+        // Extraer tema del nombre de carpeta (formato: timestamp_slug)
+        const tema = carpeta.replace(/^\d+_/, '').replace(/-/g, ' ');
+        const tipos = (c.slides || []).map(s => s.type);
+        const titulos = (c.slides || [])
+          .filter(s => s.headline)
+          .map(s => s.headline.replace(/\\n/g, ' ').slice(0, 60))
+          .slice(0, 2);
+        resultados.push({ tema, tipos, titulos });
+      } catch { /* carpeta sin contenido.json o JSON inválido */ }
+    }
+    return resultados;
+  } catch {
+    return [];
+  }
+}
+
+function memoriaContext(memoria) {
+  if (!memoria.length) return '';
+  const items = memoria.map((m, i) =>
+    `${i + 1}. Tema: "${m.tema}" | Tipos usados: ${m.tipos.join(', ')}${m.titulos.length ? ` | Headlines: ${m.titulos.map(t => `"${t}"`).join(', ')}` : ''}`
+  ).join('\n');
+  return `\nCARRUSELES RECIENTES DE ESTA MARCA (últimos ${memoria.length}) — evitá repetir estructuras, tipos de slide consecutivos o ángulos de tema ya usados:
+${items}
+`;
+}
+
 // Carga notas de perfiles de IG de referencia (referencias-ig.md), si existen
 async function loadReferenciasIG(marcaId) {
   try {
@@ -219,34 +307,39 @@ Elegí 2-3 slides (de las 6) para que usen estas fotos con alguno de estos tipos
 El resto de las slides seguí el formato clásico de abajo, sin campo "photo".`;
 }
 
-async function generarContenido(tema, marca, skillsDocs, referenciasIG, fotos) {
+async function generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria) {
   const promptText = `Generá el contenido completo de un carrusel de Instagram de 6 slides sobre el siguiente tema.
 
 TEMA: ${tema}
 ${marcaContext(marca)}
-GUÍAS DE COPY (aplicá lo que tenga sentido para este tema, no todo a la fuerza):
+${memoriaContext(memoria)}GUÍAS DE COPY (aplicá lo que tenga sentido para este tema, no todo a la fuerza):
 ${skillsDocs}
 ${referenciasIG ? `\nESTILO DE REFERENCIA (notas sobre perfiles de IG que le gustan al cliente):\n${referenciasIG}\n` : ''}
 ${USER_INSTRUCCIONES ? `\nINSTRUCCIONES ESPECÍFICAS DEL USUARIO — PRIORIDAD MÁXIMA, seguí estas al pie de la letra:\n${USER_INSTRUCCIONES}\n` : ''}
 ${fotosContext(fotos)}
-Devolvé SOLO JSON (sin markdown) con este formato exacto:
+Devolvé SOLO JSON (sin markdown) con esta estructura:
 {
-  "overlay": 0.45,
-  "slides": [
-    { "type": "cover", "headline": "línea 1\\nlínea 2\\nlínea 3", "detail": "detalle corto\\nen 1-2 líneas", "kicker": "frase corta" },
-    { "type": "list", "eyebrow": "frase de contexto en mayúsculas", "items": ["ítem 1", "ítem 2", "ítem 3", "ítem 4", "ítem 5"] },
-    { "type": "statement", "headline": "afirmación\\ncorta y rotunda", "body": "desarrollo breve\\n\\ncon párrafos cortos" },
-    { "type": "split", "left": {"label": "ETIQUETA A", "items": ["ítem", "ítem", "ítem"]}, "right": {"label": "ETIQUETA B", "items": ["ítem", "ítem", "ítem"]} },
-    { "type": "quote", "quote": "“cita corta y potente”", "attr": "remate de la cita", "note": "nota breve que la conecta con SQUAD TEAM" },
-    { "type": "cta", "headline": "llamado\\na la acción", "sub": "una línea que invita\\na escribir por DM", "handle": "@squadteam.uy" }
-  ]
+  “overlay”: 0.45,
+  “slides”: [ /* 6 slides, elegí los tipos que mejor sirvan al tema */ ]
 }
 
-Tipos adicionales disponibles (usalos cuando agreguen impacto real al tema):
-- big_number: dato o estadística gigante. { "type": "big_number", "stat": "87%", "label": "DE LOS ATLETAS", "body": "una línea de contexto que explica el dato", "handle": "@marca" }
-- timeline: proceso paso a paso. { "type": "timeline", "eyebrow": "EL PROCESO", "headline": "CÓMO\\nFUNCIONA", "steps": [{"num":"01","text":"primer paso","detail":"detalle opcional"},{"num":"02","text":"segundo paso"},{"num":"03","text":"tercer paso"}] }
-- grid: 4 conceptos o beneficios en grilla 2×2. { "type": "grid", "headline": "LO QUE\\nGANÁS", "cells": [{"icon":"fitness_center","label":"FUERZA","text":"texto corto"},{"icon":"psychology","label":"ENFOQUE","text":"texto corto"},{"icon":"bolt","label":"ENERGÍA","text":"texto corto"},{"icon":"trending_up","label":"RESULTADO","text":"texto corto"}] }
-  IMPORTANTE: el campo "icon" del grid debe ser un nombre de Material Symbols (Google). Elegí el más representativo del concepto. Opciones: fitness_center, psychology, bolt, trending_up, restaurant, timer, water_drop, monitor_heart, nightlight, local_fire_department, sports, self_improvement, emoji_events, star, check_circle, rocket_launch, favorite, directions_run, speed, schedule, school, workspace_premium, shield, flag, groups, eco, nutrition, bedtime, mood, flash_on, whatshot
+TIPOS DE SLIDE disponibles — elegí el más adecuado para cada posición:
+
+Tipos base (siempre disponibles):
+- cover: portada. { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto\\nen 1-2 líneas”, “kicker”: “frase corta” }
+- list: lista de ítems. { “type”: “list”, “eyebrow”: “frase de contexto en mayúsculas”, “items”: [“ítem 1”, “ítem 2”, “ítem 3”, “ítem 4”, “ítem 5”] }
+- statement: afirmación desarrollada. { “type”: “statement”, “headline”: “afirmación\\ncorta y rotunda”, “body”: “desarrollo breve\\n\\ncon párrafos cortos” }
+- split: dos columnas comparativas. { “type”: “split”, “left”: {“label”: “ETIQUETA A”, “items”: [“ítem”, “ítem”, “ítem”]}, “right”: {“label”: “ETIQUETA B”, “items”: [“ítem”, “ítem”, “ítem”]} }
+- quote: cita o frase de autoridad. { “type”: “quote”, “quote”: “”cita corta y potente””, “attr”: “remate de la cita”, “note”: “nota breve que la conecta con la marca” }
+- cta: llamado a la acción final. { “type”: “cta”, “headline”: “llamado\\na la acción”, “sub”: “una línea que invita\\na escribir por DM”, “handle”: “@squadteam.uy” }
+
+Tipos de alto impacto visual — USÁ AL MENOS UNO cuando el tema lo permita:
+- big_number: cuando el tema tiene un dato o estadística fuerte que habla por sí solo. { “type”: “big_number”, “stat”: “87%”, “label”: “DE LOS ATLETAS”, “body”: “una línea de contexto que explica el dato”, “handle”: “@marca” }
+- timeline: cuando el tema explica un proceso, método o secuencia de pasos. { “type”: “timeline”, “eyebrow”: “EL PROCESO”, “headline”: “CÓMO\\nFUNCIONA”, “steps”: [{“num”:”01”,”text”:”primer paso”,”detail”:”detalle opcional”},{“num”:”02”,”text”:”segundo paso”},{“num”:”03”,”text”:”tercer paso”}] }
+- grid: cuando el tema presenta 4 beneficios, pilares o conceptos paralelos. { “type”: “grid”, “headline”: “LO QUE\\nGANÁS”, “cells”: [{“icon”:”fitness_center”,”label”:”FUERZA”,”text”:”texto corto”},{“icon”:”psychology”,”label”:”ENFOQUE”,”text”:”texto corto”},{“icon”:”bolt”,”label”:”ENERGÍA”,”text”:”texto corto”},{“icon”:”trending_up”,”label”:”RESULTADO”,”text”:”texto corto”}] }
+  IMPORTANTE: el campo “icon” del grid debe ser un nombre de Material Symbols (Google). Opciones: fitness_center, psychology, bolt, trending_up, restaurant, timer, water_drop, monitor_heart, nightlight, local_fire_department, sports, self_improvement, emoji_events, star, check_circle, rocket_launch, favorite, directions_run, speed, schedule, school, workspace_premium, shield, flag, groups, eco, nutrition, bedtime, mood, flash_on, whatshot
+
+Regla de estructura: el slide 1 siempre es “cover”, el slide 6 siempre es “cta”. Los 4 del medio son libres — combiná tipos base y de alto impacto según lo que mejor cuente el tema.
 ${fotos?.length ? '' : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
 Reglas generales:
 - El tema debe tratarse con un ángulo específico, no genérico.
@@ -273,6 +366,71 @@ Reglas generales:
   return contenido;
 }
 
+// ── Validación y corrección de contenido ─────────────────────────────────────
+// Evalúa el contenido generado en 3 dimensiones por slide:
+//   - especificidad: ángulo concreto vs. genérico
+//   - voz: alineado con tono y posicionamiento de la marca
+//   - clichés: usa palabras de la lista "evitar"
+// Slides que fallen en alguna dimensión se reescriben en la misma llamada.
+// Una sola llamada a la IA, ~600 tokens. No bloquea si la IA no devuelve JSON válido.
+
+async function scoreYCorregir(contenido, marca, tema) {
+  const evitar = marca.evitar?.length ? marca.evitar.join(', ') : null;
+  const slidesResumen = contenido.slides.map((s, i) => {
+    const textos = [s.headline, s.detail, s.body, s.quote, s.sub, s.kicker, s.eyebrow]
+      .filter(Boolean).map(t => t.replace(/\\n/g, ' ')).join(' | ');
+    return `Slide ${i + 1} (${s.type}): ${textos.slice(0, 200)}`;
+  }).join('\n');
+
+  const prompt = `Sos un editor de copy senior. Evaluá este carrusel de Instagram y corregí los slides que fallen.
+
+TEMA: ${tema}
+VOZ DE MARCA: ${marca.voz}
+POSICIONAMIENTO: ${marca.posicionamiento}
+${evitar ? `PALABRAS PROHIBIDAS (no deben aparecer en ningún slide): ${evitar}` : ''}
+
+SLIDES GENERADOS:
+${slidesResumen}
+
+Para cada slide, asigná:
+- "ok": true si el copy es específico, respeta la voz y no usa palabras prohibidas. false si falla en algo.
+- "problema": (solo si ok=false) qué falla en una línea: genérico / cliché / voz incorrecta / otro.
+- "fix": (solo si ok=false) reescribí SOLO el campo o campos que fallan, en el mismo formato JSON del slide original. Mantenés el type y todos los campos que no cambian.
+
+Devolvé SOLO JSON (sin markdown):
+{
+  "slides": [
+    { "idx": 0, "ok": true },
+    { "idx": 1, "ok": false, "problema": "usa 'transformación' (prohibida) y ángulo genérico", "fix": { "headline": "nuevo headline\\nen dos líneas" } },
+    ...
+  ]
+}`;
+
+  try {
+    const raw = await callBlackbox(prompt);
+    const result = JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));
+    const fixes = (result.slides || []).filter(s => !s.ok && s.fix);
+
+    if (!fixes.length) {
+      console.log('✅ Validación: copy OK en todos los slides.');
+      return contenido;
+    }
+
+    console.log(`⚡ Validación: corrigiendo ${fixes.length} slide(s)...`);
+    const slidesCorregidos = [...contenido.slides];
+    for (const { idx, problema, fix } of fixes) {
+      if (idx < 0 || idx >= slidesCorregidos.length) continue;
+      console.log(`   Slide ${idx + 1}: ${problema}`);
+      slidesCorregidos[idx] = { ...slidesCorregidos[idx], ...fix };
+    }
+    return { ...contenido, slides: slidesCorregidos };
+  } catch (err) {
+    // Si la validación falla por cualquier motivo, el pipeline sigue con el contenido original
+    console.warn(`⚠ Validación omitida: ${err.message}`);
+    return contenido;
+  }
+}
+
 async function main() {
   const tema = process.argv[2];
   if (!tema) {
@@ -282,13 +440,18 @@ async function main() {
   const marcaId = process.argv[4] || 'squadteam';
   const fotos = (process.argv[5] || '').split(',').map(f => f.trim()).filter(Boolean);
 
-  const marca = await loadMarca(marcaId);
-  const skillsDocs = await loadSkills(tema);
-  const referenciasIG = await loadReferenciasIG(marcaId);
+  const [marca, skillsDocs, referenciasIG, memoria] = await Promise.all([
+    loadMarca(marcaId),
+    loadSkills(tema),
+    loadReferenciasIG(marcaId),
+    loadMemoria(marcaId),
+  ]);
 
   console.log(`✍️  Generando contenido para: "${tema}" (marca: ${marcaId}${fotos.length ? `, ${fotos.length} foto(s)` : ''})...`);
   if (skillsDocs) console.log('📚 Skills de copy cargadas.');
-  const contenido = await generarContenido(tema, marca, skillsDocs, referenciasIG, fotos);
+  if (memoria.length) console.log(`🧠 Memoria: ${memoria.length} carrusel(es) previos cargados.`);
+  let contenido = await generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria);
+  contenido = await scoreYCorregir(contenido, marca, tema);
   contenido._marca = marcaId;
 
   const carpeta = process.argv[3]

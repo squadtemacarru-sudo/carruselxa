@@ -202,12 +202,13 @@ app.post('/api/generar', async (req, res) => {
       const extraEnv = {};
 
       const instrLines = [];
+      if (respuestas.cover_headline) instrLines.push(`El headline del slide 1 (cover) DEBE ser exactamente: "${respuestas.cover_headline}" — no lo cambies ni reescribas.`);
       if (respuestas.overlay !== undefined) instrLines.push(`El campo "overlay" del JSON DEBE ser exactamente ${respuestas.overlay}`);
       if (respuestas.texto_size === 'Compacto') instrLines.push('Texto compacto: podés incluir más detalle, frases de 6-10 palabras, párrafos cortos');
       else if (respuestas.texto_size === 'Grande') instrLines.push('Texto grande: headlines de máximo 4-5 palabras, evitá párrafos largos, priorizá impacto visual');
       if (respuestas.tono) instrLines.push(`Tono del copy: ${respuestas.tono}`);
       for (const [id, val] of Object.entries(respuestas)) {
-        if (['overlay', 'texto_size', 'tono', 'rotaciones'].includes(id)) continue;
+        if (['cover_headline', 'overlay', 'texto_size', 'tono', 'rotaciones'].includes(id)) continue;
         if (typeof val === 'string') instrLines.push(`${id.replace(/_/g, ' ')}: ${val}`);
       }
       if (instrLibres) instrLines.push(`Instrucción directa del usuario: "${instrLibres}"`);
@@ -600,30 +601,29 @@ app.post('/api/preguntar', async (req, res) => {
 
   const prompt = `Vas a generar un carrusel de Instagram de 6 slides para "${marca.nombre || marcaId}" sobre este tema: "${tema}"
 Industria: ${marca.industria || 'no especificada'}. Audiencia: ${marca.audiencia || 'no especificada'}.
+Voz de marca: ${marca.voz || 'no especificada'}.
 ${tieneFotos ? `Hay ${req.body.fotoUrls.length} foto(s) que se usarán como fondo en algunos slides.` : 'Es un carrusel 100% tipográfico (sin fotos de fondo).'}
 
-Hacé exactamente 3 preguntas muy específicas para personalizar el carrusel. Cada pregunta debe impactar directamente en el resultado.
+Hacé exactamente 4 preguntas para personalizar el carrusel:
 
-Tipos disponibles:
-- "opciones": el usuario elige entre 3-4 alternativas concretas
-- "slider": para valores numéricos — SOLO para overlay (oscuridad de la foto, min 0.2 max 0.8, default 0.45)
+PREGUNTA 1 — OBLIGATORIA: Titulares del cover. Escribí 3 versiones reales del headline del slide 1, con ángulos distintos. Son titulares listos para usar, no descripciones. Usá saltos de línea con \\n para cortar líneas como en un carrusel real. Formato:
+{"id":"cover_headline","pregunta":"¿Cómo arranca el carrusel?","tipo":"opciones","opciones":["headline 1\\ncon corte","headline 2\\ncon corte","headline 3\\ncon corte"],"default":"headline 1\\ncon corte"}
 
-Preguntas sugeridas (elegí las 3 más relevantes para ESTE tema):
-- Oscuridad del fondo de fotos (solo si hay fotos): tipo slider
-- Tamaño del texto en los titulares: tipo opciones, valores ["Compacto", "Normal", "Grande"], default "Normal"
+PREGUNTAS 2, 3 y 4 — elegí las más relevantes para este tema:
+- Oscuridad del fondo de fotos (solo si hay fotos): tipo slider, min 0.2 max 0.8 default 0.45
+- Tamaño del texto: tipo opciones, valores ["Compacto", "Normal", "Grande"], default "Normal"
 - Tono del copy: tipo opciones, elige 3 de ["Directo y corto", "Educativo y detallado", "Provocador", "Motivacional", "Técnico y preciso", "Conversacional"]
-- Ángulo del tema: tipo opciones, inventá 3 ángulos ESPECÍFICOS para este tema exacto (ej. para "errores en dieta" podría ser "Por qué los comete la gente", "Cómo identificarlos", "Cómo corregirlos")
-- Foco del primer slide: tipo opciones, valores concretos relacionados al tema
-- Estructura interna: tipo opciones, relacionada a cómo presentar la info de este tema
+- Ángulo de desarrollo: tipo opciones, 3 ángulos ESPECÍFICOS para este tema (no genéricos)
+- Estructura interna: tipo opciones, relacionada a cómo presentar la info
 
-Respondé SOLO con un JSON array de exactamente 3 objetos. Sin markdown, sin explicaciones.
-Formato opciones: {"id":"tono","pregunta":"¿Qué tono?","tipo":"opciones","opciones":["A","B","C"],"default":"A"}
+Respondé SOLO con un JSON array de exactamente 4 objetos. Sin markdown, sin explicaciones.
 Formato slider: {"id":"overlay","pregunta":"¿Qué tan oscuro?","tipo":"slider","min":0.2,"max":0.8,"step":0.05,"default":0.45,"label_min":"Claro","label_max":"Oscuro"}`;
 
   const FALLBACK = [
+    { id: 'cover_headline', pregunta: '¿Cómo arranca el carrusel?', tipo: 'opciones', opciones: ['Opción A', 'Opción B', 'Opción C'], default: 'Opción A' },
     { id: 'tono', pregunta: '¿Qué tono querés para el copy?', tipo: 'opciones', opciones: ['Directo y corto', 'Educativo y detallado', 'Provocador'], default: 'Directo y corto' },
     { id: 'texto_size', pregunta: '¿Tamaño del texto en los titulares?', tipo: 'opciones', opciones: ['Compacto', 'Normal', 'Grande'], default: 'Normal' },
-    ...(tieneFotos ? [{ id: 'overlay', pregunta: '¿Qué tan oscuro el fondo de las fotos?', tipo: 'slider', min: 0.2, max: 0.8, step: 0.05, default: 0.45, label_min: 'Claro (foto visible)', label_max: 'Oscuro (texto prioritario)' }] : [{ id: 'foco_cover', pregunta: '¿Cómo arrancás el primer slide?', tipo: 'opciones', opciones: ['Afirmación rotunda', 'Pregunta que enganche', 'Dato o estadística'], default: 'Afirmación rotunda' }])
+    ...(tieneFotos ? [{ id: 'overlay', pregunta: '¿Qué tan oscuro el fondo de las fotos?', tipo: 'slider', min: 0.2, max: 0.8, step: 0.05, default: 0.45, label_min: 'Claro (foto visible)', label_max: 'Oscuro (texto prioritario)' }] : [{ id: 'angulo', pregunta: '¿Desde qué ángulo encarás el tema?', tipo: 'opciones', opciones: ['Afirmación rotunda', 'Pregunta que enganche', 'Dato o estadística'], default: 'Afirmación rotunda' }])
   ];
 
   try {
@@ -711,19 +711,37 @@ Voz: ${marca.voz || 'directa y cercana'}.
 Este es el resumen del carrusel que acabás de crear:
 ${resumen}
 
-Escribí un caption para Instagram que acompañe este carrusel. Tiene que tener:
-1. Una primera línea GANCHO (máximo 10 palabras, que detenga el scroll)
-2. 2-4 líneas de cuerpo que desarrollen el tema con valor real
-3. Una línea de CTA clara y directa
-4. Un salto de línea y luego 20-25 hashtags relevantes (en minúsculas, sin espacios entre #)
+Escribí 3 variantes de caption para Instagram que acompañen este carrusel. Cada variante tiene un estilo distinto:
+
+1. hook_corto: Primera línea gancho (máx 10 palabras, que detenga el scroll) + 2 líneas de cuerpo con valor real + CTA directa + salto de línea + 20-25 hashtags relevantes en minúsculas.
+2. storytelling: Narrativa en 3 párrafos cortos que desarrollan el tema del carrusel + CTA sutil al final + salto de línea + 20-25 hashtags relevantes en minúsculas.
+3. lista_valor: Bullet points (con guión) con los puntos clave del carrusel + una pregunta de engagement al final + salto de línea + 20-25 hashtags relevantes en minúsculas.
 
 Idioma: español rioplatense (vos, usás, etc).
 Sin emojis a menos que sean muy naturales. Sin frases genéricas ni motivacionales vacías.
-Devolvé SOLO el caption, sin explicaciones ni comillas.`;
+
+Devolvé ÚNICAMENTE un objeto JSON válido con esta estructura, sin explicaciones ni texto extra antes ni después:
+{
+  "variantes": [
+    { "tipo": "hook_corto", "label": "Hook corto", "caption": "..." },
+    { "tipo": "storytelling", "label": "Storytelling", "caption": "..." },
+    { "tipo": "lista_valor", "label": "Lista de valor", "caption": "..." }
+  ]
+}`;
 
   try {
-    const caption = await callBlackboxText(prompt, 800);
-    res.json({ caption: caption.trim() });
+    const raw = await callBlackboxText(prompt, 1800);
+    let variantes;
+    try {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+      variantes = parsed.variantes;
+      if (!Array.isArray(variantes) || variantes.length === 0) throw new Error('variantes inválidas');
+    } catch {
+      // Fallback: usar el texto plano como única variante
+      variantes = [{ tipo: 'hook_corto', label: 'Hook corto', caption: raw.trim() }];
+    }
+    res.json({ variantes, caption: variantes[0].caption });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -937,9 +955,6 @@ app.delete('/api/fotos/:nombre', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────
 // Editor visual — sirve el template ensamblado con _editMode:true
 // ─────────────────────────────────────────────────────────────────────
-function isValidTandaId(id) {
-  return typeof id === 'string' && /^[a-z0-9_-]+$/i.test(id);
-}
 
 app.get('/api/tandas/:id/template-html', async (req, res) => {
   const { id } = req.params;
@@ -1035,6 +1050,51 @@ app.post('/api/tandas/:id/save-overrides', async (req, res) => {
       jobRunning = false;
     }
   })();
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Preview en vivo — integrado al server principal (antes era preview-server.mjs
+// corriendo en el puerto 5390). analizar.mjs --preview hace POST a /preview/broadcast
+// y los clientes se conectan a /preview/events via SSE.
+// Uso: node analizar.mjs <contenido.json> --preview
+//      Abrí http://localhost:<PORT>/preview en el browser mientras corre
+// ─────────────────────────────────────────────────────────────────────
+let previewHistory = [];
+const previewClients = new Set();
+
+app.get('/preview', async (req, res) => {
+  try {
+    const html = await readFile(path.join(__dirname, 'preview.html'), 'utf-8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch { res.status(404).send('preview.html no encontrado'); }
+});
+
+app.get('/preview/styles.css', async (req, res) => {
+  try {
+    const tpl = await readFile(path.join(__dirname, 'template.html'), 'utf-8');
+    const match = tpl.match(/<style>([\s\S]*?)<\/style>/);
+    res.setHeader('Content-Type', 'text/css; charset=utf-8');
+    res.send(match ? match[1] : '');
+  } catch { res.status(404).send(''); }
+});
+
+app.get('/preview/events', (req, res) => {
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+  res.flushHeaders();
+  res.write('\n');
+  previewClients.add(res);
+  for (const ev of previewHistory) res.write(`data: ${JSON.stringify(ev)}\n\n`);
+  req.on('close', () => previewClients.delete(res));
+});
+
+app.post('/preview/broadcast', express.json(), (req, res) => {
+  const event = req.body;
+  if (event?.type === 'reset') previewHistory = [];
+  previewHistory.push(event);
+  const payload = `data: ${JSON.stringify(event)}\n\n`;
+  for (const client of previewClients) { try { client.write(payload); } catch {} }
+  res.status(204).end();
 });
 
 const PORT = process.env.PORT || 3000;

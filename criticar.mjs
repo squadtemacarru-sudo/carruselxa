@@ -61,6 +61,55 @@ Reglas estrictas:
   return data.choices?.[0]?.message?.content?.trim() || null;
 }
 
+async function callVisionCoherencia(imageDataUrls) {
+  const apiKey = process.env.BLACKBOX_API_KEY;
+  if (!apiKey || !imageDataUrls.length) return null;
+
+  const prompt = `Sos director de arte senior. Estás viendo los ${imageDataUrls.length} slides de un carrusel de Instagram en orden.
+
+Analizá la coherencia visual entre slides y detectá estos problemas específicos:
+1. FONDOS REPETIDOS: ¿Hay 3 o más slides consecutivos con el mismo tono de fondo (todos muy oscuros, todos muy claros, o todos del mismo color dominante)?
+2. SLIDE VACÍO O SOBRECARGADO: ¿Algún slide parece visualmente vacío o demasiado denso comparado con los demás?
+3. PESO VISUAL BRUSCO: ¿Hay un salto demasiado brusco de peso visual entre slides adyacentes (ej: slide muy cargado seguido de uno casi vacío)?
+
+Si TODO está bien → devolvé exactamente: { "ok": true }
+
+Si hay un problema CLARO → devolvé SOLO este JSON:
+{
+  "ok": false,
+  "problemas": [
+    { "slides": [1,2,3], "tipo": "fondos_repetidos", "sugerencia": "variar paleta en slides 2-3" }
+  ]
+}
+
+Reglas:
+- Los slides están numerados desde 1.
+- Solo reportá problemas CLAROS y OBVIOS. Ante la duda → { "ok": true }
+- No reportes problemas de texto, legibilidad ni composición individual — solo coherencia entre slides.`;
+
+  const imageContent = imageDataUrls.map(url => ({
+    type: 'image_url',
+    image_url: { url, detail: 'low' }
+  }));
+
+  const res = await fetch('https://api.blackbox.ai/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-sonnet-4.6',
+      max_tokens: 300,
+      messages: [{ role: 'user', content: [
+        ...imageContent,
+        { type: 'text', text: prompt }
+      ]}]
+    })
+  });
+
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content?.trim() || null;
+}
+
 async function main() {
   const contentFile = process.argv[2];
   if (!contentFile) return;
@@ -153,6 +202,51 @@ async function main() {
     console.log('  → Ajustes aplicados — el server re-renderizará');
   } else {
     console.log('  ✓ Ajustes mínimos, no re-renderiza');
+  }
+
+  // --- Análisis de coherencia entre los 6 slides ---
+  try {
+    const outputDir = path.join(baseDir, 'output');
+    const slideUrls = [];
+    for (let i = 1; i <= 6; i++) {
+      const slidePath = path.join(outputDir, `slide-0${i}.png`);
+      let slideBuf;
+      try { slideBuf = await readFile(slidePath); } catch { continue; }
+      const resizedSlide = await sharp(slideBuf).resize({ width: 360 }).jpeg({ quality: 70 }).toBuffer();
+      slideUrls.push(`data:image/jpeg;base64,${resizedSlide.toString('base64')}`);
+    }
+
+    if (slideUrls.length > 1) {
+      console.log(`\n🎨 Analizando coherencia de ${slideUrls.length} slides...`);
+      let rawCoh;
+      try { rawCoh = await callVisionCoherencia(slideUrls); } catch { rawCoh = null; }
+
+      if (rawCoh && rawCoh.includes('{')) {
+        let cohResult;
+        try {
+          const cleanedCoh = rawCoh.replace(/```json|```/g, '').trim();
+          cohResult = JSON.parse(cleanedCoh);
+        } catch { cohResult = null; }
+
+        if (cohResult && cohResult.ok === false && Array.isArray(cohResult.problemas)) {
+          for (const p of cohResult.problemas) {
+            console.log(`🎨 Coherencia: slides [${p.slides.join(',')}] — ${p.tipo} → ${p.sugerencia}`);
+          }
+          // Agregar al critique.json existente sin cambiar el campo changed
+          let flagData = { changed: false };
+          try {
+            const existing = await readFile(flagFile, 'utf-8');
+            flagData = JSON.parse(existing);
+          } catch { /* usar default */ }
+          flagData.coherencia = { problemas: cohResult.problemas };
+          await writeFile(flagFile, JSON.stringify(flagData, null, 2), 'utf-8');
+        } else if (cohResult && cohResult.ok === true) {
+          console.log('🎨 Coherencia: sin problemas entre slides');
+        }
+      }
+    }
+  } catch {
+    // Falló el análisis de coherencia — ignorar silenciosamente
   }
 }
 

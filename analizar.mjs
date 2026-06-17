@@ -21,17 +21,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MAX_BYTES = 5 * 1024 * 1024; // límite de la API para imágenes en base64
 
 // ─────────────────────────────────────────────────────────────────────
-// PREVIEW EN VIVO — si se pasa --preview, cada fase emite eventos a
-// preview-server.mjs (debe estar corriendo en paralelo) vía HTTP POST.
+// PREVIEW EN VIVO — si se pasa --preview, cada fase emite eventos al server
+// principal vía HTTP POST. El preview está integrado en server.mjs en /preview.
 // Si el servidor no está levantado, los POST fallan en silencio.
 // ─────────────────────────────────────────────────────────────────────
 const PREVIEW = process.argv.includes('--preview');
-const PREVIEW_PORT = process.env.PREVIEW_PORT || 5390;
+// PREVIEW_PORT sigue funcionando para el preview-server.mjs standalone (legacy).
+// PORT apunta al server principal cuando está corriendo.
+const PREVIEW_PORT = process.env.PORT || process.env.PREVIEW_PORT || 3000;
 const USER_FONT_PAIR = process.env.USER_FONT_PAIR || '';
 
 function broadcast(type, payload) {
   if (!PREVIEW) return;
-  fetch(`http://localhost:${PREVIEW_PORT}/broadcast`, {
+  fetch(`http://localhost:${PREVIEW_PORT}/preview/broadcast`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type, payload }),
@@ -1185,7 +1187,7 @@ async function main() {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('  CARRUSEL DESIGNER — IA v3');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-  if (PREVIEW) console.log(`👁  Preview en vivo activado → http://localhost:${PREVIEW_PORT}\n`);
+  if (PREVIEW) console.log(`👁  Preview en vivo activado → http://localhost:${PREVIEW_PORT}/preview\n`);
 
   broadcast('reset', {});
 
@@ -1215,7 +1217,8 @@ async function main() {
   broadcast('status', { message: `🎭 Modelo visual: ${modelo.toUpperCase()}` });
 
   // FASE 3: analizar cada slide
-  const tiposNuevos = ['split_v', 'full_impact', 'before_after', 'triple_v'];
+  // big_number, timeline y grid también son tipos con layout propio — solo necesitan _sistema
+  const tiposNuevos = ['split_v', 'full_impact', 'before_after', 'triple_v', 'big_number', 'timeline', 'grid'];
   console.log(`\n🎨 Analizando ${slidesAdaptadas.length} slides...\n`);
   const slidesFinales = [];
 

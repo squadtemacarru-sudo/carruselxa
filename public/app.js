@@ -910,6 +910,50 @@ let editorContenido = null;
 let editorSlideIdx  = 0;
 let editorTs        = Date.now();
 
+// ── Undo / Redo ──────────────────────────────────────
+const UNDO_LIMIT = 30;
+let undoStack = [];  // snapshots anteriores
+let redoStack = [];  // snapshots descartados por nuevas acciones
+
+function saveSnapshot() {
+  undoStack.push(JSON.stringify(editorContenido));
+  if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+  redoStack = [];
+  updateUndoButtons();
+}
+
+function updateUndoButtons() {
+  const btnUndo = document.getElementById('btnUndo');
+  const btnRedo = document.getElementById('btnRedo');
+  if (btnUndo) btnUndo.disabled = undoStack.length === 0;
+  if (btnRedo) btnRedo.disabled = redoStack.length === 0;
+}
+
+function applyHistoryState(snapshot) {
+  editorContenido = JSON.parse(snapshot);
+  renderEditorChips();
+  renderEditorSlide(editorSlideIdx);
+  updateUndoButtons();
+}
+
+function editorUndo() {
+  if (!undoStack.length) return;
+  redoStack.push(JSON.stringify(editorContenido));
+  applyHistoryState(undoStack.pop());
+}
+
+function editorRedo() {
+  if (!redoStack.length) return;
+  undoStack.push(JSON.stringify(editorContenido));
+  applyHistoryState(redoStack.pop());
+}
+
+document.addEventListener('keydown', e => {
+  if (!editorContenido) return;
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); editorUndo(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); editorRedo(); }
+});
+
 async function editarTanda(tandaId) {
   editorTandaId = tandaId;
   try {
@@ -922,6 +966,8 @@ async function editarTanda(tandaId) {
   }
   editorSlideIdx = 0;
   editorTs       = Date.now();
+  undoStack = [];
+  redoStack = [];
   $('#editorLog').textContent = '';
   $('#editorLog').classList.add('hidden');
   $('#editorStatus').textContent = '';
@@ -979,6 +1025,7 @@ function renderEditorSlide(idx) {
 
     let dragging = false, startY = 0, startTopPx = 0;
     band.addEventListener('pointerdown', e => {
+      saveSnapshot();
       dragging    = true;
       startY      = e.clientY;
       startTopPx  = (parseFloat(band.style.top) / 100) * wrap.offsetHeight;
@@ -1092,13 +1139,17 @@ function renderEditorSlide(idx) {
     activeFields.forEach(({ key }) => {
       const el = document.getElementById(`ctrlText_${key}`);
       if (!el) return;
+      el.addEventListener('focus', saveSnapshot, { once: true });
       el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; });
     });
     if (hasItems) {
       const el = document.getElementById('ctrlText_items');
-      if (el) el.addEventListener('input', () => {
-        editorContenido.slides[editorSlideIdx].items = el.value.split('\n').filter(l => l.trim());
-      });
+      if (el) {
+        el.addEventListener('focus', saveSnapshot, { once: true });
+        el.addEventListener('input', () => {
+          editorContenido.slides[editorSlideIdx].items = el.value.split('\n').filter(l => l.trim());
+        });
+      }
     }
   }
 
@@ -1107,12 +1158,20 @@ function renderEditorSlide(idx) {
     const el = document.getElementById(id);
     const vl = document.getElementById(valId);
     if (!el) return;
-    const ev = el.tagName === 'SELECT' ? 'change' : 'input';
-    el.addEventListener(ev, () => {
-      const v = el.tagName === 'SELECT' ? el.value : parseFloat(el.value);
-      update(v);
-      if (vl) vl.textContent = fmt(v);
-    });
+    if (el.tagName === 'SELECT') {
+      el.addEventListener('change', () => {
+        saveSnapshot();
+        update(el.value);
+      });
+    } else {
+      // Slider: snapshot en mousedown (antes de que empiece a cambiar)
+      el.addEventListener('mousedown', saveSnapshot, { once: false });
+      el.addEventListener('input', () => {
+        const v = parseFloat(el.value);
+        update(v);
+        if (vl) vl.textContent = fmt(v);
+      });
+    }
   };
 
   bind('ctrlGlobalOv', 'ctrlGlobalOvVal', v => { editorContenido.overlay = v; });
@@ -1122,6 +1181,8 @@ function renderEditorSlide(idx) {
 }
 
 $('#editorClose').addEventListener('click', () => $('#modalEditor').classList.add('hidden'));
+$('#btnUndo').addEventListener('click', editorUndo);
+$('#btnRedo').addEventListener('click', editorRedo);
 
 $('#btnRerenderizar').addEventListener('click', async () => {
   const btn = $('#btnRerenderizar');

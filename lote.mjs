@@ -55,6 +55,20 @@ async function main() {
     const generar = spawnSync('node', ['generar.mjs', `${carpeta}/contenido.analizado.json`], { cwd: __dirname, stdio: 'inherit' });
     if (generar.status !== 0) continue;
 
+    // Autocrítica visual — detecta problemas y escribe critique.json
+    const criticar = spawnSync('node', ['criticar.mjs', `${carpeta}/contenido.analizado.json`], { cwd: __dirname, stdio: 'inherit' });
+    if (criticar.status === 0) {
+      // Si la autocrítica detectó cambios, re-renderizar
+      try {
+        const { readFileSync } = await import('node:fs');
+        const flag = JSON.parse(readFileSync(path.join(__dirname, carpeta, 'output', 'critique.json'), 'utf-8'));
+        if (flag.changed) {
+          console.log('  → Re-renderizando tras autocrítica...');
+          spawnSync('node', ['generar.mjs', `${carpeta}/contenido.analizado.json`], { cwd: __dirname, stdio: 'inherit' });
+        }
+      } catch { /* critique.json no existe o no es válido — ignorar */ }
+    }
+
     console.log(`\n✅ ${carpeta}/output listo`);
 
     if (Date.now() >= limite) break;

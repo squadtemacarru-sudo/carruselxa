@@ -1,7 +1,59 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
+
+// ── Caché local de Google Fonts ───────────────────────────────────────────────
+// Intercepta requests a fonts.googleapis.com y fonts.gstatic.com en Puppeteer.
+// Primera vez: descarga y guarda en font-cache/. Siguientes renders: sirve disco.
+// Elimina latencia de red y variabilidad entre renders.
+
+const FONT_CACHE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'font-cache');
+await mkdir(FONT_CACHE_DIR, { recursive: true });
+
+function urlToCacheKey(url) {
+  // Convierte la URL en nombre de archivo seguro para el sistema de archivos
+  return url.replace(/^https?:\/\//, '').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+}
+
+async function fetchAndCache(url) {
+  const key  = urlToCacheKey(url);
+  const file = path.join(FONT_CACHE_DIR, key);
+  try {
+    await access(file);
+    return { body: await readFile(file), fromCache: true };
+  } catch {
+    // No está en caché — descargamos
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36' }
+    });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    await writeFile(file, buf);
+    return { body: buf, fromCache: false };
+  }
+}
+
+async function enableFontCache(page) {
+  await page.setRequestInterception(true);
+  page.on('request', async (req) => {
+    const url = req.url();
+    if (!url.includes('fonts.googleapis.com') && !url.includes('fonts.gstatic.com')) {
+      req.continue();
+      return;
+    }
+    try {
+      const result = await fetchAndCache(url);
+      if (!result) { req.continue(); return; }
+      const contentType = url.includes('.woff2') ? 'font/woff2'
+        : url.includes('.woff') ? 'font/woff'
+        : 'text/css; charset=utf-8';
+      req.respond({ status: 200, contentType, body: result.body });
+    } catch {
+      req.continue();
+    }
+  });
+}
 
 async function uploadToCloudinary(filePath, folder) {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -154,6 +206,7 @@ async function main() {
   await writeFile(tmpHtml, html, 'utf-8');
 
   const page = await browser.newPage();
+  await enableFontCache(page);
   await page.setViewport({ width: 1080, height: 1350, deviceScaleFactor: 2 });
   await page.goto(`file://${tmpHtml}`, { waitUntil: 'networkidle0' });
 
