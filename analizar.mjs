@@ -439,6 +439,14 @@ ${referencias?.length ? 'Te paso además imágenes de carruseles que le gustaron
 TIPOGRAFÍA — elegí EXACTAMENTE UNO de estos pares validados (devolvé solo el id):
 ${FONT_PAIRS_INDEX}
 
+VARIEDAD VISUAL — el carrusel NO debe verse uniforme. Cada tipo de slide tiene un tratamiento distinto:
+- Cover (portada): headline enorme, foto con overlay suave, impacto máximo
+- Listas/pasos: fondo plano con color de acento, tipografía en dos pesos (display bold + body regular)
+- Big number / stat: número gigante como elemento gráfico, foto secundaria o fondo minimal
+- Split_v (antes/después): texto compacto que NO tape la figura, overlay mínimo
+- Quote / cierre: peso tipográfico diferente (italic o light), mucho aire, composición centrada
+Las reglas de estilo deben prescribir estas diferencias, no aplicar el mismo tratamiento en todo.
+
 Para iconos, elegí caracteres Unicode específicos (no librerías externas).
 Para colores, dá hex exactos.
 
@@ -987,7 +995,7 @@ function aplicarDecisiones(slide, analisis, sistema) {
   // Del análisis específico de la foto
   if (analisis) {
     // El overlay plano se suma al degradé direccional (--grad) en el render
-    s._overlay        = Math.min(analisis.ajustes_foto?.overlay_ajustado ?? sistema.tratamiento_fotos?.overlay_base ?? 0.65, 0.68);
+    s._overlay        = Math.min(analisis.ajustes_foto?.overlay_ajustado ?? sistema.tratamiento_fotos?.overlay_base ?? 0.50, 0.55);
     s._gradiente      = analisis.ajustes_foto?.gradiente_ajustado ?? sistema.tratamiento_fotos?.gradiente_default ?? 'top_heavy';
     s._textPosition   = analisis.ajustes_texto?.posicion ?? 'top';
     s._textShadow     = analisis.ajustes_texto?.text_shadow ?? sistema.efectos?.text_shadow_default ?? 'medio';
