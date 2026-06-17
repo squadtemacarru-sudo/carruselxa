@@ -255,6 +255,15 @@ function sanitizeJson(text) {
 // La IA elige el ID; nosotros inyectamos las URLs reales.
 // ─────────────────────────────────────────────────────────────────────
 const FONT_PAIRS = {
+  'barlow-condensed-black': {
+    mood: 'fitness extremo, impacto hero, headlines multi-color, referencias Instagram virales',
+    estilos: ['editorial_brutal', 'street_urban', 'coaching_premium'],
+    tipografia: {
+      display: { familia: 'Barlow Condensed', url_import: 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,800;0,900;1,700&display=swap', pesos: [700,800,900], uso: 'headlines ultra-condensed impact', css_headline: "font-family:'Barlow Condensed',sans-serif;font-weight:900;letter-spacing:0.01em;text-transform:uppercase;" },
+      body:    { familia: 'Barlow', url_import: 'https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap', pesos: [400,500,600,700], uso: 'cuerpo bold', css_body: "font-family:'Barlow',sans-serif;font-weight:600;" },
+      mono:    { familia: 'Barlow', url_import: null, uso: 'tags, datos' }
+    }
+  },
   'bebas-inter': {
     mood: 'editorial brutalista, fitness, impacto, uppercase bold',
     estilos: ['editorial_brutal', 'street_urban'],
@@ -438,6 +447,8 @@ ${referencias?.length ? 'Te paso además imágenes de carruseles que le gustaron
 
 TIPOGRAFÍA — elegí EXACTAMENTE UNO de estos pares validados (devolvé solo el id):
 ${FONT_PAIRS_INDEX}
+
+REGLA DE TIPOGRAFÍA PARA FITNESS/COACHING: Si el estilo_visual_ideal es editorial_brutal, street_urban, coaching_premium, o photo_lifestyle con tono agresivo/directo/motivacional, SIEMPRE elegí uno de estos: barlow-condensed-black, oswald-dm, anton-inter, bebas-inter, barlow-barlow. Nunca elijas space-space, syne-inter, dm-serif-dm, ni playfair-dm para contenido fitness activo — esos son para coaching premium femenino o lifestyle suave.
 
 VARIEDAD VISUAL — el carrusel NO debe verse uniforme. Cada tipo de slide tiene un tratamiento distinto:
 - Cover (portada): headline enorme, foto con overlay suave, impacto máximo
