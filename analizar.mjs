@@ -89,8 +89,9 @@ async function fetchToBase64(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`No se pudo descargar foto: ${url}`);
   let buf = Buffer.from(await res.arrayBuffer());
-  const ext  = url.split('?')[0].split('.').pop().toLowerCase();
-  let mime = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext] || 'image/jpeg';
+  // Detectar formato real con sharp — la URL puede decir .png pero ser JPEG
+  const { format } = await sharp(buf).metadata();
+  let mime = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[format] || 'image/jpeg';
   if (Buffer.byteLength(buf.toString('base64')) > MAX_BYTES) {
     buf  = await sharp(buf).resize({ width: 1568, withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
     mime = 'image/jpeg';
