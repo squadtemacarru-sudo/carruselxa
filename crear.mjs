@@ -15,6 +15,9 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const withTimeout = (ms, promise, fallback) =>
+  Promise.race([promise, new Promise(res => setTimeout(() => res(fallback), ms))]);
+
 const USER_INSTRUCCIONES = process.env.USER_INSTRUCCIONES || '';
 const USER_OVERLAY = process.env.USER_OVERLAY != null && process.env.USER_OVERLAY !== '' ? parseFloat(process.env.USER_OVERLAY) : null;
 
@@ -62,7 +65,7 @@ async function callBlackbox(content, attempt = 0) {
   } catch {
     const preview = rawText.slice(0, 300).replace(/\n/g, ' ');
     if (attempt < 3) {
-      const delay = [8000, 20000, 40000][attempt];
+      const delay = [3000, 8000, 15000][attempt];
       console.warn(`⏳ Respuesta no-JSON de Blackbox (intento ${attempt + 1}, status ${response.status}) — reintentando en ${delay / 1000}s...`);
       console.warn(`   Preview: ${preview}`);
       await new Promise(r => setTimeout(r, delay));
@@ -75,7 +78,7 @@ async function callBlackbox(content, attempt = 0) {
     const body = JSON.stringify(data);
     const is429 = response.status === 429 || body.includes('RESOURCE_EXHAUSTED') || body.includes('429');
     if (is429 && attempt < 3) {
-      const delay = [8000, 20000, 40000][attempt];
+      const delay = [3000, 8000, 15000][attempt];
       console.warn(`⏳ Rate limit (intento ${attempt + 1}) — reintentando en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return callBlackbox(content, attempt + 1);
@@ -208,7 +211,7 @@ async function loadSkills(tema) {
   let chosen = allSkills;
   if (tema && allSkills.length > 4) {
     console.log('🧠 Seleccionando metodologías relevantes para el tema...');
-    const selectedNames = await selectSkills(tema, allSkills);
+    const selectedNames = await withTimeout(12000, selectSkills(tema, allSkills), allSkills.map(s => s.name));
     const filtered = allSkills.filter(s => selectedNames.includes(s.name));
     chosen = filtered.length >= 2 ? filtered : allSkills.slice(0, 4);
     console.log(`   → Skills elegidas: ${chosen.map(s => s.name).join(', ')}`);
@@ -469,7 +472,7 @@ async function main() {
   if (skillsDocs) console.log('📚 Skills de copy cargadas.');
   if (memoria.length) console.log(`🧠 Memoria: ${memoria.length} carrusel(es) previos cargados.`);
   let contenido = await generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria);
-  contenido = await scoreYCorregir(contenido, marca, tema);
+  contenido = await withTimeout(20000, scoreYCorregir(contenido, marca, tema), contenido);
   contenido._marca = marcaId;
 
   const carpeta = process.argv[3]
