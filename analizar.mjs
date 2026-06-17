@@ -503,36 +503,86 @@ Devolvé SOLO JSON (sin markdown):
     ? [...referencias.map(r => ({ type: 'image_url', image_url: { url: `data:${r.mime};base64,${r.base64}` } })), { type: 'text', text: promptText }]
     : promptText;
 
-  const text = await callBlackbox(content);
+  // Prompt alternativo — más arriesgado/experimental para forzar variedad
+  const promptVariante = promptText.replace(
+    'Definí el sistema de diseño COMPLETO y ESPECÍFICO. Sé milimétrico, no genérico.',
+    'Definí el sistema de diseño COMPLETO. Tomá el camino MÁS ARRIESGADO y visualmente DISRUPTIVO — paleta inesperada, contraste extremo, tipografía que nadie elegiría por defecto. El objetivo: que este carrusel se vea totalmente diferente al 95% del contenido de fitness en Instagram.'
+  );
+  const contentVariante = referencias?.length
+    ? [...referencias.map(r => ({ type: 'image_url', image_url: { url: `data:${r.mime};base64,${r.base64}` } })), { type: 'text', text: promptVariante }]
+    : promptVariante;
 
-  if (!text) return getDefaultDesignSystem(estilo_visual_ideal);
+  // Generar 2 variantes en paralelo
+  console.log(`  🎨 Generando 2 sistemas de diseño competitivos...`);
+  const [textA, textB] = await Promise.all([
+    callBlackbox(content).catch(() => null),
+    callBlackbox(contentVariante).catch(() => null),
+  ]);
 
-  try {
-    const sistema = JSON.parse(sanitizeJson(text.replace(/```json|```/g, '').trim()));
-    // Fuente forzada por el usuario desde las preferencias de marca
-    if (USER_FONT_PAIR && FONT_PAIRS[USER_FONT_PAIR]) {
-      sistema.font_pair_id = USER_FONT_PAIR;
-      console.log(`  🔒 Fuente forzada por preferencia de marca: ${USER_FONT_PAIR}`);
-    }
-    // Inyectamos la tipografía real desde nuestra biblioteca curada
-    sistema.tipografia = resolveFontPair(sistema.font_pair_id);
-    console.log(`  ✓ Sistema "${sistema.nombre_sistema}" definido`);
-    console.log(`  🔤 Par: ${sistema.font_pair_id} (${sistema.tipografia.display.familia} + ${sistema.tipografia.body.familia})`);
-    console.log(`  🎨 Paleta: fondo ${sistema.paleta?.fondo} | acento ${sistema.paleta?.acento}`);
-    if (sistema.reglas_estilo?.length) {
-      console.log(`  📐 Reglas:`);
-      sistema.reglas_estilo.forEach(r => console.log(`     • ${r}`));
-    }
-    return sistema;
-  } catch {
-    console.log('  ⚠ Usando sistema default');
-    const def = getDefaultDesignSystem(estilo_visual_ideal);
-    if (USER_FONT_PAIR && FONT_PAIRS[USER_FONT_PAIR]) {
-      def.font_pair_id = USER_FONT_PAIR;
-      def.tipografia   = resolveFontPair(USER_FONT_PAIR);
-    }
-    return def;
+  if (!textA && !textB) return getDefaultDesignSystem(estilo_visual_ideal);
+  if (!textA) {
+    const parsed = (() => { try { return JSON.parse(sanitizeJson(textB.replace(/```json|```/g, '').trim())); } catch { return null; } })();
+    if (parsed) { parsed.tipografia = resolveFontPair(parsed.font_pair_id); return parsed; }
+    return getDefaultDesignSystem(estilo_visual_ideal);
   }
+  if (!textB) {
+    const parsed = (() => { try { return JSON.parse(sanitizeJson(textA.replace(/```json|```/g, '').trim())); } catch { return null; } })();
+    if (parsed) { parsed.tipografia = resolveFontPair(parsed.font_pair_id); return parsed; }
+    return getDefaultDesignSystem(estilo_visual_ideal);
+  }
+
+  // Parsear ambas variantes
+  let sistemaA = null, sistemaB = null;
+  try { sistemaA = JSON.parse(sanitizeJson(textA.replace(/```json|```/g, '').trim())); } catch {}
+  try { sistemaB = JSON.parse(sanitizeJson(textB.replace(/```json|```/g, '').trim())); } catch {}
+
+  if (!sistemaA && !sistemaB) return getDefaultDesignSystem(estilo_visual_ideal);
+  if (!sistemaA) { sistemaB.tipografia = resolveFontPair(sistemaB.font_pair_id); return sistemaB; }
+  if (!sistemaB) { sistemaA.tipografia = resolveFontPair(sistemaA.font_pair_id); return sistemaA; }
+
+  // Judge: pedir a la IA que elija la variante más fuerte
+  const judgePrompt = `Sos director creativo senior. Elegís cuál de estos dos sistemas de diseño va a tener MÁS IMPACTO en Instagram para este carrusel.
+
+TEMA: ${tema} | TONO: ${tono} | ESTILO IDEAL: ${estilo_visual_ideal}
+
+VARIANTE A:
+- Nombre: ${sistemaA.nombre_sistema}
+- Paleta: fondo ${sistemaA.paleta?.fondo}, headline ${sistemaA.paleta?.headline}, acento ${sistemaA.paleta?.acento}
+- Font pair: ${sistemaA.font_pair_id}
+- Reglas: ${sistemaA.reglas_estilo?.slice(0,2).join(' | ')}
+
+VARIANTE B:
+- Nombre: ${sistemaB.nombre_sistema}
+- Paleta: fondo ${sistemaB.paleta?.fondo}, headline ${sistemaB.paleta?.headline}, acento ${sistemaB.paleta?.acento}
+- Font pair: ${sistemaB.font_pair_id}
+- Reglas: ${sistemaB.reglas_estilo?.slice(0,2).join(' | ')}
+
+Respondé SOLO con la letra ganadora y una línea de razón, así:
+A: razón
+o
+B: razón`;
+
+  let ganadora = 'A';
+  try {
+    const judgeText = await callBlackbox(judgePrompt);
+    if (judgeText?.trim().startsWith('B')) ganadora = 'B';
+  } catch { /* default A */ }
+
+  const winner = ganadora === 'B' ? sistemaB : sistemaA;
+  console.log(`  🏆 Sistema elegido: ${ganadora} — ${winner.nombre_sistema}`);
+  // Fuente forzada por el usuario desde las preferencias de marca
+  if (USER_FONT_PAIR && FONT_PAIRS[USER_FONT_PAIR]) {
+    winner.font_pair_id = USER_FONT_PAIR;
+    console.log(`  🔒 Fuente forzada por preferencia de marca: ${USER_FONT_PAIR}`);
+  }
+  winner.tipografia = resolveFontPair(winner.font_pair_id);
+  console.log(`  🎨 Paleta: fondo ${winner.paleta?.fondo} | acento ${winner.paleta?.acento}`);
+  if (winner.reglas_estilo?.length) {
+    console.log(`  📐 Reglas:`);
+    winner.reglas_estilo.forEach(r => console.log(`     • ${r}`));
+  }
+  console.log(`  🔤 Par: ${winner.font_pair_id} (${winner.tipografia.display.familia} + ${winner.tipografia.body.familia})`);
+  return winner;
 }
 
 function getDefaultDesignSystem(estilo) {
@@ -853,6 +903,8 @@ Proceso: 1) Identificá dónde está la cara/cuerpo principal. 2) Identificá la
   "ajustes_foto": {
     "overlay_ajustado": 0.0,
     "gradiente_ajustado": "top_heavy|bottom_heavy|both|center_clear|full",
+    "photo_anchor_x": "left|center|right — dónde anclar la foto horizontalmente para que el sujeto quede centrado o en la mejor posición",
+    "photo_anchor_y": "top|center|bottom — dónde anclar verticalmente",
     "razon": "por qué este ajuste específico para esta foto"
   },
   "ajustes_texto": {
@@ -997,6 +1049,9 @@ function aplicarDecisiones(slide, analisis, sistema) {
     // El overlay plano se suma al degradé direccional (--grad) en el render
     s._overlay        = Math.min(analisis.ajustes_foto?.overlay_ajustado ?? sistema.tratamiento_fotos?.overlay_base ?? 0.50, 0.55);
     s._gradiente      = analisis.ajustes_foto?.gradiente_ajustado ?? sistema.tratamiento_fotos?.gradiente_default ?? 'top_heavy';
+    const anchorX = analisis.ajustes_foto?.photo_anchor_x ?? 'center';
+    const anchorY = analisis.ajustes_foto?.photo_anchor_y ?? 'center';
+    s._photoPos       = `${anchorX} ${anchorY}`;
     s._textPosition   = analisis.ajustes_texto?.posicion ?? 'top';
     s._textShadow     = analisis.ajustes_texto?.text_shadow ?? sistema.efectos?.text_shadow_default ?? 'medio';
     s._glass          = analisis.ajustes_texto?.glass_necesario ?? sistema.efectos?.usar_glass ?? false;
