@@ -39,21 +39,32 @@ async function callBlackbox(content, attempt = 0) {
 
   const model = process.env.USER_MODEL || process.env.BLACKBOX_MODEL || FALLBACK_MODELS[Math.min(attempt, FALLBACK_MODELS.length - 1)];
 
-  const response = await fetch('https://api.blackbox.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 3500,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content }
-      ]
-    })
-  });
+  let response;
+  try {
+    response = await fetch('https://api.blackbox.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 3500,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content }
+        ]
+      })
+    });
+  } catch (netErr) {
+    if (attempt < 3) {
+      const delay = [3000, 8000, 15000][attempt];
+      console.warn(`⏳ Error de red Blackbox (intento ${attempt + 1}): ${netErr.message} — reintentando en ${delay / 1000}s...`);
+      await new Promise(r => setTimeout(r, delay));
+      return callBlackbox(content, attempt + 1);
+    }
+    throw netErr;
+  }
 
   // Leer como texto primero — si Blackbox devuelve HTML (gateway error,
   // rate limit con página de error, payload demasiado grande) el .json()

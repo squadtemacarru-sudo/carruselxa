@@ -143,38 +143,72 @@ Tus respuestas son siempre específicas y accionables — nunca genéricas, nunc
 
 Respondés SIEMPRE en el formato exacto solicitado (JSON puro, sin \`\`\`markdown\`\`\` ni texto antes o después), sin explicaciones adicionales fuera del JSON.`;
 
+const FALLBACK_MODELS = [
+  'blackboxai/anthropic/claude-sonnet-4.6',
+  'blackboxai/anthropic/claude-sonnet-4.5',
+  'claude-3-5-sonnet-20241022',
+];
+
 // Llama a Blackbox AI (API OpenAI-compatible) y devuelve el texto de la respuesta
-async function callBlackbox(content) {
+async function callBlackbox(content, attempt = 0) {
   const apiKey = process.env.BLACKBOX_API_KEY;
   if (!apiKey) throw new Error('Falta la variable de entorno BLACKBOX_API_KEY');
 
-  const model = process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-sonnet-4.6';
+  const model = process.env.BLACKBOX_MODEL || FALLBACK_MODELS[Math.min(attempt, FALLBACK_MODELS.length - 1)];
 
-  const response = await fetch('https://api.blackbox.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 3000,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content }
-      ]
-    })
-  });
+  let response;
+  try {
+    response = await fetch('https://api.blackbox.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 3000,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content }
+        ]
+      })
+    });
+  } catch (netErr) {
+    // Timeout de red (UND_ERR_HEADERS_TIMEOUT, ECONNRESET, etc.) — reintentamos
+    if (attempt < 3) {
+      const delay = [3000, 8000, 15000][attempt];
+      console.warn(`⏳ Error de red Blackbox (intento ${attempt + 1}): ${netErr.message} — reintentando en ${delay / 1000}s...`);
+      await new Promise(r => setTimeout(r, delay));
+      return callBlackbox(content, attempt + 1);
+    }
+    throw netErr;
+  }
 
   const rawText = await response.text();
   let data;
   try {
     data = JSON.parse(rawText);
   } catch {
-    throw new Error(`Blackbox devolvió HTML/no-JSON (status ${response.status}): ${rawText.slice(0, 300).replace(/\n/g, ' ')}`);
+    const preview = rawText.slice(0, 300).replace(/\n/g, ' ');
+    if (attempt < 3) {
+      const delay = [3000, 8000, 15000][attempt];
+      console.warn(`⏳ Respuesta no-JSON de Blackbox (intento ${attempt + 1}, status ${response.status}) — reintentando en ${delay / 1000}s...`);
+      console.warn(`   Preview: ${preview}`);
+      await new Promise(r => setTimeout(r, delay));
+      return callBlackbox(content, attempt + 1);
+    }
+    throw new Error(`Blackbox devolvió HTML/no-JSON (status ${response.status}): ${preview}`);
   }
   if (!response.ok) {
-    throw new Error(`Blackbox API error: ${data.error?.message || JSON.stringify(data)}`);
+    const body = JSON.stringify(data);
+    const is429 = response.status === 429 || body.includes('RESOURCE_EXHAUSTED') || body.includes('429');
+    if (is429 && attempt < 3) {
+      const delay = [3000, 8000, 15000][attempt];
+      console.warn(`⏳ Rate limit (intento ${attempt + 1}) — reintentando en ${delay / 1000}s...`);
+      await new Promise(r => setTimeout(r, delay));
+      return callBlackbox(content, attempt + 1);
+    }
+    throw new Error(`Blackbox API error: ${data.error?.message || body}`);
   }
   return data.choices?.[0]?.message?.content || '';
 }
