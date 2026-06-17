@@ -166,7 +166,13 @@ async function callBlackbox(content) {
     })
   });
 
-  const data = await response.json();
+  const rawText = await response.text();
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    throw new Error(`Blackbox devolvió HTML/no-JSON (status ${response.status}): ${rawText.slice(0, 300).replace(/\n/g, ' ')}`);
+  }
   if (!response.ok) {
     throw new Error(`Blackbox API error: ${data.error?.message || JSON.stringify(data)}`);
   }

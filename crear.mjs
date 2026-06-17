@@ -52,17 +52,35 @@ async function callBlackbox(content, attempt = 0) {
     })
   });
 
-  const data = await response.json();
+  // Leer como texto primero — si Blackbox devuelve HTML (gateway error,
+  // rate limit con página de error, payload demasiado grande) el .json()
+  // exploitaría con SyntaxError antes de que el retry logic pueda actuar.
+  const rawText = await response.text();
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    const preview = rawText.slice(0, 300).replace(/\n/g, ' ');
+    if (attempt < 3) {
+      const delay = [8000, 20000, 40000][attempt];
+      console.warn(`⏳ Respuesta no-JSON de Blackbox (intento ${attempt + 1}, status ${response.status}) — reintentando en ${delay / 1000}s...`);
+      console.warn(`   Preview: ${preview}`);
+      await new Promise(r => setTimeout(r, delay));
+      return callBlackbox(content, attempt + 1);
+    }
+    throw new Error(`Blackbox devolvió HTML/no-JSON (status ${response.status}): ${preview}`);
+  }
 
   if (!response.ok) {
-    const is429 = response.status === 429 || JSON.stringify(data).includes('RESOURCE_EXHAUSTED') || JSON.stringify(data).includes('429');
+    const body = JSON.stringify(data);
+    const is429 = response.status === 429 || body.includes('RESOURCE_EXHAUSTED') || body.includes('429');
     if (is429 && attempt < 3) {
       const delay = [8000, 20000, 40000][attempt];
       console.warn(`⏳ Rate limit (intento ${attempt + 1}) — reintentando en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return callBlackbox(content, attempt + 1);
     }
-    throw new Error(`Blackbox API error: ${data.error?.message || JSON.stringify(data)}`);
+    throw new Error(`Blackbox API error: ${data.error?.message || body}`);
   }
   return data.choices?.[0]?.message?.content || '';
 }
