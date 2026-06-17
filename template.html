@@ -163,6 +163,13 @@
     font-size: 26px; letter-spacing: 0.25em;
     color: var(--color-sec);
   }
+  /* Con foto el swipe siempre va al fondo — el _textY absolute saca
+     el cover-main del flujo flex y el swipe quedaría arriba sin esto */
+  .has-photo .c-swipe {
+    position: absolute;
+    bottom: var(--pad);
+    left: var(--pad);
+  }
   .c-handle {
     font-family: var(--font-mono);
     font-size: 26px; letter-spacing: 0.18em;

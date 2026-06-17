@@ -47,16 +47,22 @@ function esc(str) {
 }
 
 // Rich text: [text]{#hex} → colored span; [text]{bg:#hex} → highlight box
-function richText(str) {
+// allowBg=false (default para headlines) bloquea cajas de fondo — solo colorea
+function richText(str, allowBg = true) {
   if (!str) return '';
   const RICH = /\[([^\]]*)\]\{(bg:)?([^}]+)\}/g;
   let result = '', last = 0, m;
   while ((m = RICH.exec(str)) !== null) {
     result += esc(str.slice(last, m.index));
     const t = String(m[1]).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    result += m[2]
-      ? `<span class="hl-word" style="--hl-bg:${m[3]}">${t}</span>`
-      : `<span style="color:${m[3]}">${t}</span>`;
+    if (m[2] && !allowBg) {
+      // bg: no permitido aquí — renderizar como texto coloreado en vez de caja
+      result += `<span style="color:${m[3]}">${t}</span>`;
+    } else {
+      result += m[2]
+        ? `<span class="hl-word" style="--hl-bg:${m[3]}">${t}</span>`
+        : `<span style="color:${m[3]}">${t}</span>`;
+    }
     last = m.index + m[0].length;
   }
   result += esc(str.slice(last));
@@ -168,7 +174,7 @@ function cover(sec, s, layout, useGlass, glassOp) {
   if (layout === 'cover-split') {
     const main = el('div', 'cover-main');
     const left = el('div', 'cover-left');
-    left.appendChild(el('h1', 'c-headline h-display', richText(s.headline)));
+    left.appendChild(el('h1', 'c-headline h-display', richText(s.headline, false)));
     const right = el('div', 'cover-right');
     if (s.detail) right.appendChild(el('p', 'c-body', richText(s.detail)));
     if (s.kicker) {
@@ -185,7 +191,7 @@ function cover(sec, s, layout, useGlass, glassOp) {
   // cover-top / cover-center
   const main = el('div', 'cover-main');
   if (useGlass) { main.classList.add('glass-wrap'); main.style.setProperty('--glass-bg', `rgba(4,4,6,${glassOp})`); }
-  main.appendChild(el('h1', 'c-headline h-display', richText(s.headline)));
+  main.appendChild(el('h1', 'c-headline h-display', richText(s.headline, false)));
   if (s.detail) main.appendChild(el('p', 'c-body', richText(s.detail)));
   if (s.kicker) {
     const k = el('div', 'c-kicker');
@@ -248,7 +254,7 @@ function list(sec, s, layout) {
 function statement(sec, s, layout) {
   if (layout === 'statement-top') {
     const top = el('div', 'stmt-top');
-    top.appendChild(el('h2', 'c-headline h-display', richText(s.headline)));
+    top.appendChild(el('h2', 'c-headline h-display', richText(s.headline, false)));
     sec.appendChild(top);
     // Con foto: el body va anclado al fondo como elemento fijo — no se mezcla con el headline
     if (s.body) {
@@ -267,7 +273,7 @@ function statement(sec, s, layout) {
     return;
   }
   if (layout === 'statement-impact') {
-    sec.appendChild(el('h2', 'c-headline h-display stmt-headline', richText(s.headline)));
+    sec.appendChild(el('h2', 'c-headline h-display stmt-headline', richText(s.headline, false)));
     const wrap = el('div', 'stmt-body-wrap');
     wrap.appendChild(divider());
     if (s.body) wrap.appendChild(el('p', 'c-body', richText(s.body)));
@@ -275,7 +281,7 @@ function statement(sec, s, layout) {
     return;
   }
   // statement-anchored (default)
-  sec.appendChild(el('h2', 'c-headline h-display', richText(s.headline)));
+  sec.appendChild(el('h2', 'c-headline h-display', richText(s.headline, false)));
   sec.appendChild(divider());
   if (s.body) sec.appendChild(el('p', 'c-body', richText(s.body)));
 }
@@ -342,7 +348,7 @@ function quote(sec, s, layout, useGlass, glassOp) {
 function cta(sec, s, layout, useGlass, glassOp) {
   const main = el('div', 'cta-main');
   if (useGlass) { main.classList.add('glass-wrap'); main.style.setProperty('--glass-bg',`rgba(4,4,6,${glassOp})`); }
-  main.appendChild(el('h2', 'cta-hl', richText(s.headline)));
+  main.appendChild(el('h2', 'cta-hl', richText(s.headline, false)));
   if (s.sub) main.appendChild(el('p', 'cta-sub', richText(s.sub)));
   sec.appendChild(main);
   const footer = el('div', 'cta-footer');
@@ -457,7 +463,7 @@ function buildBeforeAfter(slide, i, total) {
   sec.appendChild(photos);
   if (slide.headline || slide.sub) {
     const footer = el('div','ba-footer');
-    if (slide.headline) footer.appendChild(el('h2','ba-headline',richText(slide.headline)));
+    if (slide.headline) footer.appendChild(el('h2','ba-headline',richText(slide.headline, false)));
     if (slide.sub)      footer.appendChild(el('p','ba-sub',richText(slide.sub)));
     sec.appendChild(footer);
   }
@@ -490,7 +496,7 @@ function buildTimeline(slide, i, total) {
   sec.id = `slide-${i+1}`;
   sec.appendChild(el('span','slide-tag', `0${i+1} — 0${total}`));
   if (slide.eyebrow)  sec.appendChild(el('p','tl-eyebrow', esc(slide.eyebrow)));
-  if (slide.headline) sec.appendChild(el('p','tl-headline', richText(slide.headline)));
+  if (slide.headline) sec.appendChild(el('p','tl-headline', richText(slide.headline, false)));
   const steps = slide.steps || [];
   if (steps.length) {
     const stepsEl = el('div','tl-steps');
@@ -515,7 +521,7 @@ function buildGrid(slide, i, total) {
   const sec = el('div', 'slide-grid' + (i === 0 ? ' active' : ''));
   sec.id = `slide-${i+1}`;
   sec.appendChild(el('span','slide-tag', `0${i+1} — 0${total}`));
-  if (slide.headline) sec.appendChild(el('p','gr-headline', richText(slide.headline)));
+  if (slide.headline) sec.appendChild(el('p','gr-headline', richText(slide.headline, false)));
   const cells = el('div','gr-cells');
   (slide.cells || []).forEach(c => {
     const cell = el('div','gr-cell');

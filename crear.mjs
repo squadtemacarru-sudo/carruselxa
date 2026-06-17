@@ -389,7 +389,8 @@ Reglas generales:
 - Evitá totalmente las palabras/clichés listados como “Avoid”.
 - Usá “\\n” dentro de los textos para cortar líneas como en un carrusel real (nunca un solo párrafo largo en headlines).
 - Nunca uses comillas dobles rectas (“) dentro de un valor de texto — para citas o términos entre comillas usá comillas tipográficas “ “ curvas.
-- En cualquier campo de texto podés usar [texto]{#hex} para colorear palabras clave en el color de acento, y [texto]{bg:#hex} para poner una caja de fondo de color detrás de una palabra (ej: “Nadie me regaló [nada,]{bg:#00cc00} tú tampoco.”). Usalo con criterio — máximo 1-2 palabras destacadas por slide.
+- Podés usar [palabra]{#hex} para colorear UNA palabra en body/detail (ej: “Tenés [2 opciones]{#e8000d}”). Máximo 1 por slide. NUNCA en el campo headline ni en más de una palabra seguida.
+- [palabra]{bg:#hex} pone caja de color detrás de una sola palabra corta (ej: “[nada,]{bg:#00cc00}”). Máximo 1 por carrusel entero. NUNCA en headline, NUNCA en más de 2 palabras seguidas.
 `;
 
   const parse = (raw) => JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));
