@@ -124,8 +124,19 @@
           <label class="full">Producto / qué ofrecés <textarea id="mProducto" rows="2"></textarea></label>
           <label class="full">Voz y tono <textarea id="mVoz" rows="2"></textarea></label>
           <label class="full">Palabras a evitar (separadas por coma) <input id="mEvitar" type="text"></label>
-          <label>Color fondo <input id="mFondo" type="text" placeholder="#040404"></label>
-          <label>Color acento <input id="mAcento" type="text" placeholder="#e8ff00"></label>
+          <label>Color fondo
+            <div class="color-field">
+              <input type="color" id="mFondoSwatch" value="#040404">
+              <input id="mFondo" type="text" placeholder="#040404" maxlength="7">
+            </div>
+          </label>
+          <label>Color acento
+            <div class="color-field">
+              <input type="color" id="mAcentoSwatch" value="#e8ff00">
+              <input id="mAcento" type="text" placeholder="#e8ff00" maxlength="7">
+            </div>
+          </label>
+          <label class="full">Cómo usar los colores <input id="mPaletaDesc" type="text" placeholder="Ej: variá el acento por carrusel según el tema, no siempre lima"></label>
         </div>
         <div class="logo-row">
           <img id="logoPreview" class="logo-preview" alt="">

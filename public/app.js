@@ -429,8 +429,13 @@ async function cargarIdentidad() {
   $('#mProducto').value        = m.producto || '';
   $('#mVoz').value             = m.voz || '';
   $('#mEvitar').value          = (m.evitar || []).join(', ');
-  $('#mFondo').value           = m.paleta_marca?.fondo || '#040404';
-  $('#mAcento').value          = m.paleta_marca?.acento || '#e8ff00';
+  const fondoVal  = m.paleta_marca?.fondo  || '#040404';
+  const acentoVal = m.paleta_marca?.acento || '#e8ff00';
+  $('#mFondo').value        = fondoVal;
+  $('#mFondoSwatch').value  = fondoVal;
+  $('#mAcento').value       = acentoVal;
+  $('#mAcentoSwatch').value = acentoVal;
+  $('#mPaletaDesc').value   = m.paleta_marca?.descripcion || '';
 
   const marcas  = await (await fetch('/api/marcas')).json();
   const info    = marcas.find(x => x.id === marcaActual);
@@ -438,6 +443,17 @@ async function cargarIdentidad() {
   preview.src           = info?.logo ? `${info.logo}?t=${Date.now()}` : '';
   preview.style.display = info?.logo ? '' : 'none';
 }
+
+// Sincronización color picker ↔ hex text para fondo y acento
+[['mFondoSwatch', 'mFondo'], ['mAcentoSwatch', 'mAcento']].forEach(([swatchId, textId]) => {
+  const swatch = $('#' + swatchId);
+  const text   = $('#' + textId);
+  if (!swatch || !text) return;
+  swatch.addEventListener('input', () => { text.value = swatch.value; });
+  text.addEventListener('input', () => {
+    if (/^#[0-9a-f]{6}$/i.test(text.value)) swatch.value = text.value;
+  });
+});
 
 $('#btnGuardarMarca').addEventListener('click', async () => {
   if (!marcaActual) return;
@@ -469,7 +485,7 @@ $('#btnGuardarMarca').addEventListener('click', async () => {
     paleta_marca: {
       fondo:       $('#mFondo').value.trim() || '#040404',
       acento:      $('#mAcento').value.trim() || '#e8ff00',
-      descripcion: ''
+      descripcion: $('#mPaletaDesc').value.trim()
     }
   };
 
