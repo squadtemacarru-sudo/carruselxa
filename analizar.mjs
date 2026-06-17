@@ -98,13 +98,14 @@ async function fetchToBase64(url) {
 }
 
 async function photoToBase64(relPath) {
-  // URL absoluta → descargar
   if (relPath.startsWith('http://') || relPath.startsWith('https://')) {
     return fetchToBase64(relPath);
   }
-  // Nombre de archivo (con o sin prefijo "fotos/") → FOTOS_MAP o disco local
   const filename = path.basename(relPath);
-  if (FOTOS_MAP[filename]) return fetchToBase64(FOTOS_MAP[filename]);
+  const mapped = FOTOS_MAP[filename];
+  if (mapped && (mapped.startsWith('http://') || mapped.startsWith('https://'))) {
+    return fetchToBase64(mapped);
+  }
   return fileToBase64(path.join(__dirname, 'fotos', filename));
 }
 

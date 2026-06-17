@@ -48,9 +48,12 @@ async function photoToDataUrl(relPath) {
   if (relPath.startsWith('http://') || relPath.startsWith('https://')) {
     return fetchUrl(relPath);
   }
-  // Nombre de archivo (con o sin prefijo "fotos/") → resolver via FOTOS_MAP o disco local
+  // Nombre de archivo (con o sin prefijo "fotos/") → FOTOS_MAP si es URL absoluta, si no disco local
   const filename = path.basename(relPath);
-  if (FOTOS_MAP[filename]) return fetchUrl(FOTOS_MAP[filename]);
+  const mapped = FOTOS_MAP[filename];
+  if (mapped && (mapped.startsWith('http://') || mapped.startsWith('https://'))) {
+    return fetchUrl(mapped);
+  }
   return fileToDataUrl(path.join(__dirname, 'fotos', filename));
 }
 
