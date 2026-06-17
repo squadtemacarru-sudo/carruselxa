@@ -705,6 +705,43 @@ async function generarCaption(tandaId) {
   }
 }
 
+let galeriaFiltro = 'todos';
+
+document.querySelectorAll('.galeria-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    galeriaFiltro = tab.dataset.filter;
+    document.querySelectorAll('.galeria-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    aplicarFiltroGaleria();
+  });
+});
+
+function aplicarFiltroGaleria() {
+  let visible = 0;
+  document.querySelectorAll('#galeria .tanda').forEach(card => {
+    const show = galeriaFiltro === 'todos' || card.dataset.estado === galeriaFiltro;
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  $('#galeriaEmpty').classList.toggle('hidden', visible > 0);
+}
+
+async function setEstado(id, card, newEstado) {
+  const res = await fetch(`/api/tandas/${id}/estado`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ estado: newEstado })
+  });
+  if (!res.ok) return;
+  card.dataset.estado = newEstado;
+  card.className = `tanda estado-${newEstado}`;
+  card.querySelector('.tanda-save').classList.toggle('on', newEstado === 'guardado');
+  card.querySelector('.tanda-disc').classList.toggle('on', newEstado === 'descartado');
+  const t = tandas[Number(card.dataset.idx)];
+  if (t) t.estado = newEstado;
+  aplicarFiltroGaleria();
+}
+
 async function cargarGaleria() {
   tandas = await (await fetch('/api/tandas')).json();
   const galeria = $('#galeria');
@@ -716,18 +753,42 @@ async function cargarGaleria() {
     return;
   }
   empty.classList.add('hidden');
-  galeria.innerHTML = tandas.map((t, i) => `
-    <div class="tanda" data-idx="${i}">
-      <img src="${t.slides[0]}" alt="${t.tema}" loading="lazy">
-      <span class="count">${t.slides.length}</span>
-      <span class="label">${t.tema}</span>
-    </div>
-  `).join('');
+  galeria.innerHTML = tandas.map((t, i) => {
+    const estado = t.estado || 'nuevo';
+    return `
+      <div class="tanda estado-${estado}" data-idx="${i}" data-estado="${estado}" data-id="${t.id}">
+        <img src="${t.slides[0]}" alt="${t.tema}" loading="lazy">
+        <span class="count">${t.slides.length}</span>
+        <div class="label">
+          <span class="tanda-tema">${t.tema}</span>
+          <div class="tanda-acts">
+            <button class="tanda-save${estado === 'guardado' ? ' on' : ''}" data-action="guardado" title="Guardar">★</button>
+            <button class="tanda-disc${estado === 'descartado' ? ' on' : ''}" data-action="descartado" title="Descartar">✕</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
 
-  galeria.querySelectorAll('.tanda').forEach(el => {
-    const t = tandas[Number(el.dataset.idx)];
-    el.addEventListener('click', () => openLightbox(t.slides, 0, t.id));
+  galeria.querySelectorAll('.tanda').forEach(card => {
+    const t = tandas[Number(card.dataset.idx)];
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.tanda-acts')) return;
+      openLightbox(t.slides, 0, t.id);
+    });
+    card.querySelector('.tanda-save').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cur = card.dataset.estado;
+      setEstado(t.id, card, cur === 'guardado' ? 'nuevo' : 'guardado');
+    });
+    card.querySelector('.tanda-disc').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cur = card.dataset.estado;
+      setEstado(t.id, card, cur === 'descartado' ? 'nuevo' : 'descartado');
+    });
   });
+
+  aplicarFiltroGaleria();
 }
 
 $('#btnRefrescar').addEventListener('click', cargarGaleria);

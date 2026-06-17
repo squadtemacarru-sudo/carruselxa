@@ -417,6 +417,55 @@ body {
   border-radius: 20px;
 }
 
+/* ── Estado de carrusel ───────────────────────── */
+.galeria-filter {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.galeria-tab {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.galeria-tab.active {
+  background: var(--acc);
+  border-color: var(--acc);
+  color: #000;
+}
+
+.tanda .label {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+}
+.tanda-tema { flex: 1; min-width: 0; }
+.tanda-acts { display: flex; gap: 4px; flex-shrink: 0; }
+.tanda-save, .tanda-disc {
+  width: 26px; height: 26px;
+  border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.45);
+  font-size: 13px; line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.tanda-save:hover  { background: rgba(232,255,0,0.25); color: var(--acc); }
+.tanda-disc:hover  { background: rgba(255,63,63,0.25); color: var(--red); }
+.tanda-save.on     { background: var(--acc); color: #000; }
+.tanda-disc.on     { background: var(--red); color: #fff; }
+.tanda.estado-guardado   { border-color: rgba(232,255,0,0.45); }
+.tanda.estado-descartado { opacity: 0.38; }
+.tanda.estado-descartado:hover { opacity: 0.65; }
+
 /* ── CONFIG ──────────────────────────────────── */
 .config-block {
   border: 1px solid var(--border);

@@ -154,7 +154,7 @@ async function main() {
   await writeFile(tmpHtml, html, 'utf-8');
 
   const page = await browser.newPage();
-  await page.setViewport({ width: 1080, height: 1350, deviceScaleFactor: 1 });
+  await page.setViewport({ width: 1080, height: 1350, deviceScaleFactor: 2 });
   await page.goto(`file://${tmpHtml}`, { waitUntil: 'networkidle0' });
 
   const total = raw.slides.length;

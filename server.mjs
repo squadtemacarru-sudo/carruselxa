@@ -729,6 +729,15 @@ Devolvé SOLO el caption, sin explicaciones ni comillas.`;
   }
 });
 
+app.put('/api/tandas/:id/estado', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+  const { estado } = req.body;
+  if (!['nuevo', 'guardado', 'descartado'].includes(estado)) return res.status(400).json({ error: 'estado inválido' });
+  await writeFile(path.join(__dirname, 'tandas', id, 'estado.json'), JSON.stringify({ estado }, null, 2), 'utf-8');
+  res.json({ ok: true });
+});
+
 app.post('/api/tandas/:id/rerenderizar', (req, res) => {
   if (jobRunning) return res.status(409).json({ error: 'Hay una generación en curso' });
   const { id } = req.params;
@@ -786,8 +795,14 @@ app.get('/api/tandas', async (req, res) => {
       slideUrls = slides.map((s) => `/tandas/${f}/output/${s}`);
     }
 
+    let estado = 'nuevo';
+    try {
+      const estadoData = JSON.parse(await readFile(path.join(dir, f, 'estado.json'), 'utf-8'));
+      estado = estadoData.estado || 'nuevo';
+    } catch {}
+
     const ts = Number(f.split('_')[0]) || 0;
-    items.push({ id: f, tema, ts, slides: slideUrls });
+    items.push({ id: f, tema, ts, slides: slideUrls, estado });
   }
 
   items.sort((a, b) => b.ts - a.ts);
