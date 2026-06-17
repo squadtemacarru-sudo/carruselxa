@@ -252,7 +252,7 @@ Reglas generales:
 - Evitá totalmente las palabras/clichés listados como “Avoid”.
 - Usá “\\n” dentro de los textos para cortar líneas como en un carrusel real (nunca un solo párrafo largo en headlines).
 - Nunca uses comillas dobles rectas (“) dentro de un valor de texto — para citas o términos entre comillas usá comillas tipográficas “ “ curvas.
-- REGLA CRÍTICA para slides con “photo”: el headline debe tener MÁXIMO 3-4 palabras por línea y MÁXIMO 2 líneas. NO incluyas “detail” ni “kicker” en slides con foto — la imagen hace ese trabajo. El copy debe ser contundente y corto, no explicativo. Ejemplos buenos: “NO TE\nCONTROLÁS”, “EL LÍMITE\nLO PUSISTE VOS”, “ESO NO\nES DISFRUTE”. Ejemplos malos: “¿Estás disfrutando o ya te fuiste del límite?” (demasiado largo), “La pregunta que pocos se hacen” (como detail en foto).`;
+`;
 
   const parse = (raw) => JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));
 

@@ -154,15 +154,12 @@ function cover(sec, s, layout, useGlass, glassOp) {
   const main = el('div', 'cover-main');
   if (useGlass) { main.classList.add('glass-wrap'); main.style.setProperty('--glass-bg', `rgba(4,4,6,${glassOp})`); }
   main.appendChild(el('h1', 'c-headline h-display', esc(s.headline)));
-  // Con foto: solo headline — el visual hace el trabajo, el texto ancla el mensaje
-  if (!s.photo) {
-    if (s.detail) main.appendChild(el('p', 'c-body', esc(s.detail)));
-    if (s.kicker) {
-      const k = el('div', 'c-kicker');
-      k.appendChild(el('div', 'c-kicker-line'));
-      k.appendChild(el('span', 'c-kicker-text', esc(s.kicker)));
-      main.appendChild(k);
-    }
+  if (s.detail) main.appendChild(el('p', 'c-body', esc(s.detail)));
+  if (s.kicker) {
+    const k = el('div', 'c-kicker');
+    k.appendChild(el('div', 'c-kicker-line'));
+    k.appendChild(el('span', 'c-kicker-text', esc(s.kicker)));
+    main.appendChild(k);
   }
   sec.appendChild(main);
   if (layout !== 'cover-center') sec.appendChild(el('span', 'c-swipe', `DESLIZÁ ${RC.ARROW}`));
