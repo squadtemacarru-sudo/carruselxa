@@ -63,8 +63,11 @@ async function main() {
         const { readFileSync } = await import('node:fs');
         const flag = JSON.parse(readFileSync(path.join(__dirname, carpeta, 'output', 'critique.json'), 'utf-8'));
         if (flag.changed) {
+          const slidesEnv = flag.fixedSlides?.length
+            ? { ...process.env, SLIDES_TO_RERENDER: flag.fixedSlides.join(',') }
+            : process.env;
           console.log('  → Re-renderizando tras autocrítica...');
-          spawnSync('node', ['generar.mjs', `${carpeta}/contenido.analizado.json`], { cwd: __dirname, stdio: 'inherit' });
+          spawnSync('node', ['generar.mjs', `${carpeta}/contenido.analizado.json`], { cwd: __dirname, stdio: 'inherit', env: slidesEnv });
         }
       } catch { /* critique.json no existe o no es válido — ignorar */ }
     }

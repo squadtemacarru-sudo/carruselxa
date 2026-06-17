@@ -216,7 +216,20 @@ async function main() {
   await new Promise((r) => setTimeout(r, 400));
 
   const total = raw.slides.length;
-  for (let i = 0; i < total; i++) {
+
+  // If SLIDES_TO_RERENDER is set (e.g. "1,3,5"), only re-render those slides.
+  // Otherwise render all.
+  let toRender;
+  if (process.env.SLIDES_TO_RERENDER) {
+    toRender = process.env.SLIDES_TO_RERENDER.split(',')
+      .map(n => parseInt(n.trim(), 10) - 1)
+      .filter(n => n >= 0 && n < total);
+    console.log(`\n↺ Re-renderizando solo slides: [${toRender.map(n => n+1).join(', ')}]`);
+  } else {
+    toRender = Array.from({ length: total }, (_, i) => i);
+  }
+
+  for (const i of toRender) {
     await page.evaluate((idx) => window.__showSlide(idx), i);
     await new Promise((r) => setTimeout(r, 150));
     const wrapper = await page.$('#slideWrapper');

@@ -116,138 +116,125 @@ async function main() {
 
   const inputPath = path.join(__dirname, contentFile);
   const baseDir   = path.dirname(inputPath);
-  const slide01   = path.join(baseDir, 'output', 'slide-01.png');
-  const flagFile  = path.join(baseDir, 'output', 'critique.json');
+  const outDir    = path.join(baseDir, 'output');
+  const flagFile  = path.join(outDir, 'critique.json');
 
-  // Reset flag
   await writeFile(flagFile, JSON.stringify({ changed: false }), 'utf-8');
 
-  let buf;
-  try { buf = await readFile(slide01); } catch {
-    console.log('  ⚠ Autocrítica: slide-01.png no encontrado, saltando');
-    return;
-  }
-
-  // Achicar imagen para la API
-  const resized = await sharp(buf).resize({ width: 540 }).jpeg({ quality: 75 }).toBuffer();
-  const imageDataUrl = `data:image/jpeg;base64,${resized.toString('base64')}`;
-
-  console.log('\n🔍 Autocrítica visual...');
-  let raw;
-  try { raw = await callVision(imageDataUrl); } catch (e) {
-    console.log(`  ⚠ Autocrítica omitida: ${e.message}`);
-    return;
-  }
-
-  if (!raw || raw === 'null' || !raw.includes('{')) {
-    console.log('  ✓ Diseño aprobado');
-    return;
-  }
-
-  let ajustes;
-  try {
-    const cleaned = raw.replace(/```json|```/g, '').trim();
-    ajustes = JSON.parse(cleaned);
-  } catch {
-    console.log('  ✓ Diseño aprobado (respuesta no parseable)');
-    return;
-  }
-
-  console.log(`  ⚠ Problema: ${ajustes.problema}`);
-
   const contenido = JSON.parse(await readFile(inputPath, 'utf-8'));
-  let changed = false;
+  const total = contenido.slides?.length || 0;
+  if (!total) return;
 
-  if (ajustes.overlay_delta && Math.abs(ajustes.overlay_delta) > 0.04) {
-    const delta = ajustes.overlay_delta;
-    contenido.overlay = Math.max(0.2, Math.min(0.85, (contenido.overlay ?? 0.55) + delta));
-    contenido.slides = contenido.slides.map(s => ({
-      ...s,
-      _overlay: s._overlay != null ? Math.max(0.2, Math.min(0.85, s._overlay + delta)) : undefined
-    }));
-    console.log(`  → Overlay ajustado (${delta > 0 ? '+' : ''}${delta})`);
-    changed = true;
-  }
+  console.log('\n🔍 Autocrítica visual por slide...');
 
-  if (ajustes.headline_ajuste === 'subir') {
-    contenido.slides = contenido.slides.map(s => ({ ...s, _headlineAjuste: 'normal' }));
-    console.log('  → Headlines subidos');
-    changed = true;
-  } else if (ajustes.headline_ajuste === 'bajar') {
-    contenido.slides = contenido.slides.map(s => ({
-      ...s,
-      _headlineAjuste: s._headlineAjuste === 'normal' ? 'small' : s._headlineAjuste
-    }));
-    console.log('  → Headlines bajados');
-    changed = true;
-  }
+  let anyChanged = false;
+  const fixedSlides = [];
 
-  if (ajustes.text_y_nuevo != null && !isNaN(Number(ajustes.text_y_nuevo))) {
-    const ty = Math.round(Math.max(5, Math.min(88, Number(ajustes.text_y_nuevo))));
-    // Solo corregir slides con foto en layouts compactos (cover/quote/cta)
-    // donde _textY tiene efecto. Statement y list tienen su propia lógica CSS.
-    contenido.slides = contenido.slides.map(s => {
-      if (!s.photo) return s;
+  for (let i = 0; i < total; i++) {
+    const slideFile = path.join(outDir, `slide-0${i + 1}.png`);
+    let buf;
+    try { buf = await readFile(slideFile); } catch { continue; }
+
+    const resized = await sharp(buf).resize({ width: 540 }).jpeg({ quality: 75 }).toBuffer();
+    const imageDataUrl = `data:image/jpeg;base64,${resized.toString('base64')}`;
+
+    let raw;
+    try { raw = await callVision(imageDataUrl); } catch (e) {
+      console.log(`  ⚠ Slide ${i + 1}: autocrítica omitida (${e.message})`);
+      continue;
+    }
+
+    if (!raw || raw === 'null' || !raw.includes('{')) {
+      console.log(`  ✓ Slide ${i + 1}: ok`);
+      continue;
+    }
+
+    let ajustes;
+    try { ajustes = JSON.parse(raw.replace(/```json|```/g, '').trim()); } catch {
+      console.log(`  ✓ Slide ${i + 1}: ok`);
+      continue;
+    }
+
+    console.log(`  ⚠ Slide ${i + 1}: ${ajustes.problema}`);
+
+    const s = contenido.slides[i];
+    let slideChanged = false;
+
+    if (ajustes.overlay_delta && Math.abs(ajustes.overlay_delta) > 0.04) {
+      const delta = ajustes.overlay_delta;
+      contenido.slides[i]._overlay = Math.max(0.10, Math.min(0.80, (s._overlay ?? contenido.overlay ?? 0.50) + delta));
+      console.log(`    → Overlay slide ${i + 1}: ${ajustes.overlay_delta > 0 ? '+' : ''}${ajustes.overlay_delta}`);
+      slideChanged = true;
+    }
+
+    if (ajustes.headline_ajuste === 'subir') {
+      contenido.slides[i]._headlineAjuste = 'normal';
+      console.log(`    → Headline slide ${i + 1}: subir`);
+      slideChanged = true;
+    } else if (ajustes.headline_ajuste === 'bajar') {
+      contenido.slides[i]._headlineAjuste = contenido.slides[i]._headlineAjuste === 'normal' ? 'small' : (contenido.slides[i]._headlineAjuste || 'small');
+      console.log(`    → Headline slide ${i + 1}: bajar`);
+      slideChanged = true;
+    }
+
+    if (ajustes.text_y_nuevo != null && !isNaN(Number(ajustes.text_y_nuevo))) {
+      const ty = Math.round(Math.max(5, Math.min(88, Number(ajustes.text_y_nuevo))));
       const ly = s._layout || '';
-      if (!ly.startsWith('cover') && !ly.startsWith('quote') && !ly.startsWith('cta')) return s;
-      return { ...s, _textY: ty };
-    });
-    console.log(`  → Posición de texto corregida → ${ty}% (texto tapaba al sujeto)`);
-    changed = true;
+      if (s.photo && (ly.startsWith('cover') || ly.startsWith('quote') || ly.startsWith('cta') || ly === '')) {
+        contenido.slides[i]._textY = ty;
+        console.log(`    → TextY slide ${i + 1}: ${ty}%`);
+        slideChanged = true;
+      }
+    }
+
+    if (slideChanged) {
+      anyChanged = true;
+      fixedSlides.push(i + 1); // 1-indexed
+    }
   }
 
-  if (changed) {
+  if (anyChanged) {
     await writeFile(inputPath, JSON.stringify(contenido, null, 2), 'utf-8');
-    await writeFile(flagFile, JSON.stringify({ changed: true, ajustes }), 'utf-8');
-    console.log('  → Ajustes aplicados — el server re-renderizará');
+    await writeFile(flagFile, JSON.stringify({ changed: true, fixedSlides }), 'utf-8');
+    console.log(`  → Ajustes aplicados en slides: [${fixedSlides.join(', ')}] — re-renderizando`);
   } else {
-    console.log('  ✓ Ajustes mínimos, no re-renderiza');
+    console.log('  ✓ Todos los slides aprobados');
   }
 
-  // --- Análisis de coherencia entre los 6 slides ---
+  // --- Coherencia entre slides ---
   try {
-    const outputDir = path.join(baseDir, 'output');
     const slideUrls = [];
-    for (let i = 1; i <= 6; i++) {
-      const slidePath = path.join(outputDir, `slide-0${i}.png`);
+    for (let i = 1; i <= total; i++) {
+      const slidePath = path.join(outDir, `slide-0${i}.png`);
       let slideBuf;
       try { slideBuf = await readFile(slidePath); } catch { continue; }
-      const resizedSlide = await sharp(slideBuf).resize({ width: 360 }).jpeg({ quality: 70 }).toBuffer();
-      slideUrls.push(`data:image/jpeg;base64,${resizedSlide.toString('base64')}`);
+      const r = await sharp(slideBuf).resize({ width: 360 }).jpeg({ quality: 70 }).toBuffer();
+      slideUrls.push(`data:image/jpeg;base64,${r.toString('base64')}`);
     }
 
     if (slideUrls.length > 1) {
-      console.log(`\n🎨 Analizando coherencia de ${slideUrls.length} slides...`);
+      console.log(`\n🎨 Coherencia entre ${slideUrls.length} slides...`);
       let rawCoh;
       try { rawCoh = await callVisionCoherencia(slideUrls); } catch { rawCoh = null; }
 
       if (rawCoh && rawCoh.includes('{')) {
         let cohResult;
-        try {
-          const cleanedCoh = rawCoh.replace(/```json|```/g, '').trim();
-          cohResult = JSON.parse(cleanedCoh);
-        } catch { cohResult = null; }
+        try { cohResult = JSON.parse(rawCoh.replace(/```json|```/g, '').trim()); } catch { cohResult = null; }
 
-        if (cohResult && cohResult.ok === false && Array.isArray(cohResult.problemas)) {
+        if (cohResult?.ok === false && Array.isArray(cohResult.problemas)) {
           for (const p of cohResult.problemas) {
-            console.log(`🎨 Coherencia: slides [${p.slides.join(',')}] — ${p.tipo} → ${p.sugerencia}`);
+            console.log(`  🎨 Slides [${p.slides.join(',')}] — ${p.tipo}: ${p.sugerencia}`);
           }
-          // Agregar al critique.json existente sin cambiar el campo changed
           let flagData = { changed: false };
-          try {
-            const existing = await readFile(flagFile, 'utf-8');
-            flagData = JSON.parse(existing);
-          } catch { /* usar default */ }
+          try { flagData = JSON.parse(await readFile(flagFile, 'utf-8')); } catch {}
           flagData.coherencia = { problemas: cohResult.problemas };
           await writeFile(flagFile, JSON.stringify(flagData, null, 2), 'utf-8');
-        } else if (cohResult && cohResult.ok === true) {
-          console.log('🎨 Coherencia: sin problemas entre slides');
+        } else {
+          console.log('  🎨 Coherencia: ok');
         }
       }
     }
-  } catch {
-    // Falló el análisis de coherencia — ignorar silenciosamente
-  }
+  } catch { /* ignorar */ }
 }
 
 main().catch(e => { console.error('criticar.mjs error:', e.message); });
