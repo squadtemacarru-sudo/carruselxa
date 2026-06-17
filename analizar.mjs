@@ -175,6 +175,140 @@ function sanitizeJson(text) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// FONT PAIRS — curados y verificados en Google Fonts
+// La IA elige el ID; nosotros inyectamos las URLs reales.
+// ─────────────────────────────────────────────────────────────────────
+const FONT_PAIRS = {
+  'bebas-inter': {
+    mood: 'editorial brutalista, fitness, impacto, uppercase bold',
+    estilos: ['editorial_brutal', 'street_urban'],
+    tipografia: {
+      display: { familia: 'Bebas Neue', url_import: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap', pesos: [400], uso: 'headlines uppercase', css_headline: "font-family:'Bebas Neue',sans-serif;font-weight:400;letter-spacing:0.03em;text-transform:uppercase;" },
+      body:    { familia: 'Inter',      url_import: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap', pesos: [400,500,600,700], uso: 'cuerpo, listas', css_body: "font-family:'Inter',sans-serif;font-weight:500;" },
+      mono:    { familia: 'Inter',      url_import: null, uso: 'tags, handles' }
+    }
+  },
+  'oswald-dm': {
+    mood: 'deportivo, directo, masculino, condensado',
+    estilos: ['editorial_brutal', 'street_urban', 'coaching_premium'],
+    tipografia: {
+      display: { familia: 'Oswald', url_import: 'https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&display=swap', pesos: [600,700], uso: 'headlines condensados', css_headline: "font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:0.01em;text-transform:uppercase;" },
+      body:    { familia: 'DM Sans', url_import: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap', pesos: [400,500,600], uso: 'cuerpo', css_body: "font-family:'DM Sans',sans-serif;font-weight:400;" },
+      mono:    { familia: 'DM Sans', url_import: null, uso: 'tags' }
+    }
+  },
+  'barlow-barlow': {
+    mood: 'moderno, clean, tech, versátil, condensado',
+    estilos: ['infografico_premium', 'tech_modern', 'editorial_brutal'],
+    tipografia: {
+      display: { familia: 'Barlow Condensed', url_import: 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&display=swap', pesos: [700,800,900], uso: 'headlines grandes', css_headline: "font-family:'Barlow Condensed',sans-serif;font-weight:900;letter-spacing:0.01em;text-transform:uppercase;" },
+      body:    { familia: 'Barlow', url_import: 'https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&display=swap', pesos: [400,500,600], uso: 'cuerpo', css_body: "font-family:'Barlow',sans-serif;font-weight:500;" },
+      mono:    { familia: 'Barlow', url_import: null, uso: 'tags' }
+    }
+  },
+  'playfair-dm': {
+    mood: 'luxury, premium, editorial, coaching sofisticado',
+    estilos: ['photo_lifestyle', 'luxury_minimal', 'editorial_magazine'],
+    tipografia: {
+      display: { familia: 'Playfair Display', url_import: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap', pesos: [700,800,900], uso: 'headlines elegantes', css_headline: "font-family:'Playfair Display',serif;font-weight:700;letter-spacing:-0.01em;" },
+      body:    { familia: 'DM Sans', url_import: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap', pesos: [300,400,500], uso: 'cuerpo liviano', css_body: "font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0.02em;" },
+      mono:    { familia: 'DM Sans', url_import: null, uso: 'tags, handles' }
+    }
+  },
+  'anton-inter': {
+    mood: 'street, urbano, agresivo, acción, impacto crudo',
+    estilos: ['street_urban', 'editorial_brutal'],
+    tipografia: {
+      display: { familia: 'Anton', url_import: 'https://fonts.googleapis.com/css2?family=Anton&display=swap', pesos: [400], uso: 'headlines impacto', css_headline: "font-family:'Anton',sans-serif;font-weight:400;letter-spacing:0.02em;text-transform:uppercase;" },
+      body:    { familia: 'Inter', url_import: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap', pesos: [400,500,600], uso: 'cuerpo', css_body: "font-family:'Inter',sans-serif;font-weight:500;" },
+      mono:    { familia: 'Inter', url_import: null, uso: 'datos, tags' }
+    }
+  },
+  'archivo-inter': {
+    mood: 'editorial bold, diseño, moderno, impactante sin ser brutal',
+    estilos: ['editorial_brutal', 'editorial_magazine', 'coaching_premium'],
+    tipografia: {
+      display: { familia: 'Archivo Black', url_import: 'https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap', pesos: [400], uso: 'headlines bold', css_headline: "font-family:'Archivo Black',sans-serif;font-weight:400;letter-spacing:-0.02em;" },
+      body:    { familia: 'Inter', url_import: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap', pesos: [400,500,600], uso: 'cuerpo', css_body: "font-family:'Inter',sans-serif;font-weight:500;" },
+      mono:    { familia: 'Inter', url_import: null, uso: 'datos, tags' }
+    }
+  },
+  'space-space': {
+    mood: 'tech, datos, startup, minimal, futurista',
+    estilos: ['infografico_premium', 'tech_modern'],
+    tipografia: {
+      display: { familia: 'Space Grotesk', url_import: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap', pesos: [600,700], uso: 'headlines tech', css_headline: "font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:-0.025em;" },
+      body:    { familia: 'Space Grotesk', url_import: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500&display=swap', pesos: [400,500], uso: 'cuerpo', css_body: "font-family:'Space Grotesk',sans-serif;font-weight:400;" },
+      mono:    { familia: 'Space Mono', url_import: 'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap', uso: 'datos, porcentajes' }
+    }
+  },
+  'syne-inter': {
+    mood: 'diseño de autor, agencia creativa, disruptivo, joven',
+    estilos: ['tech_modern', 'editorial_brutal'],
+    tipografia: {
+      display: { familia: 'Syne', url_import: 'https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap', pesos: [700,800], uso: 'headlines display', css_headline: "font-family:'Syne',sans-serif;font-weight:800;letter-spacing:-0.01em;" },
+      body:    { familia: 'Inter', url_import: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap', pesos: [400,500,600], uso: 'cuerpo', css_body: "font-family:'Inter',sans-serif;font-weight:400;" },
+      mono:    { familia: 'Inter', url_import: null, uso: 'tags' }
+    }
+  },
+  'dm-serif-dm': {
+    mood: 'revista, editorial cálido, aspiracional, coaching femenino',
+    estilos: ['editorial_magazine', 'photo_lifestyle', 'luxury_minimal'],
+    tipografia: {
+      display: { familia: 'DM Serif Display', url_import: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap', pesos: [400], uso: 'headlines editorial', css_headline: "font-family:'DM Serif Display',serif;font-weight:400;letter-spacing:-0.01em;" },
+      body:    { familia: 'DM Sans', url_import: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap', pesos: [400,500,600], uso: 'cuerpo, detalles', css_body: "font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0.01em;" },
+      mono:    { familia: 'DM Sans', url_import: null, uso: 'handles, tags' }
+    }
+  },
+  'unbounded-inter': {
+    mood: 'web3, tech extremo, bold futurista, new media',
+    estilos: ['tech_modern', 'street_urban'],
+    tipografia: {
+      display: { familia: 'Unbounded', url_import: 'https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800;900&display=swap', pesos: [700,800,900], uso: 'headlines máximo impacto', css_headline: "font-family:'Unbounded',sans-serif;font-weight:900;letter-spacing:-0.02em;text-transform:uppercase;" },
+      body:    { familia: 'Inter', url_import: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap', pesos: [400,500], uso: 'cuerpo compacto', css_body: "font-family:'Inter',sans-serif;font-weight:400;" },
+      mono:    { familia: 'Inter', url_import: null, uso: 'datos' }
+    }
+  },
+  'instrument-dm': {
+    mood: 'ultra premium, luxury coaching, refinado, high-end',
+    estilos: ['luxury_minimal', 'coaching_premium'],
+    tipografia: {
+      display: { familia: 'Instrument Serif', url_import: 'https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap', pesos: [400], uso: 'headlines refinados', css_headline: "font-family:'Instrument Serif',serif;font-weight:400;letter-spacing:0em;" },
+      body:    { familia: 'DM Sans', url_import: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap', pesos: [300,400,500], uso: 'cuerpo minimalista', css_body: "font-family:'DM Sans',sans-serif;font-weight:300;letter-spacing:0.03em;" },
+      mono:    { familia: 'DM Sans', url_import: null, uso: 'handles' }
+    }
+  },
+  'montserrat-montserrat': {
+    mood: 'versátil, limpio, corporativo premium, confiable',
+    estilos: ['coaching_premium', 'infografico_premium'],
+    tipografia: {
+      display: { familia: 'Montserrat', url_import: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap', pesos: [700,800,900], uso: 'headlines bold', css_headline: "font-family:'Montserrat',sans-serif;font-weight:900;letter-spacing:-0.01em;text-transform:uppercase;" },
+      body:    { familia: 'Montserrat', url_import: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap', pesos: [400,500,600], uso: 'cuerpo', css_body: "font-family:'Montserrat',sans-serif;font-weight:500;" },
+      mono:    { familia: 'Montserrat', url_import: null, uso: 'datos, tags' }
+    }
+  },
+  'raleway-outfit': {
+    mood: 'aspiracional, wellness, femenino, clean, aireado',
+    estilos: ['luxury_minimal', 'photo_lifestyle', 'coaching_premium'],
+    tipografia: {
+      display: { familia: 'Raleway', url_import: 'https://fonts.googleapis.com/css2?family=Raleway:wght@700;800;900&display=swap', pesos: [700,800,900], uso: 'headlines elegantes', css_headline: "font-family:'Raleway',sans-serif;font-weight:900;letter-spacing:0.04em;text-transform:uppercase;" },
+      body:    { familia: 'Outfit', url_import: 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&display=swap', pesos: [300,400,500], uso: 'cuerpo liviano', css_body: "font-family:'Outfit',sans-serif;font-weight:400;letter-spacing:0.02em;" },
+      mono:    { familia: 'Outfit', url_import: null, uso: 'handles, tags' }
+    }
+  }
+};
+
+function resolveFontPair(pairId) {
+  if (FONT_PAIRS[pairId]) return FONT_PAIRS[pairId].tipografia;
+  // fallback: bebas-inter
+  return FONT_PAIRS['bebas-inter'].tipografia;
+}
+
+const FONT_PAIRS_INDEX = Object.entries(FONT_PAIRS)
+  .map(([id, p]) => `  "${id}": ${p.mood}`)
+  .join('\n');
+
+// ─────────────────────────────────────────────────────────────────────
 // FASE 1 — Detectar tema y tono del carrusel
 // ─────────────────────────────────────────────────────────────────────
 async function detectarTemaTono(slides, marca) {
@@ -193,7 +327,7 @@ Devolvé SOLO JSON (sin markdown):
 {
   "tema": "una palabra: entorno|disciplina|nutricion|entrenamiento|mentalidad|lifestyle|negocio|otro",
   "tono": "una palabra: motivacional|educativo|reflexivo|agresivo|aspiracional|intimo",
-  "estilo_visual_ideal": "editorial_brutal|photo_lifestyle|infografico_premium",
+  "estilo_visual_ideal": "editorial_brutal|photo_lifestyle|infografico_premium|luxury_minimal|street_urban|tech_modern|editorial_magazine|coaching_premium",
   "razon": "por qué ese estilo para este contenido específico",
   "palabras_clave_visuales": ["3 a 5 palabras que describen la estética ideal de este carrusel"]
 }`);
@@ -224,35 +358,17 @@ El carrusel que tenés que diseñar es:
 
 Definí el sistema de diseño COMPLETO y ESPECÍFICO. Sé milimétrico, no genérico.
 ${marca ? 'La paleta debe sentirse parte de la familia visual de la marca (ver paleta de referencia arriba), aunque puede variar según el tema/tono de este carrusel específico.' : ''}
-${referencias?.length ? 'Te paso además imágenes de carruseles que le gustaron al cliente. Extraé de ahí el lenguaje visual (tipografía, paleta, iconografía, composición) y aplicalo a este sistema — no los copies literal, usalos como dirección de arte.' : ''}
+${referencias?.length ? 'Te paso además imágenes de carruseles que le gustaron al cliente. Extraé de ahí el lenguaje visual (paleta, composición, iconografía, densidad) y aplicalo a este sistema — no los copies literal, usalos como dirección de arte.' : ''}
 
-Para tipografía, elegí fuentes reales disponibles en Google Fonts que funcionen para este estilo específico.
-Para iconos, elegí caracteres Unicode o SVG paths específicos (no librerías externas).
+TIPOGRAFÍA — elegí EXACTAMENTE UNO de estos pares validados (devolvé solo el id):
+${FONT_PAIRS_INDEX}
+
+Para iconos, elegí caracteres Unicode específicos (no librerías externas).
 Para colores, dá hex exactos.
 
 Devolvé SOLO JSON (sin markdown):
 {
-  "tipografia": {
-    "display": {
-      "familia": "nombre exacto en Google Fonts",
-      "url_import": "URL completa para @import de Google Fonts",
-      "pesos": [900, 700],
-      "uso": "para qué elementos",
-      "css_headline": "font-family: ...; font-weight: 900; letter-spacing: -0.03em; text-transform: uppercase;"
-    },
-    "body": {
-      "familia": "nombre exacto en Google Fonts",
-      "url_import": "URL completa para @import",
-      "pesos": [400, 500, 600],
-      "uso": "para qué elementos",
-      "css_body": "font-family: ...; font-weight: 500; letter-spacing: 0.01em;"
-    },
-    "mono": {
-      "familia": "nombre exacto en Google Fonts o system-ui monospace",
-      "url_import": "URL o null si es system",
-      "uso": "tags, números, handles"
-    }
-  },
+  "font_pair_id": "id-del-par-elegido",
   "paleta": {
     "fondo": "#hex",
     "headline": "#hex",
@@ -309,8 +425,10 @@ Devolvé SOLO JSON (sin markdown):
 
   try {
     const sistema = JSON.parse(sanitizeJson(text.replace(/```json|```/g, '').trim()));
+    // Inyectamos la tipografía real desde nuestra biblioteca curada
+    sistema.tipografia = resolveFontPair(sistema.font_pair_id);
     console.log(`  ✓ Sistema "${sistema.nombre_sistema}" definido`);
-    console.log(`  🔤 Display: ${sistema.tipografia?.display?.familia} | Body: ${sistema.tipografia?.body?.familia}`);
+    console.log(`  🔤 Par: ${sistema.font_pair_id} (${sistema.tipografia.display.familia} + ${sistema.tipografia.body.familia})`);
     console.log(`  🎨 Paleta: fondo ${sistema.paleta?.fondo} | acento ${sistema.paleta?.acento}`);
     if (sistema.reglas_estilo?.length) {
       console.log(`  📐 Reglas:`);
@@ -327,23 +445,7 @@ function getDefaultDesignSystem(estilo) {
   const sistemas = {
     editorial_brutal: {
       nombre_sistema: 'Editorial Brutal',
-      tipografia: {
-        display: {
-          familia: 'Bebas Neue',
-          url_import: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap',
-          pesos: [400],
-          uso: 'headlines principales',
-          css_headline: "font-family: 'Bebas Neue', sans-serif; font-weight: 400; letter-spacing: 0.02em; text-transform: uppercase;"
-        },
-        body: {
-          familia: 'Inter',
-          url_import: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-          pesos: [400, 500, 600, 700],
-          uso: 'cuerpo, subtítulos, listas',
-          css_body: "font-family: 'Inter', sans-serif; font-weight: 500;"
-        },
-        mono: { familia: 'monospace', url_import: null, uso: 'tags, números, handles' }
-      },
+      tipografia: resolveFontPair('bebas-inter'),
       paleta: {
         fondo: '#0a0a0a',
         headline: '#ffffff',
@@ -392,23 +494,7 @@ function getDefaultDesignSystem(estilo) {
     },
     photo_lifestyle: {
       nombre_sistema: 'Photo Lifestyle',
-      tipografia: {
-        display: {
-          familia: 'Playfair Display',
-          url_import: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap',
-          pesos: [700, 900],
-          uso: 'headlines, citas',
-          css_headline: "font-family: 'Playfair Display', serif; font-weight: 700; letter-spacing: -0.01em;"
-        },
-        body: {
-          familia: 'DM Sans',
-          url_import: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap',
-          pesos: [300, 400, 500],
-          uso: 'cuerpo, detalles',
-          css_body: "font-family: 'DM Sans', sans-serif; font-weight: 400; letter-spacing: 0.02em;"
-        },
-        mono: { familia: 'monospace', url_import: null, uso: 'tags, handles' }
-      },
+      tipografia: resolveFontPair('playfair-dm'),
       paleta: {
         fondo: '#0d0d0d',
         headline: '#f5f0e8',
@@ -457,23 +543,7 @@ function getDefaultDesignSystem(estilo) {
     },
     infografico_premium: {
       nombre_sistema: 'Infográfico Premium',
-      tipografia: {
-        display: {
-          familia: 'Space Grotesk',
-          url_import: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&display=swap',
-          pesos: [700],
-          uso: 'números grandes, headlines',
-          css_headline: "font-family: 'Space Grotesk', sans-serif; font-weight: 700; letter-spacing: -0.02em;"
-        },
-        body: {
-          familia: 'Inter',
-          url_import: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap',
-          pesos: [400, 500, 600],
-          uso: 'explicaciones, labels, items',
-          css_body: "font-family: 'Inter', sans-serif; font-weight: 500; letter-spacing: 0.005em;"
-        },
-        mono: { familia: 'JetBrains Mono', url_import: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap', uso: 'datos, porcentajes, códigos' }
-      },
+      tipografia: resolveFontPair('space-space'),
       paleta: {
         fondo: '#0f0f12',
         headline: '#ffffff',
@@ -519,6 +589,122 @@ function getDefaultDesignSystem(estilo) {
         'Acento para highlighting de información clave',
         'Estructura visible: el layout mismo comunica jerarquía'
       ]
+    }
+  };
+    luxury_minimal: {
+      nombre_sistema: 'Luxury Minimal',
+      tipografia: resolveFontPair('instrument-dm'),
+      paleta: {
+        fondo: '#f5f2ec',
+        headline: '#0f0f0f',
+        body_text: 'rgba(15,15,15,0.65)',
+        acento: '#0f0f0f',
+        secundario: 'rgba(15,15,15,0.28)',
+        descripcion: 'Crema cálido con negro absoluto — luxury coaching, minimalismo de alta gama'
+      },
+      iconos: { flecha_derecha: '→', check: '·', numero_estilo: 'plain', divisor_estilo: 'dot', decorativo: '—' },
+      tratamiento_fotos: {
+        overlay_base: 0.20,
+        gradiente_default: 'bottom_heavy',
+        blend_mode: 'normal',
+        saturacion_ajuste: 'reducir',
+        descripcion: 'Overlay mínimo, foto limpia, texto sobre zonas claras'
+      },
+      layout: { padding_slide: '96', espacio_entre_elementos: '72', alineacion_texto: 'left', posicion_tag: 'top-left', posicion_footer: 'bottom-left', headline_line_height: 1.0, body_line_height: 1.9 },
+      efectos: { usar_glass: false, usar_text_shadow: false, text_shadow_default: 'suave', usar_borde_acento: false, animacion_css: null },
+      reglas_estilo: ['Serif elegante, nunca uppercase', 'Mucho espacio en blanco — la respiración es el diseño', 'Sin acento de color, todo en negro/crema', 'Foto respira, texto flota sobre zonas claras', 'Un solo nivel de jerarquía por slide']
+    },
+    street_urban: {
+      nombre_sistema: 'Street Urban',
+      tipografia: resolveFontPair('anton-inter'),
+      paleta: {
+        fondo: '#0d0d0d',
+        headline: '#ffffff',
+        body_text: 'rgba(255,255,255,0.80)',
+        acento: '#ff4d00',
+        secundario: 'rgba(255,255,255,0.30)',
+        descripcion: 'Negro con rojo fuego — energía cruda, urbano, sin filtros'
+      },
+      iconos: { flecha_derecha: '→', check: '✗', numero_estilo: 'plain', divisor_estilo: 'slash', decorativo: '▶' },
+      tratamiento_fotos: {
+        overlay_base: 0.60,
+        gradiente_default: 'top_heavy',
+        blend_mode: 'normal',
+        saturacion_ajuste: 'aumentar',
+        descripcion: 'Alto contraste, saturación elevada, texto pesado que golpea'
+      },
+      layout: { padding_slide: '100', espacio_entre_elementos: '60', alineacion_texto: 'left', posicion_tag: 'top-left', posicion_footer: 'bottom-left', headline_line_height: 0.90, body_line_height: 1.60 },
+      efectos: { usar_glass: false, usar_text_shadow: true, text_shadow_default: 'fuerte', usar_borde_acento: false, animacion_css: null },
+      reglas_estilo: ['Anton uppercase siempre para headline', 'Acento rojo solo en 1-2 palabras o elementos', 'Sin elegancia, todo es crudo y directo', 'Fotos saturadas con overlay duro', 'Números en acento cuando hay datos']
+    },
+    tech_modern: {
+      nombre_sistema: 'Tech Modern',
+      tipografia: resolveFontPair('space-space'),
+      paleta: {
+        fondo: '#080810',
+        headline: '#ffffff',
+        body_text: 'rgba(255,255,255,0.72)',
+        acento: '#00e5ff',
+        secundario: 'rgba(0,229,255,0.30)',
+        descripcion: 'Negro profundo con cyan eléctrico — data-driven, tech, performance'
+      },
+      iconos: { flecha_derecha: '›', check: '✦', numero_estilo: 'circle', divisor_estilo: 'slash', decorativo: '◈' },
+      tratamiento_fotos: {
+        overlay_base: 0.75,
+        gradiente_default: 'full',
+        blend_mode: 'normal',
+        saturacion_ajuste: 'reducir',
+        descripcion: 'Overlay muy denso, fotos como texturas, datos protagonizan'
+      },
+      layout: { padding_slide: '88', espacio_entre_elementos: '52', alineacion_texto: 'left', posicion_tag: 'top-right', posicion_footer: 'bottom-left', headline_line_height: 0.92, body_line_height: 1.65 },
+      efectos: { usar_glass: true, usar_text_shadow: false, text_shadow_default: 'suave', usar_borde_acento: true, animacion_css: null },
+      reglas_estilo: ['Space Mono para todos los datos y porcentajes', 'Acento cyan solo en números y highlights', 'Glass en cards de datos', 'Overlay máximo — las fotos son textura', 'Estructura de grilla visible en layouts de datos']
+    },
+    editorial_magazine: {
+      nombre_sistema: 'Editorial Magazine',
+      tipografia: resolveFontPair('dm-serif-dm'),
+      paleta: {
+        fondo: '#0e0c0a',
+        headline: '#f0ebe2',
+        body_text: 'rgba(240,235,226,0.70)',
+        acento: '#c8a96e',
+        secundario: 'rgba(240,235,226,0.30)',
+        descripcion: 'Negro cálido con crema y oro editorial — revista de calidad, aspiracional'
+      },
+      iconos: { flecha_derecha: '›', check: '—', numero_estilo: 'plain', divisor_estilo: 'dot', decorativo: '·' },
+      tratamiento_fotos: {
+        overlay_base: 0.40,
+        gradiente_default: 'both',
+        blend_mode: 'normal',
+        saturacion_ajuste: 'reducir',
+        descripcion: 'Overlay suave cálido, foto como contexto emocional, texto serif flotando'
+      },
+      layout: { padding_slide: '96', espacio_entre_elementos: '68', alineacion_texto: 'left', posicion_tag: 'top-left', posicion_footer: 'bottom-left', headline_line_height: 1.05, body_line_height: 1.85 },
+      efectos: { usar_glass: false, usar_text_shadow: true, text_shadow_default: 'suave', usar_borde_acento: false, animacion_css: null },
+      reglas_estilo: ['Serif para headlines, NUNCA uppercase', 'Oro solo en kickers y divisores, no en texto corrido', 'Mucho aire, nunca saturado de texto', 'Fotos desaturadas con tonos cálidos', 'Una sola línea larga en cover, no partida']
+    },
+    coaching_premium: {
+      nombre_sistema: 'Coaching Premium',
+      tipografia: resolveFontPair('archivo-inter'),
+      paleta: {
+        fondo: '#111114',
+        headline: '#ffffff',
+        body_text: 'rgba(255,255,255,0.78)',
+        acento: '#e8ff00',
+        secundario: 'rgba(255,255,255,0.25)',
+        descripcion: 'Negro neutro con lima — balance entre brutalismo editorial y autoridad de marca'
+      },
+      iconos: { flecha_derecha: '→', check: '✓', numero_estilo: 'bracket', divisor_estilo: 'line', decorativo: '▸' },
+      tratamiento_fotos: {
+        overlay_base: 0.55,
+        gradiente_default: 'top_heavy',
+        blend_mode: 'normal',
+        saturacion_ajuste: 'normal',
+        descripcion: 'Overlay equilibrado, foto refuerza el mensaje, texto visible y jerarquizado'
+      },
+      layout: { padding_slide: '100', espacio_entre_elementos: '64', alineacion_texto: 'left', posicion_tag: 'top-left', posicion_footer: 'bottom-left', headline_line_height: 0.92, body_line_height: 1.72 },
+      efectos: { usar_glass: false, usar_text_shadow: true, text_shadow_default: 'medio', usar_borde_acento: true, animacion_css: null },
+      reglas_estilo: ['Archivo Black para headlines — bold sin brutalismo', 'Lima solo en kickers y números, no en texto corrido', 'Fotos refuerzan la historia, no decoran', 'Listas con bracket [ ] para ítems clave', 'CTA siempre directo, nunca sugerido']
     }
   };
   return sistemas[estilo] || sistemas.editorial_brutal;
