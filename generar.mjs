@@ -136,6 +136,7 @@ async function main() {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
+      '--enable-features=ShapeDetection',
     ],
   });
 
@@ -191,18 +192,86 @@ async function main() {
 
   raw._logo = await loadLogo(raw._marca || 'squadteam');
 
+  const baseDir = path.dirname(inputPath);
+  const outDir = path.join(baseDir, 'output');
+  await mkdir(outDir, { recursive: true });
+  const tmpHtml = path.join(baseDir, '_tmp_render.html');
+
+  // ── Detección de caras con Chrome FaceDetector API ───────────────────
+  // Corre ANTES de generar el HTML para que las correcciones queden en raw.
+  // Usa el FaceDetector nativo de Chrome (ShapeDetection API) para obtener
+  // coordenadas exactas de las caras en cada foto. Ajusta _textY y _photoPos
+  // para que el texto nunca tape al sujeto. Sin dependencias extra.
+  const faceDetectPage = await browser.newPage();
+  await faceDetectPage.setContent('<!DOCTYPE html><html><body></body></html>');
+  let faceDetectionAvailable = false;
+  try {
+    faceDetectionAvailable = await faceDetectPage.evaluate(() => 'FaceDetector' in window);
+  } catch {}
+
+  if (faceDetectionAvailable) {
+    console.log('\n👤 Detección de caras activada (Chrome FaceDetector)');
+    for (let i = 0; i < raw.slides.length; i++) {
+      const s = raw.slides[i];
+      const mainPhoto = s.photo || s.photo_top || s.photo_bottom;
+      if (!mainPhoto) continue;
+      try {
+        const faces = await faceDetectPage.evaluate(async (src) => {
+          const img = await new Promise((res, rej) => {
+            const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src;
+          });
+          const detector = new FaceDetector({ fastMode: false, maxDetectedFaces: 3 });
+          const detected = await detector.detect(img);
+          return detected.map(f => ({
+            x: f.boundingBox.x / img.width,
+            y: f.boundingBox.y / img.height,
+            w: f.boundingBox.width / img.width,
+            h: f.boundingBox.height / img.height,
+          }));
+        }, mainPhoto);
+
+        if (faces.length) {
+          const face = faces[0];
+          const faceCenterY = face.y + face.h / 2;
+          const faceCenterX = face.x + face.w / 2;
+
+          // Determinar zona segura para texto (vertical)
+          const safeTextY = faceCenterY < 0.5 ? 74 : 8;
+          const currentTextY = s._textY ?? null;
+          const wouldOverlap = currentTextY === null ||
+            (currentTextY / 100 > face.y - 0.1 && currentTextY / 100 < face.y + face.h + 0.1);
+          if (wouldOverlap) {
+            raw.slides[i]._textY = safeTextY;
+            console.log(`  👤 Slide ${i+1}: cara en ${Math.round(faceCenterY*100)}% vertical → texto a ${safeTextY}%`);
+          }
+
+          // Ajustar background-position horizontal para centrar el sujeto
+          const currentPos = s._photoPos || 'center center';
+          const posY = currentPos.split(' ')[1] || 'center';
+          if (faceCenterX < 0.38) {
+            raw.slides[i]._photoPos = `left ${posY}`;
+          } else if (faceCenterX > 0.62) {
+            raw.slides[i]._photoPos = `right ${posY}`;
+          } else {
+            raw.slides[i]._photoPos = `center ${posY}`;
+          }
+        }
+      } catch { /* FaceDetector falló para este slide — continuar */ }
+    }
+    // Reescribir contenido.analizado.json con las correcciones de cara
+    await writeFile(inputPath, JSON.stringify(raw, null, 2), 'utf-8');
+  } else {
+    console.log('\n👤 FaceDetector no disponible en este Chrome — usando posicionamiento por IA');
+  }
+  await faceDetectPage.close();
+  // ─────────────────────────────────────────────────────────────────────
+
+  // Generar HTML con raw ya corregido por detección de caras
   const template = await readFile(path.join(__dirname, 'template.html'), 'utf-8');
   const renderCore = await readFile(path.join(__dirname, 'render-core.js'), 'utf-8');
   const html = template
     .replace('<script src="render-core.js"></script>', `<script>${renderCore}</script>`)
     .replace('__DATA__', JSON.stringify(raw));
-
-  // Output e intermedios viven junto al contenido, así corridas en
-  // carpetas distintas (ej. tandas/<id>/) nunca se pisan entre sí
-  const baseDir = path.dirname(inputPath);
-  const outDir = path.join(baseDir, 'output');
-  await mkdir(outDir, { recursive: true });
-  const tmpHtml = path.join(baseDir, '_tmp_render.html');
   await writeFile(tmpHtml, html, 'utf-8');
 
   const page = await browser.newPage();
