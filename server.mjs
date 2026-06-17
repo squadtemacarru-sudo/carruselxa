@@ -18,6 +18,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWriteStream } from 'node:fs';
 
+// Clientes SSE que se desconectan emiten ECONNRESET — no debe crashear el proceso
+process.on('uncaughtException', (err) => {
+  if (err.code === 'ECONNRESET' || err.message === 'aborted') return;
+  console.error('Uncaught exception:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  if (reason?.code === 'ECONNRESET' || reason?.message === 'aborted') return;
+  console.error('Unhandled rejection:', reason);
+});
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json({ limit: '20mb' }));
@@ -127,7 +138,10 @@ let jobClients = [];
 function broadcast(line) {
   jobLog.push(line);
   if (jobLog.length > 2000) jobLog = jobLog.slice(-2000);
-  jobClients.forEach((res) => res.write(`data: ${JSON.stringify(line)}\n\n`));
+  jobClients = jobClients.filter(res => {
+    try { res.write(`data: ${JSON.stringify(line)}\n\n`); return true; }
+    catch { return false; }
+  });
 }
 
 function runStep(args, extraEnv = {}) {
@@ -151,9 +165,11 @@ function slugify(str) {
 app.get('/api/job/stream', (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
   res.flushHeaders();
-  jobLog.forEach((line) => res.write(`data: ${JSON.stringify(line)}\n\n`));
+  jobLog.forEach((line) => { try { res.write(`data: ${JSON.stringify(line)}\n\n`); } catch {} });
   jobClients.push(res);
-  req.on('close', () => { jobClients = jobClients.filter((c) => c !== res); });
+  const remove = () => { jobClients = jobClients.filter((c) => c !== res); };
+  req.on('close', remove);
+  res.on('error', remove);
 });
 
 app.get('/api/job/status', (req, res) => {
