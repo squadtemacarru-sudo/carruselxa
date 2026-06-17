@@ -448,7 +448,7 @@ body {
 }
 .tanda-tema { flex: 1; min-width: 0; }
 .tanda-acts { display: flex; gap: 4px; flex-shrink: 0; }
-.tanda-save, .tanda-disc {
+.tanda-edit, .tanda-save, .tanda-disc {
   width: 26px; height: 26px;
   border-radius: 50%; border: none;
   background: rgba(255,255,255,0.10);
@@ -458,6 +458,7 @@ body {
   display: flex; align-items: center; justify-content: center;
   transition: background 0.15s, color 0.15s;
 }
+.tanda-edit:hover  { background: rgba(232,255,0,0.25); color: var(--acc); }
 .tanda-save:hover  { background: rgba(232,255,0,0.25); color: var(--acc); }
 .tanda-disc:hover  { background: rgba(255,63,63,0.25); color: var(--red); }
 .tanda-save.on     { background: var(--acc); color: #000; }

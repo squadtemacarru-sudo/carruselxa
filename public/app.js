@@ -778,6 +778,7 @@ async function cargarGaleria() {
         <div class="label">
           <span class="tanda-tema">${t.tema}</span>
           <div class="tanda-acts">
+            <button class="tanda-edit" data-action="editar" title="Editar">✏</button>
             <button class="tanda-save${estado === 'guardado' ? ' on' : ''}" data-action="guardado" title="Guardar">★</button>
             <button class="tanda-disc${estado === 'descartado' ? ' on' : ''}" data-action="descartado" title="Descartar">✕</button>
           </div>
@@ -791,6 +792,10 @@ async function cargarGaleria() {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.tanda-acts')) return;
       openLightbox(t.slides, 0, t.id);
+    });
+    card.querySelector('.tanda-edit').addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.open(`/editor.html?tanda=${t.id}`, '_blank');
     });
     card.querySelector('.tanda-save').addEventListener('click', (e) => {
       e.stopPropagation();

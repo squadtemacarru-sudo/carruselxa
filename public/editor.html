@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor — CarruselGen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@1,900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:    #040404;
+  --surf:  #0a0b0d;
+  --surf2: #16181c;
+  --brd:   #1f1f24;
+  --txt:   #ffffff;
+  --sec:   #9090a8;
+  --acc:   #e8ff00;
+  --red:   #ff3f3f;
+  --green: #00d084;
+  --pad:   16px;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--txt); font-family: 'Inter', sans-serif; overflow: hidden; }
+
+/* ── LAYOUT ── */
+.editor-root {
+  display: grid;
+  grid-template-rows: 52px 1fr;
+  grid-template-columns: 1fr 280px;
+  height: 100vh;
+}
+
+/* ── HEADER ── */
+.ed-header {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--brd);
+  background: var(--surf);
+}
+.ed-header h1 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-style: italic; font-weight: 900;
+  font-size: 22px; letter-spacing: 0.02em;
+  color: var(--acc); flex-shrink: 0;
+}
+.ed-slide-nav {
+  display: flex; align-items: center; gap: 6px;
+  margin-left: 8px;
+}
+.ed-nav-btn {
+  background: var(--surf2); border: 1px solid var(--brd);
+  color: var(--txt); border-radius: 6px; width: 28px; height: 28px;
+  cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+}
+.ed-nav-btn:hover { border-color: var(--acc); }
+.ed-slide-label { font-size: 13px; color: var(--sec); white-space: nowrap; }
+.ed-spacer { flex: 1; }
+.ed-hint {
+  font-size: 11px; color: var(--sec);
+  background: var(--surf2); border: 1px solid var(--brd);
+  border-radius: 6px; padding: 4px 10px;
+}
+.ed-btn {
+  border: none; border-radius: 8px; padding: 0 16px; height: 32px;
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.ed-btn-primary { background: var(--acc); color: #000; }
+.ed-btn-primary:hover { opacity: 0.88; }
+.ed-btn-ghost { background: var(--surf2); color: var(--txt); border: 1px solid var(--brd); }
+.ed-btn-ghost:hover { border-color: var(--acc); }
+.ed-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── CANVAS AREA ── */
+.ed-canvas {
+  display: flex; align-items: center; justify-content: center;
+  background: #020202;
+  overflow: hidden;
+  position: relative;
+}
+.ed-frame-wrap {
+  position: relative;
+  /* Size set via JS based on available space */
+}
+.ed-frame-wrap iframe {
+  border: none;
+  width: 1080px;
+  height: 1350px;
+  transform-origin: top left;
+  display: block;
+}
+.ed-frame-hint {
+  position: absolute;
+  bottom: -28px; left: 0; right: 0;
+  text-align: center;
+  font-size: 11px; color: #444;
+}
+
+/* ── PANEL ── */
+.ed-panel {
+  border-left: 1px solid var(--brd);
+  background: var(--surf);
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+
+.ed-section {
+  border-bottom: 1px solid var(--brd);
+  padding: 14px 16px;
+}
+.ed-section-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--sec);
+  margin-bottom: 12px;
+}
+
+/* ── CONTROLS ── */
+.ctrl-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+}
+.ctrl-row:last-child { margin-bottom: 0; }
+.ctrl-label { font-size: 12px; color: var(--sec); min-width: 60px; flex-shrink: 0; }
+.ctrl-val   { font-size: 12px; color: var(--txt); min-width: 36px; text-align: right; flex-shrink: 0; }
+
+input[type="color"] {
+  width: 32px; height: 28px; border: 1px solid var(--brd);
+  border-radius: 6px; padding: 2px; cursor: pointer;
+  background: var(--surf2); flex-shrink: 0;
+}
+input[type="range"] {
+  flex: 1; accent-color: var(--acc); cursor: pointer;
+}
+.toggle-btn {
+  background: var(--surf2); border: 1px solid var(--brd);
+  color: var(--sec); border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; font-weight: 600;
+  cursor: pointer; flex-shrink: 0;
+}
+.toggle-btn.on { background: var(--acc); color: #000; border-color: var(--acc); }
+.toggle-btn:hover:not(.on) { border-color: var(--acc); color: var(--txt); }
+
+.sel-none { font-size: 12px; color: var(--sec); padding: 4px 0; }
+
+/* ── STATUS ── */
+.ed-status {
+  font-size: 12px; padding: 8px 16px;
+  color: var(--sec);
+  border-top: 1px solid var(--brd);
+  margin-top: auto;
+}
+.ed-status.ok  { color: var(--green); }
+.ed-status.err { color: var(--red); }
+
+/* ── SLIDE THUMBNAILS ── */
+.ed-thumbs {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 16px;
+}
+.ed-thumb {
+  border-radius: 6px; overflow: hidden;
+  border: 2px solid transparent; cursor: pointer;
+  position: relative;
+}
+.ed-thumb.active { border-color: var(--acc); }
+.ed-thumb:hover:not(.active) { border-color: #444; }
+.ed-thumb img { width: 100%; display: block; border-radius: 4px; }
+.ed-thumb-n {
+  position: absolute; bottom: 4px; right: 6px;
+  font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.6);
+}
+</style>
+</head>
+<body>
+<div class="editor-root">
+
+  <!-- HEADER -->
+  <header class="ed-header">
+    <h1>EDITOR</h1>
+    <div class="ed-slide-nav">
+      <button class="ed-nav-btn" id="btnPrev">‹</button>
+      <span class="ed-slide-label" id="slideLabel">1 / 1</span>
+      <button class="ed-nav-btn" id="btnNext">›</button>
+    </div>
+    <span class="ed-spacer"></span>
+    <span class="ed-hint">Arrastrá el texto · Doble clic para editar · Seleccioná para cambiar estilo</span>
+    <button class="ed-btn ed-btn-ghost" id="btnReset">Resetear slide</button>
+    <button class="ed-btn ed-btn-primary" id="btnExport" disabled>Guardar y exportar</button>
+  </header>
+
+  <!-- CANVAS -->
+  <main class="ed-canvas" id="edCanvas">
+    <div class="ed-frame-wrap" id="frameWrap">
+      <iframe id="slideFrame" title="Editor de slide"></iframe>
+      <div class="ed-frame-hint">Click para seleccionar · Doble clic para editar texto · Arrastrá para mover</div>
+    </div>
+  </main>
+
+  <!-- PANEL -->
+  <aside class="ed-panel" id="edPanel">
+
+    <!-- Slides -->
+    <div class="ed-section">
+      <div class="ed-section-title">Slides</div>
+      <div class="ed-thumbs" id="thumbGrid"></div>
+    </div>
+
+    <!-- Elemento seleccionado -->
+    <div class="ed-section">
+      <div class="ed-section-title">Elemento seleccionado</div>
+      <div id="noSel" class="sel-none">Hacé clic en un texto del slide para seleccionarlo.</div>
+      <div id="selControls" style="display:none">
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Color</span>
+          <input type="color" id="ctrlColor" value="#ffffff">
+          <span class="ctrl-val" id="ctrlColorVal">#ffffff</span>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Tamaño</span>
+          <input type="range" id="ctrlSize" min="12" max="300" value="80">
+          <span class="ctrl-val" id="ctrlSizeVal">80</span>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Rotación</span>
+          <input type="range" id="ctrlRot" min="-180" max="180" value="0">
+          <span class="ctrl-val" id="ctrlRotVal">0°</span>
+        </div>
+
+        <div class="ctrl-row">
+          <span class="ctrl-label">Negrita</span>
+          <button class="toggle-btn" id="ctrlBold">B</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Estado -->
+    <div class="ed-status" id="edStatus">Cargando editor...</div>
+
+  </aside>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const params  = new URLSearchParams(location.search);
+const tandaId = params.get('tanda');
+
+if (!tandaId) {
+  document.body.innerHTML = '<p style="padding:40px;color:#ff3f3f">Falta ?tanda= en la URL</p>';
+  throw new Error('No tanda');
+}
+
+// ── Escala del iframe ───────────────────────────────────────────────────
+const SLIDE_W = 1080;
+const SLIDE_H = 1350;
+const frame   = $('slideFrame');
+const wrap    = $('frameWrap');
+const canvas  = $('edCanvas');
+
+function applyScale() {
+  const avW = canvas.clientWidth  - 40;
+  const avH = canvas.clientHeight - 60;
+  const s   = Math.min(avW / SLIDE_W, avH / SLIDE_H, 1);
+  frame.style.transform = `scale(${s})`;
+  wrap.style.width  = Math.round(SLIDE_W * s) + 'px';
+  wrap.style.height = Math.round(SLIDE_H * s) + 'px';
+}
+new ResizeObserver(applyScale).observe(canvas);
+applyScale();
+
+// ── Estado ──────────────────────────────────────────────────────────────
+let curSlide   = 0;
+let totalSlides= 1;
+let overrides  = {};   // acumula overrides de todos los slides
+let slideUrls  = [];
+let dirty      = false;
+
+function setStatus(msg, cls = '') {
+  const s = $('edStatus');
+  s.textContent = msg;
+  s.className   = 'ed-status ' + cls;
+}
+
+// ── Cargar iframe ────────────────────────────────────────────────────────
+frame.src = `/api/tandas/${tandaId}/template-html`;
+frame.addEventListener('load', () => {
+  // Esperar a que el iframe esté listo y le mandamos activar
+  setTimeout(() => {
+    frame.contentWindow.postMessage({ type: 'activate', idx: 0 }, '*');
+  }, 200);
+});
+
+// ── Mensajes del iframe ──────────────────────────────────────────────────
+window.addEventListener('message', e => {
+  const d = e.data || {};
+
+  if (d.type === 'ready') {
+    totalSlides = d.total || 1;
+    updateNav();
+    setStatus('Listo. Hacé clic en el texto para seleccionar.', '');
+    $('btnExport').disabled = false;
+    buildThumbs();
+  }
+
+  if (d.type === 'selected') {
+    showSelControls(d.props);
+  }
+
+  if (d.type === 'deselect') {
+    $('noSel').style.display   = '';
+    $('selControls').style.display = 'none';
+  }
+
+  if (d.type === 'stateChange') {
+    // Merge overrides del slide actual
+    Object.assign(overrides, d.overrides);
+    dirty = true;
+    setStatus('Cambios sin guardar', '');
+  }
+});
+
+// ── Controles de elemento ────────────────────────────────────────────────
+function showSelControls(props) {
+  $('noSel').style.display       = 'none';
+  $('selControls').style.display = '';
+
+  $('ctrlColor').value    = props.color || '#ffffff';
+  $('ctrlColorVal').textContent = props.color || '#ffffff';
+  $('ctrlSize').value     = props.fontSize || 80;
+  $('ctrlSizeVal').textContent  = (props.fontSize || 80) + 'px';
+  $('ctrlRot').value      = props.rotation || 0;
+  $('ctrlRotVal').textContent   = (props.rotation || 0) + '°';
+  $('ctrlBold').classList.toggle('on', !!props.bold);
+}
+
+$('ctrlColor').addEventListener('input', () => {
+  const v = $('ctrlColor').value;
+  $('ctrlColorVal').textContent = v;
+  send('setColor', v);
+});
+
+$('ctrlSize').addEventListener('input', () => {
+  const v = +$('ctrlSize').value;
+  $('ctrlSizeVal').textContent = v + 'px';
+  send('setSize', v);
+});
+
+$('ctrlRot').addEventListener('input', () => {
+  const v = +$('ctrlRot').value;
+  $('ctrlRotVal').textContent = v + '°';
+  send('setRotation', v);
+});
+
+$('ctrlBold').addEventListener('click', () => {
+  $('ctrlBold').classList.toggle('on');
+  send('toggleBold');
+});
+
+function send(type, v) {
+  frame.contentWindow.postMessage({ type, v }, '*');
+}
+
+// ── Navegación de slides ─────────────────────────────────────────────────
+function goSlide(idx) {
+  if (idx < 0) idx = 0;
+  if (idx >= totalSlides) idx = totalSlides - 1;
+  curSlide = idx;
+  frame.contentWindow.postMessage({ type: 'showSlide', idx }, '*');
+  setTimeout(() => {
+    frame.contentWindow.postMessage({ type: 'activate', idx }, '*');
+  }, 100);
+  updateNav();
+  $('noSel').style.display   = '';
+  $('selControls').style.display = 'none';
+  document.querySelectorAll('.ed-thumb').forEach((t, i) => {
+    t.classList.toggle('active', i === idx);
+  });
+}
+
+function updateNav() {
+  $('slideLabel').textContent = `${curSlide + 1} / ${totalSlides}`;
+}
+
+$('btnPrev').addEventListener('click', () => goSlide(curSlide - 1));
+$('btnNext').addEventListener('click', () => goSlide(curSlide + 1));
+
+// ── Thumbnails ────────────────────────────────────────────────────────────
+async function buildThumbs() {
+  try {
+    const res  = await fetch('/api/tandas');
+    const list = await res.json();
+    const t    = list.find(x => x.id === tandaId);
+    if (!t) return;
+    slideUrls = t.slides || [];
+    const grid = $('thumbGrid');
+    grid.innerHTML = '';
+    slideUrls.forEach((url, i) => {
+      const d = document.createElement('div');
+      d.className = 'ed-thumb' + (i === 0 ? ' active' : '');
+      d.innerHTML = `<img src="${url}" loading="lazy"><span class="ed-thumb-n">${i + 1}</span>`;
+      d.addEventListener('click', () => goSlide(i));
+      grid.appendChild(d);
+    });
+  } catch {}
+}
+
+// ── Reset slide ───────────────────────────────────────────────────────────
+$('btnReset').addEventListener('click', () => {
+  if (!confirm(`¿Resetear el slide ${curSlide + 1} a su estado original?`)) return;
+  delete overrides[`slide-${curSlide + 1}`];
+  // Recargar el iframe
+  frame.src = `/api/tandas/${tandaId}/template-html`;
+  frame.addEventListener('load', () => {
+    setTimeout(() => {
+      frame.contentWindow.postMessage({ type: 'activate', idx: curSlide }, '*');
+      frame.contentWindow.postMessage({ type: 'showSlide', idx: curSlide }, '*');
+    }, 200);
+  }, { once: true });
+  setStatus('Slide reseteado.', 'ok');
+});
+
+// ── Exportar ──────────────────────────────────────────────────────────────
+$('btnExport').addEventListener('click', async () => {
+  if (!dirty && !confirm('No hay cambios nuevos. ¿Re-exportar igual?')) return;
+  $('btnExport').disabled = true;
+  setStatus('Guardando y re-renderizando...', '');
+
+  try {
+    const res = await fetch(`/api/tandas/${tandaId}/save-overrides`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overrides, rerender: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al guardar');
+    dirty = false;
+    setStatus('Re-renderizando con Puppeteer… esto tarda ~20s.', '');
+
+    // Polling hasta que el job termine
+    const poll = setInterval(async () => {
+      const st = await fetch('/api/job/status').then(r => r.json()).catch(() => ({ running: true }));
+      if (!st.running) {
+        clearInterval(poll);
+        setStatus('Exportado. Actualizando miniaturas...', 'ok');
+        $('btnExport').disabled = false;
+        setTimeout(buildThumbs, 1500);
+      }
+    }, 2000);
+  } catch (e) {
+    setStatus('Error: ' + e.message, 'err');
+    $('btnExport').disabled = false;
+  }
+});
+</script>
+</body>
+</html>

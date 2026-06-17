@@ -934,5 +934,108 @@ app.delete('/api/fotos/:nombre', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ─────────────────────────────────────────────────────────────────────
+// Editor visual — sirve el template ensamblado con _editMode:true
+// ─────────────────────────────────────────────────────────────────────
+function isValidTandaId(id) {
+  return typeof id === 'string' && /^[a-z0-9_-]+$/i.test(id);
+}
+
+app.get('/api/tandas/:id/template-html', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).send('id inválido');
+
+  const dir = path.join(__dirname, 'tandas', id);
+  let raw;
+  try {
+    raw = JSON.parse(await readFile(path.join(dir, 'contenido.analizado.json'), 'utf-8'));
+  } catch {
+    return res.status(404).send('Tanda no encontrada o sin analizar');
+  }
+
+  // Resolver refs de fotos a URLs accesibles desde el browser
+  const PHOTO_FIELDS = ['photo','photo_top','photo_bottom','photo_before','photo_after'];
+  const resolve = (ref) => {
+    if (!ref) return ref;
+    if (ref.startsWith('http://') || ref.startsWith('https://')) return ref;
+    const base = path.basename(ref);
+    return fotosCloud.get(base)?.url || `/fotos/${encodeURIComponent(base)}`;
+  };
+  for (const s of raw.slides) {
+    PHOTO_FIELDS.forEach(f => { if (s[f]) s[f] = resolve(s[f]); });
+    if (Array.isArray(s.rows)) s.rows.forEach(r => { if (r.photo) r.photo = resolve(r.photo); });
+  }
+
+  // Logo
+  try {
+    const buf = await readFile(path.join(__dirname, 'marcas', raw._marca || 'squadteam', 'logo.png'));
+    raw._logo = `data:image/png;base64,${buf.toString('base64')}`;
+  } catch {}
+
+  // Overrides guardados previamente
+  try {
+    const ov = JSON.parse(await readFile(path.join(dir, 'overrides.json'), 'utf-8'));
+    raw._userOverrides = ov;
+  } catch {}
+
+  raw._editMode = true;
+
+  const template   = await readFile(path.join(__dirname, 'template.html'), 'utf-8');
+  const renderCore = await readFile(path.join(__dirname, 'render-core.js'), 'utf-8');
+  const html = template
+    .replace('<script src="render-core.js"></script>', `<script>${renderCore}</script>`)
+    .replace('__DATA__', JSON.stringify(raw));
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
+// Guarda overrides del editor y dispara re-render de los slides modificados
+app.post('/api/tandas/:id/save-overrides', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+  if (jobRunning) return res.status(409).json({ error: 'Hay una generación en curso' });
+
+  const { overrides, rerender } = req.body || {};
+  if (!overrides) return res.status(400).json({ error: 'Faltan overrides' });
+
+  const dir = path.join(__dirname, 'tandas', id);
+  await writeFile(path.join(dir, 'overrides.json'), JSON.stringify(overrides, null, 2), 'utf-8');
+
+  if (!rerender) return res.json({ ok: true });
+
+  // Re-render: aplicar overrides en contenido.analizado.json y lanzar generar.mjs
+  let raw;
+  try {
+    raw = JSON.parse(await readFile(path.join(dir, 'contenido.analizado.json'), 'utf-8'));
+  } catch {
+    return res.status(404).json({ error: 'contenido.analizado.json no encontrado' });
+  }
+
+  raw._userOverrides = overrides;
+  await writeFile(path.join(dir, 'contenido.analizado.json'), JSON.stringify(raw, null, 2), 'utf-8');
+
+  jobRunning = true;
+  jobLog = [];
+  res.json({ ok: true, rerendering: true });
+
+  (async () => {
+    try {
+      const extraEnv = {};
+      if (fotosCloud.size > 0) {
+        const mapObj = {};
+        for (const [n, { url }] of fotosCloud.entries()) mapObj[n] = url;
+        extraEnv.FOTOS_MAP = JSON.stringify(mapObj);
+      }
+      await runStep(['generar.mjs', `${path.join('tandas', id)}/contenido.analizado.json`], extraEnv);
+      broadcast(`\n✅ Re-render con ediciones listo\n`);
+    } catch (e) {
+      broadcast(`\n❌ Error re-render: ${e.message}\n`);
+    } finally {
+      jobRunning = false;
+    }
+  })();
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🎬 Carrusel Generator UI → http://localhost:${PORT}`));

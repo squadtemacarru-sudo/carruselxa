@@ -913,6 +913,21 @@
 
   data.slides.forEach((s, i) => wrapper.appendChild(buildAny(s, i, data.slides.length)));
 
+  // Aplicar overrides de usuario (posiciones/colores/textos editados manualmente)
+  if (data._userOverrides) {
+    Object.entries(data._userOverrides).forEach(([slideId, overrides]) => {
+      const slide = document.getElementById(slideId);
+      if (!slide) return;
+      Object.entries(overrides).forEach(([sel, styles]) => {
+        const el = slide.querySelector(sel);
+        if (!el) return;
+        const { textContent: tc, ...css } = styles;
+        Object.assign(el.style, css);
+        if (tc != null) el.textContent = tc;
+      });
+    });
+  }
+
   window.__showSlide = (i) => {
     data.slides.forEach((_, idx) => {
       const sec = document.getElementById(`slide-${idx+1}`);
@@ -923,6 +938,201 @@
     if (active.classList.contains('slide')) autofitHeadlines(active);
     if (active.classList.contains('slide-split-v')) autofitSvContrast(active);
   };
+
+  // ── EDIT MODE ─────────────────────────────────────────────────────────
+  // Activado cuando el server inyecta data._editMode = true.
+  // Hace todos los elementos de texto arrastrables (pointer events),
+  // editables (dblclick → contentEditable) y configurables (postMessage).
+  if (data._editMode) {
+    const EDIT_SEL = [
+      '.cover-headline','.cover-detail','.cover-kicker','.cover-tag',
+      '.slide-tag','.cover-footer','.brand-handle',
+      '.list-headline','.list-eyebrow',
+      '.statement-headline','.statement-body',
+      '.quote-text','.quote-attr','.quote-note',
+      '.cta-headline','.cta-sub','.cta-handle',
+      '.gr-headline',
+      '.bn-stat','.bn-label','.bn-body',
+      '.tl-headline','.tl-eyebrow',
+    ];
+
+    let selEl = null;
+    let curIdx = 0;
+
+    function activateSlide(idx) {
+      curIdx = idx;
+      const slide = document.getElementById(`slide-${idx + 1}`);
+      if (!slide) return;
+
+      // Aplicar overrides guardados antes de convertir a absolute
+      const ov = (data._userOverrides || {})[`slide-${idx + 1}`] || {};
+      Object.entries(ov).forEach(([sel, styles]) => {
+        const el = slide.querySelector(sel);
+        if (!el) return;
+        const { textContent: tc, ...css } = styles;
+        Object.assign(el.style, css);
+        if (tc != null) el.textContent = tc;
+      });
+
+      // Convertir todos los elementos editables a position:absolute
+      EDIT_SEL.forEach(s => slide.querySelectorAll(s).forEach(el => attach(el, slide)));
+
+      window.parent.postMessage({ type: 'ready', total: data.slides.length }, '*');
+    }
+
+    function attach(el, slide) {
+      if (el._editAttached) return;
+      el._editAttached = true;
+
+      const sr = slide.getBoundingClientRect();
+      const er = el.getBoundingClientRect();
+
+      el.style.position  = 'absolute';
+      el.style.left      = (er.left - sr.left) + 'px';
+      el.style.top       = (er.top  - sr.top)  + 'px';
+      el.style.width     = er.width + 'px';
+      el.style.margin    = '0';
+      el.style.cursor    = 'grab';
+      el._rot            = el._rot || 0;
+
+      let drag = false, sx, sy, ol, ot;
+
+      el.addEventListener('pointerdown', e => {
+        if (el.contentEditable === 'true') return;
+        if (e.detail >= 2) return;
+        e.preventDefault(); e.stopPropagation();
+        drag = true;
+        sx = e.clientX; sy = e.clientY;
+        ol = parseFloat(el.style.left) || 0;
+        ot = parseFloat(el.style.top)  || 0;
+        el.style.cursor = 'grabbing';
+        el.style.zIndex = '999';
+        el.setPointerCapture(e.pointerId);
+        pick(el);
+      });
+
+      el.addEventListener('pointermove', e => {
+        if (!drag) return;
+        el.style.left = (ol + e.clientX - sx) + 'px';
+        el.style.top  = (ot + e.clientY - sy) + 'px';
+      });
+
+      el.addEventListener('pointerup', () => {
+        if (!drag) return;
+        drag = false;
+        el.style.cursor = 'grab';
+        el.style.zIndex = '';
+        push();
+      });
+
+      el.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        el.contentEditable = 'true';
+        el.style.cursor = 'text';
+        el.focus();
+        pick(el);
+      });
+
+      el.addEventListener('blur', () => {
+        el.contentEditable = 'false';
+        el.style.cursor = 'grab';
+        if (selEl === el) el.style.outline = '2px solid #e8ff00';
+        push();
+      });
+
+      el.addEventListener('click', e => { e.stopPropagation(); pick(el); });
+      el.addEventListener('keydown', e => { if (e.key === 'Escape') el.blur(); });
+    }
+
+    function pick(el) {
+      if (selEl && selEl !== el) { selEl.style.outline = ''; selEl.style.outlineOffset = ''; }
+      selEl = el;
+      el.style.outline = '2px solid #e8ff00';
+      el.style.outlineOffset = '3px';
+      const cs = getComputedStyle(el);
+      window.parent.postMessage({
+        type: 'selected',
+        props: {
+          color:    toHex(cs.color),
+          fontSize: Math.round(parseFloat(cs.fontSize)),
+          rotation: el._rot || 0,
+          bold:     parseInt(cs.fontWeight) >= 700,
+          text:     el.textContent,
+        }
+      }, '*');
+    }
+
+    function push() {
+      window.parent.postMessage({ type: 'stateChange', overrides: collect() }, '*');
+    }
+
+    function collect() {
+      const slide = document.getElementById(`slide-${curIdx + 1}`);
+      if (!slide) return {};
+      const map = {};
+      EDIT_SEL.forEach(s => {
+        slide.querySelectorAll(s).forEach(el => {
+          if (!el._editAttached) return;
+          const cls = Array.from(el.classList).find(c => EDIT_SEL.some(sel => sel === '.' + c));
+          const key = cls ? ('.' + cls) : (el.className ? ('.' + el.className.trim().split(/\s+/)[0]) : el.tagName.toLowerCase());
+          map[key] = {
+            position:   'absolute',
+            left:       el.style.left,
+            top:        el.style.top,
+            width:      el.style.width,
+            margin:     '0',
+            color:      el.style.color || '',
+            fontSize:   el.style.fontSize || '',
+            fontWeight: el.style.fontWeight || '',
+            transform:  el.style.transform || '',
+            textContent: el.textContent,
+          };
+        });
+      });
+      return { [`slide-${curIdx + 1}`]: map };
+    }
+
+    function toHex(c) {
+      const d = document.createElement('div');
+      d.style.color = c; document.body.appendChild(d);
+      const rgb = getComputedStyle(d).color; document.body.removeChild(d);
+      const m = rgb.match(/\d+/g);
+      if (!m) return '#ffffff';
+      return '#' + m.slice(0,3).map(n => (+n).toString(16).padStart(2,'0')).join('');
+    }
+
+    window.addEventListener('message', e => {
+      const d = e.data || {};
+      if (d.type === 'activate') { activateSlide(d.idx ?? 0); return; }
+      if (d.type === 'showSlide') {
+        window.__showSlide(d.idx);
+        setTimeout(() => { curIdx = d.idx; }, 80);
+        return;
+      }
+      if (!selEl) return;
+      if (d.type === 'setColor')    { selEl.style.color = d.v; push(); }
+      if (d.type === 'setSize')     { selEl.style.fontSize = d.v + 'px'; push(); }
+      if (d.type === 'setRotation') {
+        selEl._rot = d.v;
+        const base = (selEl.style.transform || '').replace(/rotate\([^)]+\)/g, '').trim();
+        selEl.style.transform = (base + ` rotate(${d.v}deg)`).trim();
+        push();
+      }
+      if (d.type === 'toggleBold') {
+        const fw = parseInt(getComputedStyle(selEl).fontWeight);
+        selEl.style.fontWeight = fw >= 700 ? '400' : '900';
+        push();
+      }
+      if (d.type === 'deselect') { if (selEl) { selEl.style.outline = ''; selEl = null; } }
+    });
+
+    wrapper.addEventListener('click', e => {
+      if (e.target === wrapper || e.target.classList.contains('slide-bg') || e.target.classList.contains('slide')) {
+        if (selEl) { selEl.style.outline = ''; selEl = null; }
+        window.parent.postMessage({ type: 'deselect' }, '*');
+      }
+    });
+  }
 </script>
 </body>
 </html>
