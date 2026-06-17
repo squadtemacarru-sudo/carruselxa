@@ -181,7 +181,7 @@ function cover(sec, s, layout, useGlass, glassOp) {
     const left = el('div', 'cover-left');
     left.appendChild(el('h1', 'c-headline h-display', richText(s.headline)));
     const right = el('div', 'cover-right');
-    if (s.detail) right.appendChild(el('p', 'c-body', esc(s.detail)));
+    if (s.detail) right.appendChild(el('p', 'c-body', richText(s.detail)));
     if (s.kicker) {
       const k = el('div', 'c-kicker');
       k.appendChild(el('div', 'c-kicker-line'));
@@ -197,7 +197,7 @@ function cover(sec, s, layout, useGlass, glassOp) {
   const main = el('div', 'cover-main');
   if (useGlass) { main.classList.add('glass-wrap'); main.style.setProperty('--glass-bg', `rgba(4,4,6,${glassOp})`); }
   main.appendChild(el('h1', 'c-headline h-display', richText(s.headline)));
-  if (s.detail) main.appendChild(el('p', 'c-body', esc(s.detail)));
+  if (s.detail) main.appendChild(el('p', 'c-body', richText(s.detail)));
   if (s.kicker) {
     const k = el('div', 'c-kicker');
     k.appendChild(el('div', 'c-kicker-line'));
@@ -259,36 +259,36 @@ function list(sec, s, layout) {
 function statement(sec, s, layout) {
   if (layout === 'statement-top') {
     const top = el('div', 'stmt-top');
-    top.appendChild(el('h2', 'c-headline h-display', esc(s.headline)));
+    top.appendChild(el('h2', 'c-headline h-display', richText(s.headline)));
     sec.appendChild(top);
     // Con foto: el body va anclado al fondo como elemento fijo — no se mezcla con el headline
     if (s.body) {
       if (s.photo) {
         const bot = el('div', 'stmt-photo-body');
         bot.appendChild(divider());
-        bot.appendChild(el('p', 'c-body', esc(s.body)));
+        bot.appendChild(el('p', 'c-body', richText(s.body)));
         sec.appendChild(bot);
       } else {
         const bot = el('div', 'stmt-bottom');
         bot.appendChild(divider());
-        bot.appendChild(el('p', 'c-body', esc(s.body)));
+        bot.appendChild(el('p', 'c-body', richText(s.body)));
         sec.appendChild(bot);
       }
     }
     return;
   }
   if (layout === 'statement-impact') {
-    sec.appendChild(el('h2', 'c-headline h-display stmt-headline', esc(s.headline)));
+    sec.appendChild(el('h2', 'c-headline h-display stmt-headline', richText(s.headline)));
     const wrap = el('div', 'stmt-body-wrap');
     wrap.appendChild(divider());
-    if (s.body) wrap.appendChild(el('p', 'c-body', esc(s.body)));
+    if (s.body) wrap.appendChild(el('p', 'c-body', richText(s.body)));
     sec.appendChild(wrap);
     return;
   }
   // statement-anchored (default)
-  sec.appendChild(el('h2', 'c-headline h-display', esc(s.headline)));
+  sec.appendChild(el('h2', 'c-headline h-display', richText(s.headline)));
   sec.appendChild(divider());
-  if (s.body) sec.appendChild(el('p', 'c-body', esc(s.body)));
+  if (s.body) sec.appendChild(el('p', 'c-body', richText(s.body)));
 }
 
 // ─── SPLIT ───────────────────────────────────────────────────
@@ -331,21 +331,21 @@ function split(sec, s, layout) {
 // ─── QUOTE ───────────────────────────────────────────────────
 function quote(sec, s, layout, useGlass, glassOp) {
   if (layout === 'quote-centered') {
-    if (s.quote) sec.appendChild(el('p', 'quote-text', esc(s.quote)));
+    if (s.quote) sec.appendChild(el('p', 'quote-text', richText(s.quote)));
     const line = el('div', 'c-divider-line'); sec.appendChild(line);
-    if (s.attr) sec.appendChild(el('p', 'quote-attr', esc(s.attr)));
-    if (s.note) sec.appendChild(el('p', 'quote-note', esc(s.note)));
+    if (s.attr) sec.appendChild(el('p', 'quote-attr', richText(s.attr)));
+    if (s.note) sec.appendChild(el('p', 'quote-note', richText(s.note)));
     return;
   }
   // quote-dominant
   const top = el('div', 'quote-top');
-  const qText = el('p', 'quote-text', esc(s.quote));
+  const qText = el('p', 'quote-text', richText(s.quote));
   if (useGlass) { qText.classList.add('glass-wrap'); qText.style.setProperty('--glass-bg', `rgba(4,4,6,${glassOp})`); }
   top.appendChild(qText);
   sec.appendChild(top);
   const bot = el('div', 'quote-bottom');
-  if (s.attr) bot.appendChild(el('p', 'quote-attr', esc(s.attr)));
-  if (s.note) bot.appendChild(el('p', 'quote-note', esc(s.note)));
+  if (s.attr) bot.appendChild(el('p', 'quote-attr', richText(s.attr)));
+  if (s.note) bot.appendChild(el('p', 'quote-note', richText(s.note)));
   sec.appendChild(bot);
 }
 
@@ -353,8 +353,8 @@ function quote(sec, s, layout, useGlass, glassOp) {
 function cta(sec, s, layout, useGlass, glassOp) {
   const main = el('div', 'cta-main');
   if (useGlass) { main.classList.add('glass-wrap'); main.style.setProperty('--glass-bg',`rgba(4,4,6,${glassOp})`); }
-  main.appendChild(el('h2', 'cta-hl', esc(s.headline)));
-  if (s.sub) main.appendChild(el('p', 'cta-sub', esc(s.sub)));
+  main.appendChild(el('h2', 'cta-hl', richText(s.headline)));
+  if (s.sub) main.appendChild(el('p', 'cta-sub', richText(s.sub)));
   sec.appendChild(main);
   const footer = el('div', 'cta-footer');
   footer.appendChild(el('span', 'c-handle', esc(s.handle || '')));
@@ -413,7 +413,7 @@ function buildSplitV(slide, i, total) {
   if (slide.photo_top) { const bg = el('div','sv-bg'); bg.style.backgroundImage=`url(${slide.photo_top})`; top.appendChild(bg); }
   const tt = el('div', svTextClasses(slide._topPos));
   if (slide.label_top)    tt.appendChild(el('p','sv-label',   esc(slide.label_top)));
-  if (slide.contrast_top) tt.appendChild(el('p','sv-contrast',esc(slide.contrast_top)));
+  if (slide.contrast_top) tt.appendChild(el('p','sv-contrast',richText(slide.contrast_top)));
   top.appendChild(tt); sec.appendChild(top);
   sec.appendChild(el('div','sv-divider'));
 
@@ -421,7 +421,7 @@ function buildSplitV(slide, i, total) {
   if (slide.photo_bottom) { const bg = el('div','sv-bg'); bg.style.backgroundImage=`url(${slide.photo_bottom})`; bot.appendChild(bg); }
   const bt = el('div', svTextClasses(slide._bottomPos));
   if (slide.label_bottom)    bt.appendChild(el('p','sv-label',   esc(slide.label_bottom)));
-  if (slide.contrast_bottom) bt.appendChild(el('p','sv-contrast',esc(slide.contrast_bottom)));
+  if (slide.contrast_bottom) bt.appendChild(el('p','sv-contrast',richText(slide.contrast_bottom)));
   bot.appendChild(bt); sec.appendChild(bot);
   return sec;
 }
@@ -442,7 +442,7 @@ function buildFullImpact(slide, i, total) {
   if (slide.line2) content.appendChild(el('p','fi-line2',richText(slide.line2)));
   if (slide.footer_text) {
     const ft = el('div','fi-footer');
-    ft.appendChild(el('span','fi-footer-text',esc(slide.footer_text)));
+    ft.appendChild(el('span','fi-footer-text',richText(slide.footer_text)));
     ft.appendChild(el('span','fi-arrow',RC.ARROW));
     content.appendChild(ft);
   }
@@ -483,8 +483,8 @@ function buildBigNumber(slide, i, total) {
   }
   sec.appendChild(el('span','bn-tag', `0${i+1} / 0${total}`));
   if (slide.stat)  sec.appendChild(el('p','bn-stat',  esc(slide.stat)));
-  if (slide.label) sec.appendChild(el('p','bn-label', esc(slide.label)));
-  if (slide.body)  sec.appendChild(el('p','bn-body',  esc(slide.body)));
+  if (slide.label) sec.appendChild(el('p','bn-label', richText(slide.label)));
+  if (slide.body)  sec.appendChild(el('p','bn-body',  richText(slide.body)));
   if (slide.handle) {
     const ft = el('div','bn-footer');
     ft.appendChild(el('span','bn-handle', esc(slide.handle)));
@@ -499,7 +499,7 @@ function buildTimeline(slide, i, total) {
   sec.id = `slide-${i+1}`;
   sec.appendChild(el('span','slide-tag', `0${i+1} — 0${total}`));
   if (slide.eyebrow)  sec.appendChild(el('p','tl-eyebrow', esc(slide.eyebrow)));
-  if (slide.headline) sec.appendChild(el('p','tl-headline', esc(slide.headline)));
+  if (slide.headline) sec.appendChild(el('p','tl-headline', richText(slide.headline)));
   const steps = slide.steps || [];
   if (steps.length) {
     const stepsEl = el('div','tl-steps');
@@ -508,8 +508,8 @@ function buildTimeline(slide, i, total) {
       const stepEl = el('div','tl-step');
       stepEl.appendChild(el('span','tl-num', esc(step.num || String(si+1))));
       const content = el('div','tl-content');
-      if (step.text)   content.appendChild(el('p','tl-text',   esc(step.text)));
-      if (step.detail) content.appendChild(el('p','tl-detail', esc(step.detail)));
+      if (step.text)   content.appendChild(el('p','tl-text',   richText(step.text)));
+      if (step.detail) content.appendChild(el('p','tl-detail', richText(step.detail)));
       stepEl.appendChild(content);
       stepsEl.appendChild(stepEl);
     });
@@ -524,7 +524,7 @@ function buildGrid(slide, i, total) {
   const sec = el('div', 'slide-grid' + (i === 0 ? ' active' : ''));
   sec.id = `slide-${i+1}`;
   sec.appendChild(el('span','slide-tag', `0${i+1} — 0${total}`));
-  if (slide.headline) sec.appendChild(el('p','gr-headline', esc(slide.headline)));
+  if (slide.headline) sec.appendChild(el('p','gr-headline', richText(slide.headline)));
   const cells = el('div','gr-cells');
   (slide.cells || []).forEach(c => {
     const cell = el('div','gr-cell');
@@ -557,7 +557,7 @@ function buildTripleV(slide, i, total) {
     if (pos?.valign === 'top')  wrapCls.push('align-top');
     const wrap = el('div', wrapCls.join(' '));
     if (row.num)  wrap.appendChild(el('span','tv-num', esc(row.num)));
-    if (row.text) wrap.appendChild(el('span','tv-text',esc(row.text)));
+    if (row.text) wrap.appendChild(el('span','tv-text',richText(row.text)));
     rowEl.appendChild(wrap);
     sec.appendChild(rowEl);
   });
