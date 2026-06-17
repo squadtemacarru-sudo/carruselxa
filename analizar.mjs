@@ -81,6 +81,19 @@ async function fileToBase64(abs) {
 }
 
 async function photoToBase64(relPath) {
+  if (relPath.startsWith('http://') || relPath.startsWith('https://')) {
+    const res = await fetch(relPath);
+    if (!res.ok) throw new Error(`No se pudo descargar foto: ${relPath}`);
+    const buf  = Buffer.from(await res.arrayBuffer());
+    const ext  = relPath.split('?')[0].split('.').pop().toLowerCase();
+    const mime = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext] || 'image/jpeg';
+    let b64buf = buf;
+    if (Buffer.byteLength(b64buf.toString('base64')) > MAX_BYTES) {
+      b64buf = await sharp(buf).resize({ width: 1568, withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
+      return { base64: b64buf.toString('base64'), mime: 'image/jpeg' };
+    }
+    return { base64: buf.toString('base64'), mime };
+  }
   return fileToBase64(path.join(__dirname, 'fotos', relPath));
 }
 

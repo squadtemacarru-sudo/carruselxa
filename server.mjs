@@ -178,7 +178,7 @@ app.post('/api/generar', async (req, res) => {
 
       // Resuelve nombres de archivo a URLs de Cloudinary si están disponibles
       const fotosRaw = Array.isArray(req.body.fotos) ? req.body.fotos.filter(f => EXT_RE.test(f)) : [];
-      const fotos = fotosRaw.map(f => fotosCloud.get(f) || f);
+      const fotos = fotosRaw.map(f => fotosCloud.get(f)?.url || f);
 
       // Construir env extra desde las respuestas del usuario
       const respuestas = req.body.respuestas || {};
@@ -202,7 +202,7 @@ app.post('/api/generar', async (req, res) => {
       // Rotaciones: resolver nombres a URLs reales (igual que fotos)
       const rotacionesResueltas = {};
       for (const [nombre, grados] of Object.entries(respuestas.rotaciones || {})) {
-        const realKey = fotosCloud.get(nombre) || nombre;
+        const realKey = fotosCloud.get(nombre)?.url || nombre;
         rotacionesResueltas[realKey] = grados;
       }
       if (Object.keys(rotacionesResueltas).length) extraEnv.USER_ROTATIONS = JSON.stringify(rotacionesResueltas);
@@ -219,7 +219,7 @@ app.post('/api/generar', async (req, res) => {
         for (const [posStr, nombre] of Object.entries(fotosPorSlide)) {
           const idx = parseInt(posStr) - 1;
           if (contenido.slides[idx]) {
-            contenido.slides[idx].photo = fotosCloud.get(nombre) || nombre;
+            contenido.slides[idx].photo = fotosCloud.get(nombre)?.url || nombre;
             broadcast(`📌 Slide ${posStr} → ${nombre}\n`);
           }
         }
@@ -748,49 +748,72 @@ app.get('/api/tandas', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
-// Fotos
+// Fotos — Cloudinary como storage persistente
+// fotosCloud: filename → { url, publicId }
+// Se reconstruye desde la API de Cloudinary en cada arranque del server.
 // ─────────────────────────────────────────────────────────────────────
-const EXT_RE = /\.(jpe?g|png|webp)$/i;
+const EXT_RE     = /\.(jpe?g|png|webp)$/i;
+const CLD_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME;
+const CLD_PRESET = process.env.CLOUDINARY_UPLOAD_PRESET;
+const CLD_KEY    = process.env.CLOUDINARY_API_KEY;
+const CLD_SECRET = process.env.CLOUDINARY_API_SECRET;
+const CLD_FOLDER = 'carruselesgen/fotos';
 
-// Mapa en memoria: filename → cloudinary URL (se pierde en restart pero las fotos quedan en Cloudinary)
-const fotosCloud = new Map();
+const fotosCloud = new Map(); // filename → { url, publicId }
 
-async function uploadFotoToCloudinary(filePath, filename) {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const preset    = process.env.CLOUDINARY_UPLOAD_PRESET;
-  if (!cloudName || !preset) return null;
-
-  const ext  = path.extname(filename).toLowerCase();
-  const mime = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' }[ext] || 'image/jpeg';
-  const buf  = await readFile(filePath);
-  const form = new FormData();
-  form.append('file', new Blob([buf], { type: mime }), filename);
-  form.append('upload_preset', preset);
-  form.append('folder', 'carruselesgen/fotos');
-
-  const res  = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: form });
-  const data = await res.json();
-  if (!res.ok) {
-    console.error('Cloudinary fotos error:', data.error?.message);
-    return null;
+async function rebuildFotosCloud() {
+  if (!CLD_CLOUD || !CLD_KEY || !CLD_SECRET) return;
+  try {
+    const auth = Buffer.from(`${CLD_KEY}:${CLD_SECRET}`).toString('base64');
+    const apiUrl = `https://api.cloudinary.com/v1_1/${CLD_CLOUD}/resources/image?prefix=${CLD_FOLDER}&max_results=500&type=upload`;
+    const res  = await fetch(apiUrl, { headers: { Authorization: `Basic ${auth}` } });
+    if (!res.ok) return;
+    const data = await res.json();
+    for (const r of data.resources || []) {
+      const filename = `${path.basename(r.public_id)}.${r.format}`;
+      fotosCloud.set(filename, { url: r.secure_url, publicId: r.public_id });
+    }
+    console.log(`☁ Cloudinary: ${fotosCloud.size} fotos cargadas`);
+  } catch (e) {
+    console.error('Cloudinary rebuild error:', e.message);
   }
-  return data.secure_url;
 }
 
-// Listar fotos disponibles
-app.get('/api/fotos', async (req, res) => {
-  try {
-    const files = (await readdir(FOTOS_DIR)).filter(f => EXT_RE.test(f) && !f.startsWith('.'));
-    res.json(files.map(nombre => ({
-      nombre,
-      url: fotosCloud.get(nombre) || `/fotos/${encodeURIComponent(nombre)}`
-    })));
-  } catch {
-    res.json([]);
-  }
+await rebuildFotosCloud();
+
+async function uploadFotoBuffer(buf, filename) {
+  if (!CLD_CLOUD || !CLD_PRESET) return null;
+  const ext  = path.extname(filename).toLowerCase();
+  const mime = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' }[ext] || 'image/jpeg';
+  const form = new FormData();
+  form.append('file', new Blob([buf], { type: mime }), filename);
+  form.append('upload_preset', CLD_PRESET);
+  form.append('folder', CLD_FOLDER);
+  const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/image/upload`, { method: 'POST', body: form });
+  const data = await res.json();
+  if (!res.ok) { console.error('Cloudinary upload error:', data.error?.message); return null; }
+  return { url: data.secure_url, publicId: data.public_id };
+}
+
+async function deleteFromCloudinary(publicId) {
+  if (!CLD_CLOUD || !CLD_KEY || !CLD_SECRET) return;
+  const { createHash } = await import('node:crypto');
+  const ts  = Math.floor(Date.now() / 1000);
+  const sig = createHash('sha256').update(`public_id=${publicId}&timestamp=${ts}${CLD_SECRET}`).digest('hex');
+  const form = new FormData();
+  form.append('public_id', publicId);
+  form.append('api_key', CLD_KEY);
+  form.append('timestamp', String(ts));
+  form.append('signature', sig);
+  await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/image/destroy`, { method: 'POST', body: form });
+}
+
+// Listar fotos
+app.get('/api/fotos', (req, res) => {
+  res.json([...fotosCloud.entries()].map(([nombre, { url }]) => ({ nombre, url })));
 });
 
-// Subir foto — multipart/form-data con campo "foto"
+// Subir foto — multipart/form-data
 app.post('/api/fotos', async (req, res) => {
   const ct = req.headers['content-type'] || '';
   if (!ct.includes('multipart/form-data')) return res.status(400).json({ error: 'Se esperaba multipart/form-data' });
@@ -823,15 +846,17 @@ app.post('/api/fotos', async (req, res) => {
     const filename = path.basename(match[1]);
     if (!EXT_RE.test(filename)) continue;
     const body = part.slice(headerEnd + 4, part.length - 2);
-    const localPath = path.join(FOTOS_DIR, filename);
-    await writeFile(localPath, body);
 
-    // Subir a Cloudinary en background (no bloquea la respuesta)
-    uploadFotoToCloudinary(localPath, filename)
-      .then(url => { if (url) fotosCloud.set(filename, url); })
-      .catch(() => {});
-
-    return res.json({ ok: true, nombre: filename });
+    // Subir a Cloudinary (sincrónico — URL disponible antes de responder)
+    const result = await uploadFotoBuffer(body, filename);
+    if (result) {
+      fotosCloud.set(filename, result);
+      return res.json({ ok: true, nombre: filename, url: result.url });
+    }
+    // Fallback sin Cloudinary: guardar localmente
+    await writeFile(path.join(FOTOS_DIR, filename), body);
+    fotosCloud.set(filename, { url: `/fotos/${encodeURIComponent(filename)}`, publicId: null });
+    return res.json({ ok: true, nombre: filename, url: `/fotos/${encodeURIComponent(filename)}` });
   }
   res.status(400).json({ error: 'No se encontró archivo en el body' });
 });
@@ -840,13 +865,11 @@ app.post('/api/fotos', async (req, res) => {
 app.delete('/api/fotos/:nombre', async (req, res) => {
   const nombre = path.basename(req.params.nombre);
   if (!EXT_RE.test(nombre)) return res.status(400).json({ error: 'Nombre inválido' });
-  try {
-    await unlink(path.join(FOTOS_DIR, nombre));
-    fotosCloud.delete(nombre);
-    res.json({ ok: true });
-  } catch {
-    res.status(404).json({ error: 'No encontrada' });
-  }
+  const entry = fotosCloud.get(nombre);
+  if (entry?.publicId) await deleteFromCloudinary(entry.publicId).catch(() => {});
+  fotosCloud.delete(nombre);
+  await unlink(path.join(FOTOS_DIR, nombre)).catch(() => {});
+  res.json({ ok: true });
 });
 
 const PORT = process.env.PORT || 3000;
