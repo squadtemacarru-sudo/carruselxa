@@ -192,9 +192,10 @@ app.post('/api/generar', async (req, res) => {
       const carpeta = path.join('tandas', `${Date.now()}_${slugify(tema)}`);
       broadcast(`\n=== Generando: ${tema} (marca: ${marcaId}) ===\n`);
 
-      // Resuelve nombres de archivo a URLs de Cloudinary si están disponibles
+      // Pasar solo nombres de archivo a crear.mjs — FOTOS_MAP resuelve URLs después.
+      // Pasar URLs completas causaba que la IA las copiara mal en el JSON generado.
       const fotosRaw = Array.isArray(req.body.fotos) ? req.body.fotos.filter(f => EXT_RE.test(f)) : [];
-      const fotos = fotosRaw.map(f => fotosCloud.get(f)?.url || f);
+      const fotos = fotosRaw; // filenames only
 
       // Construir env extra desde las respuestas del usuario
       const respuestas = req.body.respuestas || {};
