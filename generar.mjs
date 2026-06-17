@@ -24,6 +24,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
 
+// Mapa filename → Cloudinary URL inyectado por server.mjs al lanzar el proceso
+let FOTOS_MAP = {};
+try { if (process.env.FOTOS_MAP) FOTOS_MAP = JSON.parse(process.env.FOTOS_MAP); } catch {}
+
+async function fetchUrl(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`No se pudo descargar foto: ${url}`);
+  const buf  = Buffer.from(await res.arrayBuffer());
+  const ext  = url.split('?')[0].split('.').pop().toLowerCase();
+  const mime = MIME[`.${ext}`] || 'image/jpeg';
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
 async function fileToDataUrl(abs) {
   const buf = await readFile(abs);
   const mime = MIME[path.extname(abs).toLowerCase()] || 'image/jpeg';
@@ -31,16 +44,14 @@ async function fileToDataUrl(abs) {
 }
 
 async function photoToDataUrl(relPath) {
-  // Soporta URLs absolutas (Cloudinary) además de rutas locales relativas
+  // URL absoluta → descargar directamente
   if (relPath.startsWith('http://') || relPath.startsWith('https://')) {
-    const res = await fetch(relPath);
-    if (!res.ok) throw new Error(`No se pudo descargar foto: ${relPath}`);
-    const buf  = Buffer.from(await res.arrayBuffer());
-    const ext  = relPath.split('?')[0].split('.').pop().toLowerCase();
-    const mime = MIME[`.${ext}`] || 'image/jpeg';
-    return `data:${mime};base64,${buf.toString('base64')}`;
+    return fetchUrl(relPath);
   }
-  return fileToDataUrl(path.join(__dirname, 'fotos', relPath));
+  // Nombre de archivo (con o sin prefijo "fotos/") → resolver via FOTOS_MAP o disco local
+  const filename = path.basename(relPath);
+  if (FOTOS_MAP[filename]) return fetchUrl(FOTOS_MAP[filename]);
+  return fileToDataUrl(path.join(__dirname, 'fotos', filename));
 }
 
 // Logo de marca para el watermark — cada marca tiene su propio

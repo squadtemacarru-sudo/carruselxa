@@ -80,21 +80,32 @@ async function fileToBase64(abs) {
   return { base64: buf.toString('base64'), mime };
 }
 
-async function photoToBase64(relPath) {
-  if (relPath.startsWith('http://') || relPath.startsWith('https://')) {
-    const res = await fetch(relPath);
-    if (!res.ok) throw new Error(`No se pudo descargar foto: ${relPath}`);
-    const buf  = Buffer.from(await res.arrayBuffer());
-    const ext  = relPath.split('?')[0].split('.').pop().toLowerCase();
-    const mime = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext] || 'image/jpeg';
-    let b64buf = buf;
-    if (Buffer.byteLength(b64buf.toString('base64')) > MAX_BYTES) {
-      b64buf = await sharp(buf).resize({ width: 1568, withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
-      return { base64: b64buf.toString('base64'), mime: 'image/jpeg' };
-    }
-    return { base64: buf.toString('base64'), mime };
+// Mapa filename → Cloudinary URL inyectado por server.mjs
+let FOTOS_MAP = {};
+try { if (process.env.FOTOS_MAP) FOTOS_MAP = JSON.parse(process.env.FOTOS_MAP); } catch {}
+
+async function fetchToBase64(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`No se pudo descargar foto: ${url}`);
+  let buf = Buffer.from(await res.arrayBuffer());
+  const ext  = url.split('?')[0].split('.').pop().toLowerCase();
+  let mime = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext] || 'image/jpeg';
+  if (Buffer.byteLength(buf.toString('base64')) > MAX_BYTES) {
+    buf  = await sharp(buf).resize({ width: 1568, withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
+    mime = 'image/jpeg';
   }
-  return fileToBase64(path.join(__dirname, 'fotos', relPath));
+  return { base64: buf.toString('base64'), mime };
+}
+
+async function photoToBase64(relPath) {
+  // URL absoluta → descargar
+  if (relPath.startsWith('http://') || relPath.startsWith('https://')) {
+    return fetchToBase64(relPath);
+  }
+  // Nombre de archivo (con o sin prefijo "fotos/") → FOTOS_MAP o disco local
+  const filename = path.basename(relPath);
+  if (FOTOS_MAP[filename]) return fetchToBase64(FOTOS_MAP[filename]);
+  return fileToBase64(path.join(__dirname, 'fotos', filename));
 }
 
 // Carga carruseles de referencia (referencias/*.jpg|png|webp) que el usuario

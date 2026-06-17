@@ -207,6 +207,13 @@ app.post('/api/generar', async (req, res) => {
       }
       if (Object.keys(rotacionesResueltas).length) extraEnv.USER_ROTATIONS = JSON.stringify(rotacionesResueltas);
 
+      // Mapa filename → URL para que los procesos hijo resuelvan fotos aunque no estén en disco
+      if (fotosCloud.size > 0) {
+        const mapObj = {};
+        for (const [nombre, { url }] of fotosCloud.entries()) mapObj[nombre] = url;
+        extraEnv.FOTOS_MAP = JSON.stringify(mapObj);
+      }
+
       const crearArgs = ['crear.mjs', tema, carpeta, marcaId];
       if (fotos.length) crearArgs.push(fotos.join(','));
       await runStep(crearArgs, extraEnv);
