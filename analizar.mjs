@@ -27,6 +27,7 @@ const MAX_BYTES = 5 * 1024 * 1024; // límite de la API para imágenes en base64
 // ─────────────────────────────────────────────────────────────────────
 const PREVIEW = process.argv.includes('--preview');
 const PREVIEW_PORT = process.env.PREVIEW_PORT || 5390;
+const USER_FONT_PAIR = process.env.USER_FONT_PAIR || '';
 
 function broadcast(type, payload) {
   if (!PREVIEW) return;
@@ -450,6 +451,11 @@ Devolvé SOLO JSON (sin markdown):
 
   try {
     const sistema = JSON.parse(sanitizeJson(text.replace(/```json|```/g, '').trim()));
+    // Fuente forzada por el usuario desde las preferencias de marca
+    if (USER_FONT_PAIR && FONT_PAIRS[USER_FONT_PAIR]) {
+      sistema.font_pair_id = USER_FONT_PAIR;
+      console.log(`  🔒 Fuente forzada por preferencia de marca: ${USER_FONT_PAIR}`);
+    }
     // Inyectamos la tipografía real desde nuestra biblioteca curada
     sistema.tipografia = resolveFontPair(sistema.font_pair_id);
     console.log(`  ✓ Sistema "${sistema.nombre_sistema}" definido`);
@@ -462,7 +468,12 @@ Devolvé SOLO JSON (sin markdown):
     return sistema;
   } catch {
     console.log('  ⚠ Usando sistema default');
-    return getDefaultDesignSystem(estilo_visual_ideal);
+    const def = getDefaultDesignSystem(estilo_visual_ideal);
+    if (USER_FONT_PAIR && FONT_PAIRS[USER_FONT_PAIR]) {
+      def.font_pair_id = USER_FONT_PAIR;
+      def.tipografia   = resolveFontPair(USER_FONT_PAIR);
+    }
+    return def;
   }
 }
 

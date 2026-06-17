@@ -215,6 +215,12 @@ app.post('/api/generar', async (req, res) => {
       if (respuestas.overlay !== undefined) extraEnv.USER_OVERLAY = String(respuestas.overlay);
       if (req.body.model) extraEnv.USER_MODEL = req.body.model;
 
+      // Preferencias de diseño guardadas para la marca (fuente, etc.)
+      try {
+        const diseno = JSON.parse(await readFile(path.join(__dirname, 'marcas', marcaId, 'diseno.json'), 'utf-8'));
+        if (diseno.font_pair_id) extraEnv.USER_FONT_PAIR = diseno.font_pair_id;
+      } catch {}
+
       // Rotaciones: resolver nombres a URLs reales (igual que fotos)
       const rotacionesResueltas = {};
       for (const [nombre, grados] of Object.entries(respuestas.rotaciones || {})) {
@@ -359,6 +365,24 @@ app.put('/api/marcas/:id/marca', async (req, res) => {
   const { id } = req.params;
   if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
   await writeFile(path.join(__dirname, 'marcas', id, 'marca.json'), JSON.stringify(req.body, null, 2), 'utf-8');
+  res.json({ ok: true });
+});
+
+app.get('/api/marcas/:id/diseno', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  try {
+    const data = JSON.parse(await readFile(path.join(__dirname, 'marcas', id, 'diseno.json'), 'utf-8'));
+    res.json(data);
+  } catch {
+    res.json({});
+  }
+});
+
+app.put('/api/marcas/:id/diseno', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  await writeFile(path.join(__dirname, 'marcas', id, 'diseno.json'), JSON.stringify(req.body, null, 2), 'utf-8');
   res.json({ ok: true });
 });
 

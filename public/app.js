@@ -22,6 +22,7 @@ document.querySelectorAll('.config-block-header').forEach(header => {
     body.classList.toggle('collapsed', isOpen);
     header.classList.toggle('open', !isOpen);
     if (!isOpen && bodyId === 'bloque-clonar') cargarClonarGrid();
+    if (!isOpen && bodyId === 'bloque-diseno') cargarDiseno();
   });
 });
 
@@ -43,6 +44,7 @@ marcaSelect.addEventListener('change', async () => {
   await Promise.all([cargarTemas(), cargarIdentidad(), cargarReferencias()]);
   renderTemplatesList();
   cargarClonarGrid();
+  cargarDiseno();
 });
 
 $('#btnNuevaMarca').addEventListener('click', async () => {
@@ -1177,6 +1179,68 @@ $('#btnGuardarTemplate').addEventListener('click', () => {
   $('#tplInstrucciones').value = '';
   renderTemplatesList();
 });
+
+// ── DISEÑO BASE (font picker) ─────────────────────────
+const FONT_PAIRS_UI = [
+  { id: 'auto',                  display: 'IA elige',    body: '',               mood: 'La IA elige la tipografía para cada carrusel según el tema y tono', isAuto: true },
+  { id: 'bebas-inter',           display: 'Bebas Neue',  body: '+ Inter',        mood: 'Editorial · fitness · impacto' },
+  { id: 'oswald-dm',             display: 'Oswald',      body: '+ DM Sans',      mood: 'Deportivo · directo · masculino' },
+  { id: 'barlow-barlow',         display: 'Barlow Cond', body: '+ Barlow',       mood: 'Moderno · clean · tech' },
+  { id: 'playfair-dm',           display: 'Playfair',    body: '+ DM Sans',      mood: 'Luxury · premium · editorial' },
+  { id: 'anton-inter',           display: 'Anton',       body: '+ Inter',        mood: 'Street · urbano · agresivo' },
+  { id: 'archivo-inter',         display: 'Archivo Black', body: '+ Inter',      mood: 'Editorial bold · diseño' },
+  { id: 'space-space',           display: 'Space Grotesk', body: '+ Space',      mood: 'Tech · datos · startup' },
+  { id: 'syne-inter',            display: 'Syne',        body: '+ Inter',        mood: 'Diseño de autor · disruptivo' },
+  { id: 'dm-serif-dm',           display: 'DM Serif',    body: '+ DM Sans',      mood: 'Revista · editorial cálido' },
+  { id: 'unbounded-inter',       display: 'Unbounded',   body: '+ Inter',        mood: 'Web3 · tech extremo · bold' },
+  { id: 'instrument-dm',         display: 'Instrument',  body: '+ DM Sans',      mood: 'Ultra premium · luxury' },
+  { id: 'montserrat-montserrat', display: 'Montserrat',  body: '+ Montserrat',   mood: 'Versátil · limpio · corporativo' },
+  { id: 'raleway-outfit',        display: 'Raleway',     body: '+ Outfit',       mood: 'Aspiracional · wellness · femenino' },
+];
+
+let disenoActual = {};
+
+async function cargarDiseno() {
+  if (!marcaActual) return;
+  try {
+    const res = await fetch(`/api/marcas/${marcaActual}/diseno`);
+    disenoActual = res.ok ? await res.json() : {};
+  } catch { disenoActual = {}; }
+  renderFontPairGrid();
+}
+
+function renderFontPairGrid() {
+  const grid = $('#fontPairGrid');
+  if (!grid) return;
+  const selected = disenoActual.font_pair_id || 'auto';
+  grid.innerHTML = FONT_PAIRS_UI.map(fp => `
+    <div class="font-pair-card${fp.id === selected ? ' selected' : ''}${fp.isAuto ? ' fp-auto' : ''}" data-id="${fp.id}">
+      <div>
+        <div class="fp-display">${fp.display}</div>
+        ${fp.body ? `<div class="fp-body">${fp.body}</div>` : ''}
+      </div>
+      <div class="fp-mood">${fp.mood}</div>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.font-pair-card').forEach(card => {
+    card.addEventListener('click', async () => {
+      const id = card.dataset.id;
+      const payload = id === 'auto' ? {} : { font_pair_id: id };
+      const res = await fetch(`/api/marcas/${marcaActual}/diseno`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) return;
+      disenoActual = payload;
+      grid.querySelectorAll('.font-pair-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      const st = $('#disenoStatus');
+      st.textContent = id === 'auto' ? 'La IA elige la fuente automáticamente' : `Fuente guardada: ${card.querySelector('.fp-display').textContent}`;
+      setTimeout(() => { if (st) st.textContent = ''; }, 2500);
+    });
+  });
+}
 
 // ── INIT ──────────────────────────────────────────────
 (async () => {
