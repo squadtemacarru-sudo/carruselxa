@@ -865,7 +865,7 @@ Proceso: 1) Identificá dónde está la cara/cuerpo principal. 2) Identificá la
     "razon": "decisión milimétrica basada en la composición real — incluí dónde está el sujeto y por qué ese text_y_percent lo evita"
   },
   "recomendacion": "una línea específica para hacer esta slide irresistible",
-  "layout_sugerido": "null o uno de: cover-top|cover-center|cover-split|list-full|list-compact|list-hero|statement-anchored|statement-top|statement-impact|split-full|quote-dominant|quote-centered|cta-top|cta-center|cta-impact — solo si la lógica default no es la mejor opción para esta foto específica"
+  "layout_sugerido": "null o uno de: cover-top|cover-center|cover-split|cover-impact|list-full|list-compact|list-hero|statement-anchored|statement-top|statement-impact|split-full|quote-dominant|quote-centered|cta-top|cta-center|cta-impact — solo si la lógica default no es la mejor opción para esta foto específica"
 }`;
 
   const text = await callBlackbox([

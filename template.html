@@ -893,6 +893,86 @@
     color: var(--color-body); line-height: 1.5; margin-top: 4px;
   }
 
+  /* ─── Rich text inline ─── */
+  .hl-word {
+    background: var(--hl-bg, var(--color-acento));
+    color: #000;
+    padding: 2px 10px 4px;
+    border-radius: 4px;
+    display: inline;
+    line-height: inherit;
+  }
+
+  /* ─── Cover Impact layout ─── */
+  .cover-impact-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+  }
+  .ci-hero {
+    font-family: var(--font-display);
+    font-size: clamp(92px, 17vw, 184px);
+    font-weight: 900;
+    line-height: 0.86;
+    text-transform: uppercase;
+    letter-spacing: -0.015em;
+    color: var(--color-headline);
+  }
+  .ci-md {
+    font-family: var(--font-display);
+    font-size: clamp(60px, 10vw, 108px);
+    font-weight: 900;
+    line-height: 0.9;
+    text-transform: uppercase;
+    color: var(--color-headline);
+  }
+  .ci-connector {
+    font-family: var(--font-display);
+    font-size: clamp(38px, 4.5vw, 52px);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-headline);
+    margin: 10px 0 4px;
+  }
+  .ci-stroke {
+    position: relative;
+    padding-bottom: 14px;
+  }
+  .ci-stroke::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 7px;
+    background: var(--color-acento);
+    border-radius: 3px;
+    transform: rotate(-1deg);
+  }
+  .ci-detail {
+    font-family: var(--font-body);
+    font-size: 34px;
+    line-height: 1.4;
+    color: var(--color-body);
+    margin-top: 20px;
+    max-width: 820px;
+  }
+  .slide.layout-cover-impact {
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+  }
+  /* cover-impact overlay: nearly transparent so photo shows through at bottom */
+  .slide.layout-cover-impact .slide-bg::after {
+    background: linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.82) 0%,
+      rgba(0,0,0,0.60) 45%,
+      rgba(0,0,0,0.10) 75%,
+      rgba(0,0,0,0.00) 100%
+    ), var(--grad, none);
+  }
+
 </style>
 </head>
 <body>

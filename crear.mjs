@@ -365,7 +365,11 @@ Devolvé SOLO JSON (sin markdown) con esta estructura:
 TIPOS DE SLIDE disponibles — elegí el más adecuado para cada posición:
 
 Tipos base (siempre disponibles):
-- cover: portada. { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto\\nen 1-2 líneas”, “kicker”: “frase corta” }
+- cover: portada. Dos formatos posibles:
+  a) Formato clásico: { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto”, “kicker”: “frase corta” }
+  b) Formato hero multi-línea (PREFERIDO para temas con dato o número fuerte): { “type”: “cover”, “_layout”: “cover-impact”, “headline_lines”: [{“text”:”TEXTO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”EL DATO”,”size”:”hero”,”color”:”#e8000d”,”stroke”:true},{“text”:”OTRO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”IMPACTO”,”size”:”hero”,”color”:”#e8000d”}] }
+     Tamaños de línea: “hero” = enorme (el dato/número), “md” = mediano, “connector” = pequeño conector
+     stroke:true agrega subrayado decorativo debajo de esa línea
 - list: lista de ítems. { “type”: “list”, “eyebrow”: “frase de contexto en mayúsculas”, “items”: [“ítem 1”, “ítem 2”, “ítem 3”, “ítem 4”, “ítem 5”] }
 - statement: afirmación desarrollada. { “type”: “statement”, “headline”: “afirmación\\ncorta y rotunda”, “body”: “desarrollo breve\\n\\ncon párrafos cortos” }
 - split: dos columnas comparativas. { “type”: “split”, “left”: {“label”: “ETIQUETA A”, “items”: [“ítem”, “ítem”, “ítem”]}, “right”: {“label”: “ETIQUETA B”, “items”: [“ítem”, “ítem”, “ítem”]} }
@@ -385,6 +389,7 @@ Reglas generales:
 - Evitá totalmente las palabras/clichés listados como “Avoid”.
 - Usá “\\n” dentro de los textos para cortar líneas como en un carrusel real (nunca un solo párrafo largo en headlines).
 - Nunca uses comillas dobles rectas (“) dentro de un valor de texto — para citas o términos entre comillas usá comillas tipográficas “ “ curvas.
+- En cualquier campo de texto podés usar [texto]{#hex} para colorear palabras clave en el color de acento, y [texto]{bg:#hex} para poner una caja de fondo de color detrás de una palabra (ej: “Nadie me regaló [nada,]{bg:#00cc00} tú tampoco.”). Usalo con criterio — máximo 1-2 palabras destacadas por slide.
 `;
 
   const parse = (raw) => JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));
