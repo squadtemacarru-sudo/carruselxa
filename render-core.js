@@ -46,6 +46,23 @@ function esc(str) {
     .replace(/\n/g,'<br>').replace(/<br>\s*<br>/g,'<br><br>');
 }
 
+// Rich text: [text]{#hex} → colored span; [text]{bg:#hex} → highlight box
+function richText(str) {
+  if (!str) return '';
+  const RICH = /\[([^\]]*)\]\{(bg:)?([^}]+)\}/g;
+  let result = '', last = 0, m;
+  while ((m = RICH.exec(str)) !== null) {
+    result += esc(str.slice(last, m.index));
+    const t = String(m[1]).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    result += m[2]
+      ? `<span class="hl-word" style="--hl-bg:${m[3]}">${t}</span>`
+      : `<span style="color:${m[3]}">${t}</span>`;
+    last = m.index + m[0].length;
+  }
+  result += esc(str.slice(last));
+  return result;
+}
+
 // ─────────────────────────────────────────────────────────────
 // BUILD SLIDE — usa _layout elegido por la IA
 // _layout: "cover-top" | "cover-center" | "cover-split"
@@ -133,10 +150,25 @@ function buildSlide(slide, idx, total) {
 
 // ─── COVER ───────────────────────────────────────────────────
 function cover(sec, s, layout, useGlass, glassOp) {
+  // cover-impact: stacked multi-line hero with headline_lines array
+  if (layout === 'cover-impact' && Array.isArray(s.headline_lines)) {
+    const main = el('div', 'cover-impact-main');
+    s.headline_lines.forEach(line => {
+      const sz = line.size === 'hero' ? 'ci-hero' : line.size === 'md' ? 'ci-md' : 'ci-connector';
+      const lineEl = el('div', sz + (line.stroke ? ' ci-stroke' : ''));
+      lineEl.innerHTML = richText(line.text);
+      if (line.color) lineEl.style.color = line.color;
+      main.appendChild(lineEl);
+    });
+    sec.appendChild(main);
+    if (s.detail) sec.appendChild(el('p', 'ci-detail', richText(s.detail)));
+    sec.appendChild(el('span', 'c-swipe', `DESLIZÁ ${RC.ARROW}`));
+    return;
+  }
   if (layout === 'cover-split') {
     const main = el('div', 'cover-main');
     const left = el('div', 'cover-left');
-    left.appendChild(el('h1', 'c-headline h-display', esc(s.headline)));
+    left.appendChild(el('h1', 'c-headline h-display', richText(s.headline)));
     const right = el('div', 'cover-right');
     if (s.detail) right.appendChild(el('p', 'c-body', esc(s.detail)));
     if (s.kicker) {
@@ -153,7 +185,7 @@ function cover(sec, s, layout, useGlass, glassOp) {
   // cover-top / cover-center
   const main = el('div', 'cover-main');
   if (useGlass) { main.classList.add('glass-wrap'); main.style.setProperty('--glass-bg', `rgba(4,4,6,${glassOp})`); }
-  main.appendChild(el('h1', 'c-headline h-display', esc(s.headline)));
+  main.appendChild(el('h1', 'c-headline h-display', richText(s.headline)));
   if (s.detail) main.appendChild(el('p', 'c-body', esc(s.detail)));
   if (s.kicker) {
     const k = el('div', 'c-kicker');
@@ -178,7 +210,7 @@ function list(sec, s, layout) {
     items.forEach((item, i) => {
       const li = el('li', 'list-item');
       li.appendChild(el('span', 'list-num', String(i+1).padStart(2,'0')));
-      li.appendChild(el('span', useSmall ? 'list-text-sm' : 'list-text', esc(item)));
+      li.appendChild(el('span', useSmall ? 'list-text-sm' : 'list-text', richText(item)));
       ul.appendChild(li);
     });
     sec.appendChild(ul);
@@ -193,7 +225,7 @@ function list(sec, s, layout) {
     items.forEach((item, i) => {
       const li = el('li', 'list-item');
       li.appendChild(el('span', 'list-num-hero', String(i+1).padStart(2,'0')));
-      li.appendChild(el('span', 'list-text-sm', esc(item)));
+      li.appendChild(el('span', 'list-text-sm', richText(item)));
       ul.appendChild(li);
     });
     sec.appendChild(ul);
@@ -206,7 +238,7 @@ function list(sec, s, layout) {
   items.forEach((item, i) => {
     const li = el('li', 'list-item');
     li.appendChild(el('span', 'list-num-bracket', `[0${i+1}]`));
-    li.appendChild(el('span', useSmall ? 'list-text-sm' : 'list-text', esc(item)));
+    li.appendChild(el('span', useSmall ? 'list-text-sm' : 'list-text', richText(item)));
     ul.appendChild(li);
   });
   sec.appendChild(ul);
@@ -328,7 +360,7 @@ function divider() {
 
 function defaultLayout(type, slide) {
   const map = {
-    cover:     'cover-top',
+    cover:     slide.headline_lines?.length ? 'cover-impact' : 'cover-top',
     list:      slide.items?.length >= 5 ? 'list-full' : 'list-compact',
     statement: 'statement-anchored',
     split:     'split-full',
@@ -397,8 +429,8 @@ function buildFullImpact(slide, i, total) {
     content.style.transform = 'translateY(-50%)';
   }
   content.appendChild(el('span','fi-tag', `0${i+1} — 0${total}`));
-  if (slide.line1) content.appendChild(el('p','fi-line1',esc(slide.line1)));
-  if (slide.line2) content.appendChild(el('p','fi-line2',esc(slide.line2)));
+  if (slide.line1) content.appendChild(el('p','fi-line1',richText(slide.line1)));
+  if (slide.line2) content.appendChild(el('p','fi-line2',richText(slide.line2)));
   if (slide.footer_text) {
     const ft = el('div','fi-footer');
     ft.appendChild(el('span','fi-footer-text',esc(slide.footer_text)));
@@ -425,8 +457,8 @@ function buildBeforeAfter(slide, i, total) {
   sec.appendChild(photos);
   if (slide.headline || slide.sub) {
     const footer = el('div','ba-footer');
-    if (slide.headline) footer.appendChild(el('h2','ba-headline',esc(slide.headline)));
-    if (slide.sub)      footer.appendChild(el('p','ba-sub',esc(slide.sub)));
+    if (slide.headline) footer.appendChild(el('h2','ba-headline',richText(slide.headline)));
+    if (slide.sub)      footer.appendChild(el('p','ba-sub',richText(slide.sub)));
     sec.appendChild(footer);
   }
   return sec;
