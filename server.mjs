@@ -435,21 +435,48 @@ async function bbFetch(body, attempt = 0) {
   const apiKey = process.env.BLACKBOX_API_KEY;
   if (!apiKey) throw new Error('Falta BLACKBOX_API_KEY');
   const model = process.env.BLACKBOX_MODEL || BB_FALLBACK_MODELS[Math.min(attempt, BB_FALLBACK_MODELS.length - 1)];
-  const res  = await fetch('https://api.blackbox.ai/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ ...body, model })
-  });
-  const data = await res.json();
+
+  let res;
+  try {
+    res = await fetch('https://api.blackbox.ai/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ ...body, model })
+    });
+  } catch (netErr) {
+    if (attempt < 3) {
+      const delay = [3000, 8000, 15000][attempt];
+      console.warn(`⏳ Error de red Blackbox servidor (intento ${attempt + 1}): ${netErr.message} — reintentando en ${delay / 1000}s...`);
+      await new Promise(r => setTimeout(r, delay));
+      return bbFetch(body, attempt + 1);
+    }
+    throw netErr;
+  }
+
+  const rawText = await res.text();
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    if (attempt < 3) {
+      const delay = [3000, 8000, 15000][attempt];
+      console.warn(`⏳ Respuesta no-JSON de Blackbox servidor (intento ${attempt + 1}, status ${res.status}) — reintentando en ${delay / 1000}s...`);
+      await new Promise(r => setTimeout(r, delay));
+      return bbFetch(body, attempt + 1);
+    }
+    throw new Error(`Blackbox devolvió no-JSON (status ${res.status}): ${rawText.slice(0, 200)}`);
+  }
+
   if (!res.ok) {
-    const is429 = res.status === 429 || JSON.stringify(data).includes('RESOURCE_EXHAUSTED') || JSON.stringify(data).includes('429');
+    const bodyStr = JSON.stringify(data);
+    const is429 = res.status === 429 || bodyStr.includes('RESOURCE_EXHAUSTED') || bodyStr.includes('429');
     if (is429 && attempt < 3) {
-      const delay = [8000, 20000, 40000][attempt];
+      const delay = [3000, 8000, 15000][attempt];
       console.warn(`⏳ Rate limit servidor (intento ${attempt + 1}) — reintentando en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return bbFetch(body, attempt + 1);
     }
-    throw new Error(`Blackbox: ${data.error?.message || JSON.stringify(data)}`);
+    throw new Error(`Blackbox: ${data.error?.message || bodyStr}`);
   }
   return data.choices?.[0]?.message?.content || '';
 }
@@ -627,7 +654,8 @@ Formato slider: {"id":"overlay","pregunta":"¿Qué tan oscuro?","tipo":"slider",
   ];
 
   try {
-    const raw = await callBlackboxText(prompt, 700);
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 9000));
+    const raw = await Promise.race([callBlackboxText(prompt, 700), timeout]);
     const preguntas = JSON.parse(raw.replace(/```json|```/g, '').trim());
     if (!Array.isArray(preguntas) || !preguntas.length) throw new Error('No es array');
     res.json({ preguntas });
