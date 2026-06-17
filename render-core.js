@@ -323,6 +323,9 @@ function buildAny(slide, i, total) {
   if (slide.type === 'full_impact')  return buildFullImpact(slide, i, total);
   if (slide.type === 'before_after') return buildBeforeAfter(slide, i, total);
   if (slide.type === 'triple_v')     return buildTripleV(slide, i, total);
+  if (slide.type === 'big_number')   return buildBigNumber(slide, i, total);
+  if (slide.type === 'timeline')     return buildTimeline(slide, i, total);
+  if (slide.type === 'grid')         return buildGrid(slide, i, total);
   return buildSlide(slide, i, total);
 }
 
@@ -405,6 +408,71 @@ function buildBeforeAfter(slide, i, total) {
     if (slide.sub)      footer.appendChild(el('p','ba-sub',esc(slide.sub)));
     sec.appendChild(footer);
   }
+  return sec;
+}
+
+// ── MODELO E: Big Number ─────────────────────────────────────────────
+function buildBigNumber(slide, i, total) {
+  const sec = el('div', 'slide-big-number' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  if (slide._overlay) sec.style.setProperty('--bn-overlay', slide._overlay);
+  if (slide.photo) {
+    const bg = el('div','bn-bg'); bg.style.backgroundImage=`url(${slide.photo})`; sec.appendChild(bg);
+  }
+  sec.appendChild(el('span','bn-tag', `0${i+1} / 0${total}`));
+  if (slide.stat)  sec.appendChild(el('p','bn-stat',  esc(slide.stat)));
+  if (slide.label) sec.appendChild(el('p','bn-label', esc(slide.label)));
+  if (slide.body)  sec.appendChild(el('p','bn-body',  esc(slide.body)));
+  if (slide.handle) {
+    const ft = el('div','bn-footer');
+    ft.appendChild(el('span','bn-handle', esc(slide.handle)));
+    sec.appendChild(ft);
+  }
+  return sec;
+}
+
+// ── MODELO F: Timeline ────────────────────────────────────────────────
+function buildTimeline(slide, i, total) {
+  const sec = el('div', 'slide-timeline' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  sec.appendChild(el('span','slide-tag', `0${i+1} — 0${total}`));
+  if (slide.eyebrow)  sec.appendChild(el('p','tl-eyebrow', esc(slide.eyebrow)));
+  if (slide.headline) sec.appendChild(el('p','tl-headline', esc(slide.headline)));
+  const steps = slide.steps || [];
+  if (steps.length) {
+    const stepsEl = el('div','tl-steps');
+    steps.forEach((step, si) => {
+      if (si > 0) stepsEl.appendChild(el('div','tl-line'));
+      const stepEl = el('div','tl-step');
+      stepEl.appendChild(el('span','tl-num', esc(step.num || String(si+1))));
+      const content = el('div','tl-content');
+      if (step.text)   content.appendChild(el('p','tl-text',   esc(step.text)));
+      if (step.detail) content.appendChild(el('p','tl-detail', esc(step.detail)));
+      stepEl.appendChild(content);
+      stepsEl.appendChild(stepEl);
+    });
+    sec.appendChild(stepsEl);
+  }
+  if (RC.logo) { const logo = el('img','brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
+  return sec;
+}
+
+// ── MODELO G: Grid 2×2 ───────────────────────────────────────────────
+function buildGrid(slide, i, total) {
+  const sec = el('div', 'slide-grid' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  sec.appendChild(el('span','slide-tag', `0${i+1} — 0${total}`));
+  if (slide.headline) sec.appendChild(el('p','gr-headline', esc(slide.headline)));
+  const cells = el('div','gr-cells');
+  (slide.cells || []).forEach(c => {
+    const cell = el('div','gr-cell');
+    if (c.icon)  cell.appendChild(el('span','gr-icon',  c.icon));
+    if (c.label) cell.appendChild(el('p','gr-label',    esc(c.label)));
+    if (c.text)  cell.appendChild(el('p','gr-text',     esc(c.text)));
+    cells.appendChild(cell);
+  });
+  sec.appendChild(cells);
+  if (RC.logo) { const logo = el('img','brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
   return sec;
 }
 

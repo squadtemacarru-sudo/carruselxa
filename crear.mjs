@@ -241,6 +241,11 @@ Devolvé SOLO JSON (sin markdown) con este formato exacto:
     { "type": "cta", "headline": "llamado\\na la acción", "sub": "una línea que invita\\na escribir por DM", "handle": "@squadteam.uy" }
   ]
 }
+
+Tipos adicionales disponibles (usalos cuando agreguen impacto real al tema):
+- big_number: dato o estadística gigante. { "type": "big_number", "stat": "87%", "label": "DE LOS ATLETAS", "body": "una línea de contexto que explica el dato", "handle": "@marca" }
+- timeline: proceso paso a paso. { "type": "timeline", "eyebrow": "EL PROCESO", "headline": "CÓMO\\nFUNCIONA", "steps": [{"num":"01","text":"primer paso","detail":"detalle opcional"},{"num":"02","text":"segundo paso"},{"num":"03","text":"tercer paso"}] }
+- grid: 4 conceptos o beneficios en grilla 2×2. { "type": "grid", "headline": "LO QUE\\nGANÁS", "cells": [{"icon":"💪","label":"FUERZA","text":"texto corto"},{"icon":"🧠","label":"ENFOQUE","text":"texto corto"},{"icon":"⚡","label":"ENERGÍA","text":"texto corto"},{"icon":"🔥","label":"RESULTADO","text":"texto corto"}] }
 ${fotos?.length ? '' : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
 Reglas generales:
 - El tema debe tratarse con un ángulo específico, no genérico.

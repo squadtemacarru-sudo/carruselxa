@@ -765,6 +765,116 @@
   }
   .tv-sep { height: 3px; background: rgba(255,255,255,0.10); flex-shrink: 0; }
 
+  /* ══ BIG NUMBER ═════════════════════════════════════ */
+  .slide-big-number {
+    width: 100%; height: 100%;
+    display: none; flex-direction: column;
+    padding: var(--pad); position: relative; overflow: hidden;
+  }
+  .slide-big-number.active { display: flex; }
+  .bn-bg {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center;
+    z-index: 0;
+  }
+  .bn-bg::after {
+    content: ''; position: absolute; inset: 0;
+    background: rgba(0,0,0,var(--bn-overlay, 0.62));
+  }
+  .bn-tag { font-family: var(--font-body); font-size: 26px; font-weight: 600;
+    color: var(--color-secundario); z-index: 1; letter-spacing: 0.12em; text-transform: uppercase; }
+  .bn-stat {
+    font-family: var(--font-display); font-size: 280px; font-weight: 900;
+    color: var(--color-acento); line-height: 0.80; z-index: 1;
+    white-space: nowrap; margin-top: auto;
+  }
+  .bn-label {
+    font-family: var(--font-display); font-size: 68px; font-weight: 700;
+    color: var(--color-headline); z-index: 1; text-transform: uppercase;
+    line-height: 1.0; white-space: pre-line; margin-top: 12px;
+  }
+  .bn-body {
+    font-family: var(--font-body); font-size: 30px; color: var(--color-body);
+    z-index: 1; margin-top: 36px; line-height: var(--lh-body); max-width: 80%;
+  }
+  .bn-footer {
+    margin-top: auto; z-index: 1;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .bn-handle { font-family: var(--font-body); font-size: 26px;
+    color: var(--color-secundario); letter-spacing: 0.06em; }
+
+  /* ══ TIMELINE ═══════════════════════════════════════ */
+  .slide-timeline {
+    width: 100%; height: 100%;
+    display: none; flex-direction: column;
+    padding: var(--pad); position: relative; overflow: hidden;
+    background: var(--color-fondo);
+  }
+  .slide-timeline.active { display: flex; }
+  .tl-eyebrow {
+    font-family: var(--font-body); font-size: 24px; font-weight: 700;
+    color: var(--color-acento); letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  .tl-headline {
+    font-family: var(--font-display); font-size: 92px; font-weight: 900;
+    color: var(--color-headline); line-height: var(--lh-headline);
+    text-transform: uppercase; white-space: pre-line;
+  }
+  .tl-steps { display: flex; flex-direction: column; gap: 36px; margin-top: 60px; flex: 1; justify-content: center; }
+  .tl-step { display: flex; gap: 36px; align-items: flex-start; }
+  .tl-num {
+    font-family: var(--font-display); font-size: 96px; font-weight: 900;
+    color: var(--color-acento); line-height: 0.82; flex-shrink: 0; width: 108px;
+  }
+  .tl-content { flex: 1; }
+  .tl-text {
+    font-family: var(--font-display); font-size: 54px; font-weight: 700;
+    color: var(--color-headline); line-height: 1.0; white-space: pre-line;
+  }
+  .tl-detail {
+    font-family: var(--font-body); font-size: 28px;
+    color: var(--color-body); margin-top: 8px; line-height: 1.5;
+  }
+  .tl-line {
+    width: 2px; height: 28px; background: var(--color-acento);
+    margin: 4px 0 4px 52px; opacity: 0.40;
+  }
+
+  /* ══ GRID ════════════════════════════════════════════ */
+  .slide-grid {
+    width: 100%; height: 100%;
+    display: none; flex-direction: column;
+    padding: var(--pad); position: relative; overflow: hidden;
+    background: var(--color-fondo);
+  }
+  .slide-grid.active { display: flex; }
+  .gr-headline {
+    font-family: var(--font-display); font-size: 80px; font-weight: 900;
+    color: var(--color-headline); line-height: var(--lh-headline);
+    text-transform: uppercase; white-space: pre-line; flex-shrink: 0;
+  }
+  .gr-cells {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 28px; margin-top: 52px; flex: 1;
+  }
+  .gr-cell {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 20px; padding: 44px;
+    display: flex; flex-direction: column; gap: 12px; overflow: hidden;
+  }
+  .gr-icon { font-size: 56px; line-height: 1; }
+  .gr-label {
+    font-family: var(--font-display); font-size: 46px; font-weight: 700;
+    color: var(--color-headline); line-height: 1.0; white-space: pre-line;
+  }
+  .gr-text {
+    font-family: var(--font-body); font-size: 26px;
+    color: var(--color-body); line-height: 1.5; margin-top: 4px;
+  }
+
 </style>
 </head>
 <body>
