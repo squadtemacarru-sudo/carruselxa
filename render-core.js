@@ -154,12 +154,15 @@ function cover(sec, s, layout, useGlass, glassOp) {
   const main = el('div', 'cover-main');
   if (useGlass) { main.classList.add('glass-wrap'); main.style.setProperty('--glass-bg', `rgba(4,4,6,${glassOp})`); }
   main.appendChild(el('h1', 'c-headline h-display', esc(s.headline)));
-  if (s.detail) main.appendChild(el('p', 'c-body', esc(s.detail)));
-  if (s.kicker) {
-    const k = el('div', 'c-kicker');
-    k.appendChild(el('div', 'c-kicker-line'));
-    k.appendChild(el('span', 'c-kicker-text', esc(s.kicker)));
-    main.appendChild(k);
+  // Con foto: solo headline — el visual hace el trabajo, el texto ancla el mensaje
+  if (!s.photo) {
+    if (s.detail) main.appendChild(el('p', 'c-body', esc(s.detail)));
+    if (s.kicker) {
+      const k = el('div', 'c-kicker');
+      k.appendChild(el('div', 'c-kicker-line'));
+      k.appendChild(el('span', 'c-kicker-text', esc(s.kicker)));
+      main.appendChild(k);
+    }
   }
   sec.appendChild(main);
   if (layout !== 'cover-center') sec.appendChild(el('span', 'c-swipe', `DESLIZÁ ${RC.ARROW}`));
@@ -218,10 +221,20 @@ function statement(sec, s, layout) {
     const top = el('div', 'stmt-top');
     top.appendChild(el('h2', 'c-headline h-display', esc(s.headline)));
     sec.appendChild(top);
-    const bot = el('div', 'stmt-bottom');
-    bot.appendChild(divider());
-    if (s.body) bot.appendChild(el('p', 'c-body', esc(s.body)));
-    sec.appendChild(bot);
+    // Con foto: el body va anclado al fondo como elemento fijo — no se mezcla con el headline
+    if (s.body) {
+      if (s.photo) {
+        const bot = el('div', 'stmt-photo-body');
+        bot.appendChild(divider());
+        bot.appendChild(el('p', 'c-body', esc(s.body)));
+        sec.appendChild(bot);
+      } else {
+        const bot = el('div', 'stmt-bottom');
+        bot.appendChild(divider());
+        bot.appendChild(el('p', 'c-body', esc(s.body)));
+        sec.appendChild(bot);
+      }
+    }
     return;
   }
   if (layout === 'statement-impact') {

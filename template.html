@@ -353,6 +353,10 @@
   .layout-statement-top .stmt-bottom {
     display: flex; flex-direction: column; gap: 32px;
   }
+  .layout-statement-top .stmt-photo-body {
+    position: absolute; bottom: var(--pad); left: var(--pad); right: var(--pad);
+    display: flex; flex-direction: column; gap: 20px; z-index: 2;
+  }
 
   /* tp-middle / tp-bottom: mismo criterio que cover-top — bajamos el
      headline si el sujeto de la foto está arriba. */

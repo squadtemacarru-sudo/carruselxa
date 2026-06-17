@@ -766,7 +766,8 @@ ${contenido}
 
 Analizá la imagen con precisión y devolvé SOLO JSON (sin markdown) con ajustes ESPECÍFICOS para esta foto dentro del sistema:
 
-REGLA CRÍTICA para text_y_percent: es el % vertical (0=tope, 100=base) donde va el CENTRO del bloque de texto. Mirá dónde está la persona/cara/cuerpo y elegí la zona OPUESTA para que el texto no tape al sujeto. Si el sujeto ocupa el centro o el abajo del frame → elegí entre 8 y 22. Si ocupa el arriba → elegí entre 70 y 85. Si no hay sujeto claro → 18. NUNCA pongas el texto encima del cuerpo o la cara.
+REGLA CRÍTICA para text_y_percent: es el % vertical donde va el TOPE del bloque de texto (0=tope del slide, 100=base). Tu trabajo es encontrar la zona de la foto que tiene MÁS ESPACIO VACÍO — cielo, pared, suelo, fondo neutro — y poner el texto AHÍ.
+Proceso: 1) Identificá dónde está la cara/cuerpo principal. 2) Identificá la zona más despejada y oscura/contrastante. 3) Si esa zona está arriba (sujeto en mitad/abajo del frame) → elegí entre 8 y 18. Si está abajo (sujeto en mitad/arriba del frame) → elegí entre 72 y 85. Si hay espacio en ambos extremos y el sujeto está al centro → elegí 8-15 (arriba). NUNCA pongas text_y_percent en el rango 30-65 a menos que la foto sea de un objeto sin persona.
 
 {
   "zonas": {
