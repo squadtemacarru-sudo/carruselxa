@@ -406,6 +406,42 @@ async function callBlackboxVision(imageDataUrls, promptText) {
   return bbFetch({ max_tokens: 2000, messages: [{ role: 'user', content }] });
 }
 
+// ─── Referencias visuales (imágenes para clonador de diseño) ───────────
+const VALID_IMG_EXT = /\.(jpe?g|png|webp)$/i;
+
+app.get('/api/marcas/:id/referencias-img', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  const dir = path.join(__dirname, 'marcas', id, 'referencias');
+  let files = [];
+  try { files = (await readdir(dir)).filter(f => VALID_IMG_EXT.test(f)); } catch {}
+  res.json({ files });
+});
+
+app.post('/api/marcas/:id/referencias-img', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  const { filename, data } = req.body;
+  if (!filename || !data) return res.status(400).json({ error: 'Faltan filename o data' });
+  if (!VALID_IMG_EXT.test(filename)) return res.status(400).json({ error: 'Tipo de archivo no soportado' });
+  const match = data.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
+  if (!match) return res.status(400).json({ error: 'Formato de imagen inválido' });
+  const dir = path.join(__dirname, 'marcas', id, 'referencias');
+  await mkdir(dir, { recursive: true });
+  const safeName = path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+  await writeFile(path.join(dir, safeName), Buffer.from(match[2], 'base64'));
+  res.json({ ok: true, filename: safeName });
+});
+
+app.delete('/api/marcas/:id/referencias-img/:filename', async (req, res) => {
+  const { id, filename } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  if (!VALID_IMG_EXT.test(filename)) return res.status(400).json({ error: 'Archivo inválido' });
+  const safeName = path.basename(filename);
+  try { await unlink(path.join(__dirname, 'marcas', id, 'referencias', safeName)); } catch {}
+  res.json({ ok: true });
+});
+
 // GET — devuelve el contenido actual de referencias-ig.md
 app.get('/api/marcas/:id/referencias', async (req, res) => {
   const { id } = req.params;

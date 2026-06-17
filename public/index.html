@@ -148,6 +148,24 @@
     </div>
 
     <div class="config-block">
+      <div class="config-block-header" data-toggle="bloque-clonar">
+        <span class="section-title">Clonador de diseño</span>
+        <span class="toggle-icon">›</span>
+      </div>
+      <div class="config-block-body collapsed" id="bloque-clonar">
+        <p class="hint">Subí slides de carruseles cuyo <strong>diseño visual</strong> te guste. La IA los usa como dirección de arte al generar nuevos carruseles — paleta, tipografía, composición.</p>
+
+        <label class="btn-secondary btn-full file-btn" style="margin-top:10px;justify-content:center">
+          + Agregar referencias visuales
+          <input id="clonarInput" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        </label>
+
+        <div id="clonarGrid" class="fotos-grid" style="margin-top:12px"></div>
+        <p id="clonarEmpty" class="hint" style="margin-top:8px">No hay referencias guardadas para esta marca.</p>
+      </div>
+    </div>
+
+    <div class="config-block">
       <div class="config-block-header" data-toggle="bloque-estudiar">
         <span class="section-title">Estudiar carruseles</span>
         <span class="toggle-icon">›</span>

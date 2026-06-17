@@ -21,6 +21,7 @@ document.querySelectorAll('.config-block-header').forEach(header => {
     const isOpen = !body.classList.contains('collapsed');
     body.classList.toggle('collapsed', isOpen);
     header.classList.toggle('open', !isOpen);
+    if (!isOpen && bodyId === 'bloque-clonar') cargarClonarGrid();
   });
 });
 
@@ -41,6 +42,7 @@ marcaSelect.addEventListener('change', async () => {
   marcaActual = marcaSelect.value;
   await Promise.all([cargarTemas(), cargarIdentidad(), cargarReferencias()]);
   renderTemplatesList();
+  cargarClonarGrid();
 });
 
 $('#btnNuevaMarca').addEventListener('click', async () => {
@@ -1065,6 +1067,53 @@ $('#btnRerenderizar').addEventListener('click', async () => {
   }
 });
 
+// ── CLONADOR DE DISEÑO ────────────────────────────────
+async function cargarClonarGrid() {
+  const res  = await fetch(`/api/marcas/${marcaActual}/referencias-img`);
+  const data = await res.json();
+  const grid  = $('#clonarGrid');
+  const empty = $('#clonarEmpty');
+  if (!data.files?.length) {
+    grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  grid.innerHTML = data.files.map(f => `
+    <div class="foto-thumb clonar-thumb" data-file="${f}">
+      <img src="/marcas/${marcaActual}/referencias/${f}" alt="${f}">
+      <button class="foto-delete clonar-delete" data-file="${f}">×</button>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.clonar-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`/api/marcas/${marcaActual}/referencias-img/${btn.dataset.file}`, { method: 'DELETE' });
+      cargarClonarGrid();
+    });
+  });
+}
+
+$('#clonarInput').addEventListener('change', async () => {
+  const files = Array.from($('#clonarInput').files);
+  if (!files.length) return;
+  for (const file of files) {
+    const reader = new FileReader();
+    await new Promise(resolve => {
+      reader.onload = async (e) => {
+        await fetch(`/api/marcas/${marcaActual}/referencias-img`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, data: e.target.result })
+        });
+        resolve();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  $('#clonarInput').value = '';
+  cargarClonarGrid();
+});
+
 // ── TEMPLATES ─────────────────────────────────────────
 function tplKey()           { return `templates_${marcaActual || 'default'}`; }
 function getTemplates()     { try { return JSON.parse(localStorage.getItem(tplKey()) || '[]'); } catch { return []; } }
@@ -1134,6 +1183,7 @@ $('#btnGuardarTemplate').addEventListener('click', () => {
   await cargarMarcas();
   await Promise.all([cargarTemas(), cargarIdentidad(), cargarReferencias()]);
   renderTemplatesList();
+  cargarClonarGrid();
   cargarGaleria();
   checkStatus();
   connectStream();
