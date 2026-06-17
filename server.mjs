@@ -228,6 +228,18 @@ app.post('/api/generar', async (req, res) => {
 
       await runStep(['analizar.mjs', `${carpeta}/contenido.json`], extraEnv);
       await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
+
+      // Autocrítica visual: lee slide-01.png, detecta problemas y re-renderiza si hace falta
+      try {
+        await runStep(['criticar.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
+        const critiqueFile = path.join(__dirname, carpeta, 'output', 'critique.json');
+        const critiqueRaw = await readFile(critiqueFile, 'utf-8').catch(() => '{}');
+        if (JSON.parse(critiqueRaw).changed) {
+          broadcast('🔄 Re-renderizando con ajustes...\n');
+          await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
+        }
+      } catch { /* autocrítica es opcional — no bloquea */ }
+
       broadcast(`\n✅ Listo: ${carpeta}\n`);
     } catch (e) {
       broadcast(`\n❌ Error: ${e.message}\n`);
