@@ -926,7 +926,7 @@ function aplicarDecisiones(slide, analisis, sistema) {
   // Del análisis específico de la foto
   if (analisis) {
     // El overlay plano se suma al degradé direccional (--grad) en el render
-    s._overlay        = Math.min(analisis.ajustes_foto?.overlay_ajustado ?? sistema.tratamiento_fotos?.overlay_base ?? 0.65, 0.82);
+    s._overlay        = Math.min(analisis.ajustes_foto?.overlay_ajustado ?? sistema.tratamiento_fotos?.overlay_base ?? 0.65, 0.68);
     s._gradiente      = analisis.ajustes_foto?.gradiente_ajustado ?? sistema.tratamiento_fotos?.gradiente_default ?? 'top_heavy';
     s._textPosition   = analisis.ajustes_texto?.posicion ?? 'top';
     s._textShadow     = analisis.ajustes_texto?.text_shadow ?? sistema.efectos?.text_shadow_default ?? 'medio';
@@ -941,13 +941,22 @@ function aplicarDecisiones(slide, analisis, sistema) {
 
     // Posición Y precisa del texto para evitar tapar al sujeto
     const rawTextY = analisis.ajustes_texto?.text_y_percent;
+    const ocupaZona = analisis.sujeto?.ocupa_zona;
     if (rawTextY != null && !isNaN(Number(rawTextY))) {
       s._textY = Math.round(Math.max(5, Math.min(88, Number(rawTextY))));
     } else if (analisis.sujeto?.posicion !== 'sin_sujeto') {
       // Fallback heurístico: si la IA no dio porcentaje, deducirlo de la zona del sujeto
-      const zona = analisis.sujeto?.ocupa_zona;
-      if (zona === 'top')                                      s._textY = 78;
-      else if (['middle', 'bottom', 'full'].includes(zona))   s._textY = 15;
+      if (ocupaZona === 'top')                                      s._textY = 78;
+      else if (['middle', 'bottom', 'full'].includes(ocupaZona))   s._textY = 15;
+    }
+    // Sanity check: el AI a veces contradice su análisis de sujeto al dar text_y_percent.
+    // Si el texto va en la misma zona que el sujeto, lo movemos al lado opuesto.
+    if (s._textY != null) {
+      if (s._textY < 42 && (ocupaZona === 'top' || ocupaZona === 'full')) {
+        s._textY = 74; // sujeto arriba → texto al tercio inferior
+      } else if (s._textY > 58 && ocupaZona === 'bottom') {
+        s._textY = 10; // sujeto abajo → texto al tercio superior
+      }
     }
 
     // Guardia de contraste: si la zona donde se ancla el texto quedó

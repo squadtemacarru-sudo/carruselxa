@@ -189,6 +189,13 @@
     gap: var(--gap);
     margin-top: calc(var(--pad) * 1.2);
   }
+  /* Cuando hay foto + _textY, el wrap absolute ya maneja la posición.
+     Limitar la altura máxima evita que el bloque de texto baje al sujeto
+     aunque el headline sea muy largo. */
+  .has-photo .cover-main {
+    max-height: 44%;
+    overflow: hidden;
+  }
 
   /* tp-middle / tp-bottom: la IA detectó que el sujeto ocupa la zona
      superior de la foto — bajamos el bloque de texto para no tapar

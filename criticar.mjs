@@ -21,23 +21,26 @@ async function callVision(imageDataUrl) {
 
   const prompt = `Sos director de arte senior especializado en Instagram. Analizá este slide de carrusel.
 
-Evaluá SOLO estos 3 aspectos:
-1. LEGIBILIDAD: ¿El texto principal es legible sobre el fondo? (sí/no)
-2. IMPACTO: ¿El headline tiene suficiente tamaño/peso para detener el scroll en mobile? (sí/no)
-3. OVERLAY: ¿La foto está tan oscura que pierde información, o tan clara que el texto no se lee?
+Evaluá estos 4 aspectos:
+1. LEGIBILIDAD: ¿El texto principal es legible sobre el fondo?
+2. IMPACTO: ¿El headline tiene suficiente tamaño/peso para detener el scroll en mobile?
+3. OVERLAY: ¿La foto está tan oscura que perdió información visual importante, o tan clara que el texto no se lee?
+4. TEXTO SOBRE PERSONA: ¿El bloque de texto (headline, párrafo) tapa la cara, torso, o zona central del sujeto principal de la foto?
 
 Si TODO está bien → devolvé exactamente: null
 
-Si hay un problema claro → devolvé SOLO este JSON:
+Si hay un problema CLARO → devolvé SOLO este JSON:
 {
-  "problema": "descripción muy corta (ej: texto ilegible sobre foto clara)",
-  "overlay_delta": 0.12,
-  "headline_ajuste": "ok"
+  "problema": "descripción muy corta del problema más grave",
+  "overlay_delta": 0.0,
+  "headline_ajuste": "ok",
+  "text_y_nuevo": null
 }
 
-Reglas:
-- overlay_delta: número entre -0.15 y 0.20 (positivo = más oscuro, negativo = más claro). 0 si no hay problema de contraste.
+Reglas estrictas:
+- overlay_delta: entre -0.20 y 0.15. Positivo = más oscuro (si texto ilegible). Negativo = aclarar (si foto destruida, muy oscura). 0 si el contraste está bien.
 - headline_ajuste: "subir" | "bajar" | "ok"
+- text_y_nuevo: si el texto tapa la cara/cuerpo del sujeto → el % vertical (0-100) donde debería ir el TOPE del bloque de texto para no taparlo. Ejemplo: 75 = texto en zona inferior (sujeto arriba), 8 = texto en zona superior (sujeto abajo). Si no hay persona en la foto o el texto ya está bien posicionado → null.
 - Solo devolvé ajuste si el problema es CLARO y OBVIO. Ante la duda, devolvé null.`;
 
   const res = await fetch('https://api.blackbox.ai/chat/completions', {
@@ -127,6 +130,20 @@ async function main() {
       _headlineAjuste: s._headlineAjuste === 'normal' ? 'small' : s._headlineAjuste
     }));
     console.log('  → Headlines bajados');
+    changed = true;
+  }
+
+  if (ajustes.text_y_nuevo != null && !isNaN(Number(ajustes.text_y_nuevo))) {
+    const ty = Math.round(Math.max(5, Math.min(88, Number(ajustes.text_y_nuevo))));
+    // Solo corregir slides con foto en layouts compactos (cover/quote/cta)
+    // donde _textY tiene efecto. Statement y list tienen su propia lógica CSS.
+    contenido.slides = contenido.slides.map(s => {
+      if (!s.photo) return s;
+      const ly = s._layout || '';
+      if (!ly.startsWith('cover') && !ly.startsWith('quote') && !ly.startsWith('cta')) return s;
+      return { ...s, _textY: ty };
+    });
+    console.log(`  → Posición de texto corregida → ${ty}% (texto tapaba al sujeto)`);
     changed = true;
   }
 
