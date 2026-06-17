@@ -245,7 +245,8 @@ Devolvé SOLO JSON (sin markdown) con este formato exacto:
 Tipos adicionales disponibles (usalos cuando agreguen impacto real al tema):
 - big_number: dato o estadística gigante. { "type": "big_number", "stat": "87%", "label": "DE LOS ATLETAS", "body": "una línea de contexto que explica el dato", "handle": "@marca" }
 - timeline: proceso paso a paso. { "type": "timeline", "eyebrow": "EL PROCESO", "headline": "CÓMO\\nFUNCIONA", "steps": [{"num":"01","text":"primer paso","detail":"detalle opcional"},{"num":"02","text":"segundo paso"},{"num":"03","text":"tercer paso"}] }
-- grid: 4 conceptos o beneficios en grilla 2×2. { "type": "grid", "headline": "LO QUE\\nGANÁS", "cells": [{"icon":"💪","label":"FUERZA","text":"texto corto"},{"icon":"🧠","label":"ENFOQUE","text":"texto corto"},{"icon":"⚡","label":"ENERGÍA","text":"texto corto"},{"icon":"🔥","label":"RESULTADO","text":"texto corto"}] }
+- grid: 4 conceptos o beneficios en grilla 2×2. { "type": "grid", "headline": "LO QUE\\nGANÁS", "cells": [{"icon":"fitness_center","label":"FUERZA","text":"texto corto"},{"icon":"psychology","label":"ENFOQUE","text":"texto corto"},{"icon":"bolt","label":"ENERGÍA","text":"texto corto"},{"icon":"trending_up","label":"RESULTADO","text":"texto corto"}] }
+  IMPORTANTE: el campo "icon" del grid debe ser un nombre de Material Symbols (Google). Elegí el más representativo del concepto. Opciones: fitness_center, psychology, bolt, trending_up, restaurant, timer, water_drop, monitor_heart, nightlight, local_fire_department, sports, self_improvement, emoji_events, star, check_circle, rocket_launch, favorite, directions_run, speed, schedule, school, workspace_premium, shield, flag, groups, eco, nutrition, bedtime, mood, flash_on, whatshot
 ${fotos?.length ? '' : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
 Reglas generales:
 - El tema debe tratarse con un ángulo específico, no genérico.

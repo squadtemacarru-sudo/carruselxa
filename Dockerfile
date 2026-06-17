@@ -4,7 +4,9 @@ RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
     fonts-noto \
+    fonts-noto-color-emoji \
     --no-install-recommends \
+    && fc-cache -f -v \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PUPPETEER_SKIP_DOWNLOAD=true

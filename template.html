@@ -6,6 +6,7 @@
 <link id="font-display-link" rel="stylesheet" href="">
 <link id="font-body-link"    rel="stylesheet" href="">
 <link id="font-mono-link"    rel="stylesheet" href="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0&display=block">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { font-family: var(--font-body); background: #0a0a0a; }
@@ -876,7 +877,13 @@
     border-radius: 20px; padding: 44px;
     display: flex; flex-direction: column; gap: 12px; overflow: hidden;
   }
-  .gr-icon { font-size: 56px; line-height: 1; }
+  .gr-icon {
+    font-family: 'Material Symbols Rounded', 'Noto Color Emoji', sans-serif;
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    font-size: 56px; line-height: 1;
+    color: var(--color-acento);
+    user-select: none;
+  }
   .gr-label {
     font-family: var(--font-display); font-size: 46px; font-weight: 700;
     color: var(--color-headline); line-height: 1.0; white-space: pre-line;
