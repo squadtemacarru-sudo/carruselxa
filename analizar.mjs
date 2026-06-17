@@ -589,8 +589,7 @@ function getDefaultDesignSystem(estilo) {
         'Acento para highlighting de información clave',
         'Estructura visible: el layout mismo comunica jerarquía'
       ]
-    }
-  };
+    },
     luxury_minimal: {
       nombre_sistema: 'Luxury Minimal',
       tipografia: resolveFontPair('instrument-dm'),
