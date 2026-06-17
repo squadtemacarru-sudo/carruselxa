@@ -426,9 +426,9 @@ app.post('/api/marcas/:id/logo', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────
 
 const BB_FALLBACK_MODELS = [
+  'claude-sonnet-4-5-20250514',
+  'claude-haiku-4-5-20251001',
   'blackboxai/anthropic/claude-sonnet-4.6',
-  'blackboxai/anthropic/claude-sonnet-4.5',
-  'claude-3-5-sonnet-20241022',
 ];
 
 async function bbFetch(body, attempt = 0) {

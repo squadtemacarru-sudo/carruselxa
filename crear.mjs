@@ -28,9 +28,9 @@ Como estratega de marketing entendés copywriting persuasivo, niveles de conscie
 Tus respuestas son siempre específicas y accionables — nunca genéricas, nunca clichés motivacionales. Respondés SIEMPRE en el formato exacto solicitado (JSON puro, sin \`\`\`markdown\`\`\` ni texto antes o después), sin explicaciones adicionales fuera del JSON.`;
 
 const FALLBACK_MODELS = [
+  'claude-sonnet-4-5-20250514',
+  'claude-haiku-4-5-20251001',
   'blackboxai/anthropic/claude-sonnet-4.6',
-  'blackboxai/anthropic/claude-sonnet-4.5',
-  'claude-3-5-sonnet-20241022',
 ];
 
 async function callBlackbox(content, attempt = 0) {
