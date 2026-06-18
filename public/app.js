@@ -1157,6 +1157,13 @@ function renderEditorSlide(idx) {
 
     $('#editorControls').appendChild(section);
 
+  if (slide._fotoSugerida) {
+    const section = document.createElement('div');
+    section.className = 'ctrl-section';
+    section.innerHTML = `<p class="ctrl-label">FOTO SUGERIDA</p><p class="ctrl-hint" style="font-style:italic;color:var(--text-muted)">${slide._fotoSugerida}</p>`;
+    $('#editorControls').appendChild(section);
+  }
+
     // Bind texto → editorContenido
     activeFields.forEach(({ key }) => {
       const el = document.getElementById(`ctrlText_${key}`);
