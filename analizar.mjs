@@ -593,6 +593,10 @@ B: razón`;
     winner.reglas_estilo.forEach(r => console.log(`     • ${r}`));
   }
   console.log(`  🔤 Par: ${winner.font_pair_id} (${winner.tipografia.display.familia} + ${winner.tipografia.body.familia})`);
+  const loser = ganadora === 'B' ? sistemaA : sistemaB;
+  if (loser && !loser.tipografia) loser.tipografia = resolveFontPair(loser.font_pair_id);
+  winner._varianteA = sistemaA;
+  winner._varianteB = sistemaB;
   return winner;
 }
 
@@ -1330,6 +1334,10 @@ async function main() {
   // FASE 2: definir sistema de diseño completo
   const referencias = await loadReferencias(marcaId);
   const sistema = await definirSistemaDiseño(temaInfo, marca, referencias);
+  const sistemaA = sistema._varianteA || sistema;
+  const sistemaB = sistema._varianteB || sistema;
+  delete sistema._varianteA;
+  delete sistema._varianteB;
   broadcast('sistema', { sistema, overlay: sistema.tratamiento_fotos?.overlay_base });
   broadcast('status', { message: `✓ Sistema "${sistema.nombre_sistema}" — ${sistema.tipografia?.display?.familia} + ${sistema.tipografia?.body?.familia}` });
 
@@ -1484,7 +1492,7 @@ async function main() {
   const slidesConMerge = mergeAsignacionesManuales(slidesFinales, anterior);
   if (anterior) console.log('\n🔄 Merge incremental: asignaciones manuales de fotos preservadas del análisis previo');
 
-  const output = { ...raw, _sistema: sistema, _modelo: modelo, slides: slidesConMerge };
+  const output = { ...raw, _sistema: sistema, _sistemaA: sistemaA, _sistemaB: sistemaB, _modelo: modelo, slides: slidesConMerge };
   await writeFile(path.join(__dirname, outName), JSON.stringify(output, null, 2), 'utf-8');
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
