@@ -225,6 +225,12 @@ app.post('/api/generar', async (req, res) => {
         if (diseno.font_pair_id) extraEnv.USER_FONT_PAIR = diseno.font_pair_id;
       } catch {}
 
+      // Handle de Instagram de la marca
+      try {
+        const mData = JSON.parse(await readFile(path.join(__dirname, 'marcas', marcaId, 'marca.json'), 'utf-8'));
+        if (mData.handle) extraEnv.USER_HANDLE = mData.handle;
+      } catch {}
+
       // Rotaciones: resolver nombres a URLs reales (igual que fotos)
       const rotacionesResueltas = {};
       for (const [nombre, grados] of Object.entries(respuestas.rotaciones || {})) {

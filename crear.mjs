@@ -20,6 +20,7 @@ const withTimeout = (ms, promise, fallback) =>
 
 const USER_INSTRUCCIONES = process.env.USER_INSTRUCCIONES || '';
 const USER_OVERLAY = process.env.USER_OVERLAY != null && process.env.USER_OVERLAY !== '' ? parseFloat(process.env.USER_OVERLAY) : null;
+const USER_HANDLE = process.env.USER_HANDLE || '';
 
 const USER_ESTILO_ID = process.env.USER_ESTILO_ID || '';
 const USER_FUENTE_ID = process.env.USER_FUENTE_ID || '';
@@ -400,7 +401,7 @@ Tipos base (siempre disponibles):
 - statement: afirmación desarrollada. { “type”: “statement”, “headline”: “afirmación\\ncorta y rotunda”, “body”: “desarrollo breve\\n\\ncon párrafos cortos” }
 - split: dos columnas comparativas. { “type”: “split”, “left”: {“label”: “ETIQUETA A”, “items”: [“ítem”, “ítem”, “ítem”]}, “right”: {“label”: “ETIQUETA B”, “items”: [“ítem”, “ítem”, “ítem”]} }
 - quote: cita o frase de autoridad. { “type”: “quote”, “quote”: “”cita corta y potente””, “attr”: “remate de la cita”, “note”: “nota breve que la conecta con la marca” }
-- cta: llamado a la acción final. { “type”: “cta”, “headline”: “llamado\\na la acción”, “sub”: “una línea que invita\\na escribir por DM”, “handle”: “@squadteam.uy” }
+- cta: llamado a la acción final. { “type”: “cta”, “headline”: “llamado\\na la acción”, “sub”: “una línea que invita\\na escribir por DM”, “handle”: “${USER_HANDLE || '@tumarca'}” }
 
 Tipos de alto impacto visual — USÁ AL MENOS UNO cuando el tema lo permita:
 - big_number: cuando el tema tiene un dato o estadística fuerte que habla por sí solo. { “type”: “big_number”, “stat”: “87%”, “label”: “DE LOS ATLETAS”, “body”: “una línea de contexto que explica el dato”, “handle”: “@marca” }

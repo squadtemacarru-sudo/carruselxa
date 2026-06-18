@@ -552,6 +552,7 @@ async function cargarIdentidad() {
   const res = await fetch(`/api/marcas/${marcaActual}/marca`);
   const m   = res.ok ? await res.json() : {};
   $('#mNombre').value          = m.nombre || '';
+  $('#mHandle').value          = m.handle || '';
   $('#mIndustria').value       = m.industria || '';
   $('#mAudiencia').value       = m.audiencia || '';
   $('#mPosicionamiento').value = m.posicionamiento || '';
@@ -604,6 +605,7 @@ $('#btnGuardarMarca').addEventListener('click', async () => {
 
   const body = {
     nombre:           $('#mNombre').value.trim(),
+    handle:           $('#mHandle').value.trim(),
     industria:        $('#mIndustria').value.trim(),
     audiencia:        $('#mAudiencia').value.trim(),
     posicionamiento:  $('#mPosicionamiento').value.trim(),
@@ -1322,41 +1324,51 @@ function renderEditorSlide(idx) {
     // headline_lines: editar cada línea del hero cover
     if (hasHeadlineLines) {
       slide.headline_lines.forEach((line, li) => {
-        const fieldId = `ctrlHL_${li}`;
         const row = document.createElement('div');
         row.className = 'ctrl-row ctrl-row-col';
         row.innerHTML = `
           <span class="ctrl-row-label">Línea hero ${li + 1} <small style="opacity:.5">(${line.size || 'hero'})</small></span>
-          <input id="${fieldId}" class="ctrl-input" type="text" value="${String(line.text || '').replace(/"/g, '&quot;')}">
+          <input class="ctrl-input" type="text" value="${String(line.text || '').replace(/"/g, '&quot;')}">
         `;
+        const inp = row.querySelector('input');
+        inp.addEventListener('focus', saveSnapshot, { once: true });
+        inp.addEventListener('input', () => {
+          editorContenido.slides[editorSlideIdx].headline_lines[li].text = inp.value;
+        });
         section.appendChild(row);
-        const el = document.getElementById(fieldId);
-        if (el) {
-          el.addEventListener('focus', saveSnapshot, { once: true });
-          el.addEventListener('input', () => {
-            editorContenido.slides[editorSlideIdx].headline_lines[li].text = el.value;
-          });
-        }
       });
     }
 
     activeFields.forEach(({ key, label, multi }) => {
-      const fieldId = `ctrlText_${key}`;
       const row = document.createElement('div');
       row.className = 'ctrl-row ctrl-row-col';
       const safeVal = String(slide[key]).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      row.innerHTML = `
-        <span class="ctrl-row-label">${label}</span>
-        ${multi
-          ? `<textarea id="${fieldId}" class="ctrl-textarea" rows="3">${safeVal}</textarea>`
-          : `<input  id="${fieldId}" class="ctrl-input" type="text" value="${String(slide[key]).replace(/"/g, '&quot;')}">`}
-      `;
-      section.appendChild(row);
-      const el = document.getElementById(fieldId);
-      if (el) {
-        el.addEventListener('focus', saveSnapshot, { once: true });
-        el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; });
+      if (multi) {
+        const lbl = document.createElement('span');
+        lbl.className = 'ctrl-row-label';
+        lbl.textContent = label;
+        const ta = document.createElement('textarea');
+        ta.className = 'ctrl-textarea';
+        ta.rows = 3;
+        ta.value = String(slide[key]);
+        ta.addEventListener('focus', saveSnapshot, { once: true });
+        ta.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = ta.value; });
+        row.appendChild(lbl);
+        row.appendChild(ta);
+      } else {
+        const lbl = document.createElement('span');
+        lbl.className = 'ctrl-row-label';
+        lbl.textContent = label;
+        const inp = document.createElement('input');
+        inp.className = 'ctrl-input';
+        inp.type = 'text';
+        inp.value = String(slide[key]);
+        inp.addEventListener('focus', saveSnapshot, { once: true });
+        inp.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = inp.value; });
+        row.appendChild(lbl);
+        row.appendChild(inp);
       }
+      section.appendChild(row);
     });
 
     if (hasHeadlineLines) {
@@ -1371,13 +1383,21 @@ function renderEditorSlide(idx) {
     }
 
     if (hasItems) {
-      const fieldId = 'ctrlText_items';
       const row = document.createElement('div');
       row.className = 'ctrl-row ctrl-row-col';
-      row.innerHTML = `
-        <span class="ctrl-row-label">Items (uno por línea)</span>
-        <textarea id="${fieldId}" class="ctrl-textarea" rows="${Math.min(slide.items.length + 1, 8)}">${slide.items.join('\n')}</textarea>
-      `;
+      const lbl = document.createElement('span');
+      lbl.className = 'ctrl-row-label';
+      lbl.textContent = 'Items (uno por línea)';
+      const ta = document.createElement('textarea');
+      ta.className = 'ctrl-textarea';
+      ta.rows = Math.min(slide.items.length + 1, 8);
+      ta.value = slide.items.join('\n');
+      ta.addEventListener('focus', saveSnapshot, { once: true });
+      ta.addEventListener('input', () => {
+        editorContenido.slides[editorSlideIdx].items = ta.value.split('\n').filter(l => l.trim());
+      });
+      row.appendChild(lbl);
+      row.appendChild(ta);
       section.appendChild(row);
     }
 
@@ -1390,7 +1410,7 @@ function renderEditorSlide(idx) {
     $('#editorControls').appendChild(section);
   }
 
-    // Bind texto → editorContenido
+    // Bind texto → editorContenido (después de appendChild para que getElementById funcione)
     activeFields.forEach(({ key }) => {
       const el = document.getElementById(`ctrlText_${key}`);
       if (!el) return;
