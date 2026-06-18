@@ -1247,9 +1247,10 @@ app.get('/api/tandas/:id/template-html', async (req, res) => {
 
   const template   = await readFile(path.join(__dirname, 'template.html'), 'utf-8');
   const renderCore = await readFile(path.join(__dirname, 'render-core.js'), 'utf-8');
+  const dataPayload = req.query.live === '1' ? '{}' : JSON.stringify(raw);
   const html = template
     .replace('<script src="render-core.js"></script>', `<script>${renderCore}</script>`)
-    .replace('__DATA__', JSON.stringify(raw));
+    .replace('__DATA__', dataPayload);
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);

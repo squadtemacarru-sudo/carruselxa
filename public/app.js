@@ -1135,7 +1135,6 @@ let editorTandaId   = null;
 let editorContenido = null;
 let editorSlideIdx  = 0;
 let editorTs        = Date.now();
-
 // ── Undo / Redo ──────────────────────────────────────
 const UNDO_LIMIT = 30;
 let undoStack = [];  // snapshots anteriores
@@ -1190,8 +1189,8 @@ async function editarTanda(tandaId) {
     alert(e.message);
     return;
   }
-  editorSlideIdx = 0;
-  editorTs       = Date.now();
+  editorSlideIdx  = 0;
+  editorTs        = Date.now();
   undoStack = [];
   redoStack = [];
   editorTemplateHtml = null;
@@ -1552,7 +1551,7 @@ function renderEditorSlide(idx) {
         // En mobile el teclado tapa el modal — scrollear para que el campo quede visible
         setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
       }, { once: true });
-      el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; });
+      el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; sendLiveUpdate(editorSlideIdx); });
     });
     if (hasHeadlineLines) {
       const el = document.getElementById('ctrlText_headline_lines');
@@ -1565,6 +1564,7 @@ function renderEditorSlide(idx) {
             const o = orig[i];
             return (o && typeof o === 'object') ? { ...o, text } : text;
           });
+          sendLiveUpdate(editorSlideIdx);
         });
       }
     }
@@ -1574,6 +1574,7 @@ function renderEditorSlide(idx) {
         el.addEventListener('focus', saveSnapshot, { once: true });
         el.addEventListener('input', () => {
           editorContenido.slides[editorSlideIdx].items = el.value.split('\n').filter(l => l.trim());
+          sendLiveUpdate(editorSlideIdx);
         });
       }
     }
