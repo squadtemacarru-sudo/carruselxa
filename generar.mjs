@@ -137,6 +137,7 @@ async function main() {
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--enable-features=ShapeDetection',
+      '--enable-blink-features=ShapeDetection',
     ],
   });
 
