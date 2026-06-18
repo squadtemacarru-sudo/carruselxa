@@ -1282,6 +1282,23 @@ app.post('/api/tandas/:id/apply-sistema', async (req, res) => {
   }
 });
 
+app.post('/api/tandas/:id/switch-design', async (req, res) => {
+  if (!isValidTandaId(req.params.id)) return res.status(400).json({ error: 'id inválido' });
+  const analFile = path.join(__dirname, 'tandas', req.params.id, 'contenido.analizado.json');
+  try {
+    const data = JSON.parse(await readFile(analFile, 'utf-8'));
+    const alt = data._sistema?._sistemaAlt;
+    if (!alt) return res.status(404).json({ error: 'No hay sistema alternativo' });
+    // Swap: current becomes alt, alt becomes current
+    const current = { ...data._sistema };
+    delete current._sistemaAlt;
+    alt._sistemaAlt = current;
+    data._sistema = alt;
+    await writeFile(analFile, JSON.stringify(data, null, 2), 'utf-8');
+    res.json({ ok: true, nombre: alt.nombre_sistema, font: alt.tipografia?.display?.familia });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Guarda overrides del editor y dispara re-render de los slides modificados
 app.post('/api/tandas/:id/save-overrides', async (req, res) => {
   const { id } = req.params;

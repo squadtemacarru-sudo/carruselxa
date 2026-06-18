@@ -1397,6 +1397,28 @@ function renderEditorSlide(idx) {
     </div>
   `;
 
+  // Mostrar botón de cambio de diseño si hay alternativa
+  fetch(`/api/tandas/${editorTandaId}/contenido`)
+    .then(r => r.json())
+    .then(data => {
+      const alt = data._sistema?._sistemaAlt;
+      if (!alt) return;
+      const sec = document.createElement('div');
+      sec.className = 'ctrl-section';
+      sec.innerHTML = `
+        <p class="ctrl-label">DISEÑO ALTERNATIVO</p>
+        <p class="ctrl-hint">Sistema: <strong>${alt.nombre_sistema || '?'}</strong> — ${alt.tipografia?.display?.familia || '?'}</p>
+        <button id="btnSwitchDesign" class="btn-secondary" style="width:100%;margin-top:8px">⇄ Cambiar a este diseño (re-renderizar)</button>
+      `;
+      $('#editorControls').appendChild(sec);
+      document.getElementById('btnSwitchDesign')?.addEventListener('click', async () => {
+        const r = await fetch(`/api/tandas/${editorTandaId}/switch-design`, { method: 'POST' });
+        if (!r.ok) { alert('Error al cambiar diseño'); return; }
+        // Trigger re-render
+        document.getElementById('btnRerenderizar')?.click();
+      });
+    });
+
   // Sección CONTENIDO — todos los campos de texto del slide
   const TEXT_FIELDS = [
     { key: 'headline',     label: 'Titular',         multi: false },
