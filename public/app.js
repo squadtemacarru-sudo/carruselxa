@@ -549,6 +549,7 @@ async function cargarIdentidad() {
   const res = await fetch(`/api/marcas/${marcaActual}/marca`);
   const m   = res.ok ? await res.json() : {};
   $('#mNombre').value          = m.nombre || '';
+  $('#mHandle').value          = m.handle || '';
   $('#mIndustria').value       = m.industria || '';
   $('#mAudiencia').value       = m.audiencia || '';
   $('#mPosicionamiento').value = m.posicionamiento || '';
@@ -601,6 +602,7 @@ $('#btnGuardarMarca').addEventListener('click', async () => {
 
   const body = {
     nombre:           $('#mNombre').value.trim(),
+    handle:           $('#mHandle').value.trim(),
     industria:        $('#mIndustria').value.trim(),
     audiencia:        $('#mAudiencia').value.trim(),
     posicionamiento:  $('#mPosicionamiento').value.trim(),
