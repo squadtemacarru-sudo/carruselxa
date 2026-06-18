@@ -314,7 +314,7 @@ function split(sec, s, layout) {
     ul.style.cssText = 'list-style:none;display:flex;flex-direction:column;gap:24px;margin-top:28px;';
     (col.items || []).forEach(item => {
       const li = el('li', '');
-      li.style.cssText = `font-family:var(--font-body);font-size:32px;line-height:1.4;color:${i===0?'var(--color-body)':'#000'};${i===1?'font-weight:600;':''}`;
+      li.style.cssText = `font-family:var(--font-body);font-size:32px;line-height:1.4;color:${i===0?'rgba(255,255,255,0.9)':'#111'};font-weight:600;`;
       li.innerHTML = esc(item);
       ul.appendChild(li);
     });
