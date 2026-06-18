@@ -1303,3 +1303,95 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   color: rgba(232, 255, 0, 0.5);
 }
 
+/* ── WIZARD ESTILO ───────────────────────────── */
+.estilo-box { max-height: 90dvh; }
+
+.estilo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.estilo-card {
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.estilo-card:hover { border-color: var(--text-muted); }
+.estilo-card.selected {
+  border-color: var(--acc);
+  background: rgba(232,255,0,0.05);
+}
+
+.estilo-paleta {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.estilo-paleta span {
+  flex: 1;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.estilo-nombre {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.estilo-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.fuente-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+  max-height: 55dvh;
+  overflow-y: auto;
+}
+
+.fuente-card {
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.fuente-card:hover  { border-color: var(--text-muted); }
+.fuente-card.selected { border-color: var(--acc); background: rgba(232,255,0,0.05); }
+
+.fuente-preview {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fuente-nombre {
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.fuente-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.estilo-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
