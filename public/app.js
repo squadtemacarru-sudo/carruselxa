@@ -1091,20 +1091,31 @@ function renderEditorSlide(idx) {
 
   // Sección CONTENIDO — campos de texto editables
   const TEXT_FIELDS = [
-    { key: 'headline',     label: 'Titular',    multi: false },
-    { key: 'subheadline',  label: 'Subtitular', multi: false },
-    { key: 'body',         label: 'Cuerpo',     multi: true  },
-    { key: 'caption',      label: 'Caption',    multi: true  },
-    { key: 'stat',         label: 'Estadística',multi: false },
-    { key: 'label',        label: 'Etiqueta',   multi: false },
-    { key: 'quote',        label: 'Cita',       multi: true  },
-    { key: 'author',       label: 'Autor',      multi: false },
-    { key: 'cta',          label: 'CTA',        multi: false },
+    { key: 'headline',     label: 'Titular',      multi: false },
+    { key: 'subheadline',  label: 'Subtitular',   multi: false },
+    { key: 'kicker',       label: 'Kicker',       multi: false },
+    { key: 'eyebrow',      label: 'Eyebrow',      multi: false },
+    { key: 'body',         label: 'Cuerpo',       multi: true  },
+    { key: 'detail',       label: 'Detalle',      multi: true  },
+    { key: 'caption',      label: 'Caption',      multi: true  },
+    { key: 'stat',         label: 'Estadística',  multi: false },
+    { key: 'label',        label: 'Etiqueta',     multi: false },
+    { key: 'sub',          label: 'Sub',          multi: false },
+    { key: 'quote',        label: 'Cita',         multi: true  },
+    { key: 'author',       label: 'Autor',        multi: false },
+    { key: 'attr',         label: 'Atribución',   multi: false },
+    { key: 'note',         label: 'Nota',         multi: true  },
+    { key: 'line1',        label: 'Línea 1',      multi: false },
+    { key: 'line2',        label: 'Línea 2',      multi: false },
+    { key: 'footer_text',  label: 'Pie de página',multi: false },
+    { key: 'handle',       label: 'Handle',       multi: false },
+    { key: 'cta',          label: 'CTA',          multi: false },
   ];
-  const activeFields = TEXT_FIELDS.filter(f => slide[f.key] != null);
-  const hasItems     = Array.isArray(slide.items) && slide.items.length;
+  const activeFields    = TEXT_FIELDS.filter(f => slide[f.key] != null);
+  const hasItems        = Array.isArray(slide.items) && slide.items.length;
+  const hasHeadlineLines = Array.isArray(slide.headline_lines) && slide.headline_lines.length;
 
-  if (activeFields.length || hasItems) {
+  if (activeFields.length || hasItems || hasHeadlineLines) {
     const section = document.createElement('div');
     section.className = 'ctrl-section';
     section.innerHTML = `<p class="ctrl-label">CONTENIDO — slide ${num}</p>`;
@@ -1121,6 +1132,17 @@ function renderEditorSlide(idx) {
       `;
       section.appendChild(row);
     });
+
+    if (hasHeadlineLines) {
+      const fieldId = 'ctrlText_headline_lines';
+      const row = document.createElement('div');
+      row.className = 'ctrl-row ctrl-row-col';
+      row.innerHTML = `
+        <span class="ctrl-row-label">Titular (líneas, una por fila)</span>
+        <textarea id="${fieldId}" class="ctrl-textarea" rows="${Math.min(slide.headline_lines.length + 1, 6)}">${slide.headline_lines.map(l => typeof l === 'object' ? l.text : l).join('\n')}</textarea>
+      `;
+      section.appendChild(row);
+    }
 
     if (hasItems) {
       const fieldId = 'ctrlText_items';
@@ -1142,6 +1164,20 @@ function renderEditorSlide(idx) {
       el.addEventListener('focus', saveSnapshot, { once: true });
       el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; });
     });
+    if (hasHeadlineLines) {
+      const el = document.getElementById('ctrlText_headline_lines');
+      if (el) {
+        el.addEventListener('focus', saveSnapshot, { once: true });
+        el.addEventListener('input', () => {
+          const lines = el.value.split('\n');
+          const orig  = editorContenido.slides[editorSlideIdx].headline_lines;
+          editorContenido.slides[editorSlideIdx].headline_lines = lines.map((text, i) => {
+            const o = orig[i];
+            return (o && typeof o === 'object') ? { ...o, text } : text;
+          });
+        });
+      }
+    }
     if (hasItems) {
       const el = document.getElementById('ctrlText_items');
       if (el) {
