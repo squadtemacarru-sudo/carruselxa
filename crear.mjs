@@ -416,10 +416,11 @@ TIPOS DE SLIDE disponibles — elegí el más adecuado para cada posición:
 
 Tipos base (siempre disponibles):
 - cover: portada. Dos formatos posibles:
-  a) Formato clásico: { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto”, “kicker”: “frase corta” }
-  b) Formato hero multi-línea (PREFERIDO para temas con dato o número fuerte): { “type”: “cover”, “_layout”: “cover-impact”, “headline_lines”: [{“text”:”TEXTO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”EL DATO”,”size”:”hero”,”color”:”#e8000d”,”stroke”:true},{“text”:”OTRO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”IMPACTO”,”size”:”hero”,”color”:”#e8000d”}] }
-     Tamaños de línea: “hero” = enorme (el dato/número), “md” = mediano, “connector” = pequeño conector
+  a) Formato clásico (solo si no encaja el hero): { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto”, “kicker”: “frase corta” }
+  b) Formato hero multi-línea (**USÁ ESTE SIEMPRE QUE PUEDAS** — es el estilo visual más impactante e Instagram-viral): { “type”: “cover”, “_layout”: “cover-impact”, “headline_lines”: [{“text”:”TEXTO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”EL DATO O CONCEPTO CLAVE”,”size”:”hero”,”color”:”#e8000d”,”stroke”:true},{“text”:”OTRO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”IMPACTO”,”size”:”hero”,”color”:”#e8000d”}] }
+     Tamaños de línea: “hero” = enorme (el hook principal), “md” = mediano, “connector” = pequeño conector entre líneas grandes
      stroke:true agrega subrayado decorativo debajo de esa línea
+     REGLA: el cover-impact funciona para CUALQUIER tema — usá “connector” para preguntas/frases y “hero” para la respuesta/concepto clave
 - list: lista de ítems. { “type”: “list”, “eyebrow”: “frase de contexto en mayúsculas”, “items”: [“ítem 1”, “ítem 2”, “ítem 3”, “ítem 4”, “ítem 5”] }
 - statement: afirmación desarrollada. { “type”: “statement”, “headline”: “afirmación\\ncorta y rotunda”, “body”: “desarrollo breve\\n\\ncon párrafos cortos” }
 - split: dos columnas comparativas. { “type”: “split”, “left”: {“label”: “ETIQUETA A”, “items”: [“ítem”, “ítem”, “ítem”]}, “right”: {“label”: “ETIQUETA B”, “items”: [“ítem”, “ítem”, “ítem”]} }
