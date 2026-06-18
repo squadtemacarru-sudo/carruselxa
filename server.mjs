@@ -215,6 +215,8 @@ app.post('/api/generar', async (req, res) => {
       if (instrLines.length) extraEnv.USER_INSTRUCCIONES = instrLines.join('\n');
       if (respuestas.overlay !== undefined) extraEnv.USER_OVERLAY = String(respuestas.overlay);
       if (req.body.model) extraEnv.USER_MODEL = req.body.model;
+      if (req.body.estiloId) extraEnv.USER_ESTILO_ID = req.body.estiloId;
+      if (req.body.fuenteId) extraEnv.USER_FUENTE_ID = req.body.fuenteId;
 
       // Preferencias de diseño guardadas para la marca (fuente, etc.)
       try {

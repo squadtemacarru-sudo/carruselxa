@@ -21,6 +21,29 @@ const withTimeout = (ms, promise, fallback) =>
 const USER_INSTRUCCIONES = process.env.USER_INSTRUCCIONES || '';
 const USER_OVERLAY = process.env.USER_OVERLAY != null && process.env.USER_OVERLAY !== '' ? parseFloat(process.env.USER_OVERLAY) : null;
 
+const USER_ESTILO_ID = process.env.USER_ESTILO_ID || '';
+const USER_FUENTE_ID = process.env.USER_FUENTE_ID || '';
+
+const ESTILOS_HINTS = {
+  'minimal':     'Estilo MINIMAL: fondo muy claro o blanco, texto oscuro, paleta muy reducida (máximo 2-3 colores), mucho espacio en blanco, tipografía ligera. Sin decoraciones recargadas. Paleta sugerida: fondo #f8f8f6, headline #0a0a0a, acento #1a1a2e.',
+  'bold':        'Estilo BOLD IMPACT: fondo negro, texto blanco, un acento de color fuerte (naranja, rojo o amarillo eléctrico). Tipografía grande y agresiva. Alto contraste absoluto. Paleta sugerida: fondo #0a0a0a, headline #ffffff, acento #ff3c00.',
+  'editorial':   'Estilo EDITORIAL: paleta cálida suave, tonos crema/beige, detalles dorados o terracota. Aspecto de revista de lujo. Tipografía serif elegante. Paleta sugerida: fondo #faf7f2, headline #1c1c1c, acento #c8a97e.',
+  'vibrant':     'Estilo VIBRANT: colores vivos y saturados, fondo morado o azul fuerte, acentos amarillo eléctrico y rosa. Energético y llamativo. Paleta sugerida: fondo #6c2bd9, headline #ffffff, acento #f7e94b.',
+  'dark-luxury': 'Estilo DARK LUXURY: fondos muy oscuros casi negros, tipografía en dorado o crema, detalles finos. Aspecto premium y sofisticado. Paleta sugerida: fondo #0d0d0d, headline #e8d5b0, acento #c9a84c.',
+  'nature':      'Estilo NATURE: verdes naturales, fondos claros verdosos, paleta orgánica. Fresco y auténtico. Paleta sugerida: fondo #f0f4ed, headline #1e3a2f, acento #4a8c5c.',
+};
+
+const FUENTES_HINTS = {
+  'playfair':      { display: 'Playfair Display', body: 'Lato',          url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lato:wght@400;700&display=swap' },
+  'oswald':        { display: 'Oswald',           body: 'Open Sans',     url: 'https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=Open+Sans:wght@400;600&display=swap' },
+  'montserrat':    { display: 'Montserrat',       body: 'Montserrat',    url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap' },
+  'bebas':         { display: 'Bebas Neue',       body: 'Roboto',        url: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap' },
+  'space-grotesk': { display: 'Space Grotesk',    body: 'Inter',         url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap' },
+  'dm-serif':      { display: 'DM Serif Display', body: 'DM Sans',       url: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600&display=swap' },
+  'syne':          { display: 'Syne',             body: 'Syne',          url: 'https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&display=swap' },
+  'raleway':       { display: 'Raleway',          body: 'Merriweather',  url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@600;800&family=Merriweather:wght@400;700&display=swap' },
+};
+
 const SYSTEM_PROMPT = `Sos un equipo de élite de 2 personas trabajando como una sola: un director de arte senior con más de 15 años en agencias top de contenido para Instagram, y un estratega de marketing/copywriting senior especializado en marcas personales de fitness y coaching premium.
 
 Como estratega de marketing entendés copywriting persuasivo, niveles de consciencia de audiencia (Schwartz), psicología del scroll-stop, y cómo cada decisión de contenido sirve al objetivo de retención y conversión del carrusel — no es decoración, es estrategia aplicada.
@@ -354,6 +377,8 @@ ${marcaContext(marca)}
 ${memoriaContext(memoria)}GUÍAS DE COPY (aplicá lo que tenga sentido para este tema, no todo a la fuerza):
 ${skillsDocs}
 ${referenciasIG ? `\nESTILO DE REFERENCIA (notas sobre perfiles de IG que le gustan al cliente):\n${referenciasIG}\n` : ''}
+${USER_ESTILO_ID && ESTILOS_HINTS[USER_ESTILO_ID] ? `\nESTILO VISUAL ELEGIDO POR EL USUARIO — aplicá esto al sistema de diseño:\n${ESTILOS_HINTS[USER_ESTILO_ID]}\n` : ''}
+${USER_FUENTE_ID && FUENTES_HINTS[USER_FUENTE_ID] ? `\nTIPOGRAFÍA ELEGIDA POR EL USUARIO — usá EXACTAMENTE estas fuentes en _sistema.tipografia:\n- Display/Titular: "${FUENTES_HINTS[USER_FUENTE_ID].display}"\n- Cuerpo: "${FUENTES_HINTS[USER_FUENTE_ID].body}"\n- URL de import: "${FUENTES_HINTS[USER_FUENTE_ID].url}"\n` : ''}
 ${USER_INSTRUCCIONES ? `\nINSTRUCCIONES ESPECÍFICAS DEL USUARIO — PRIORIDAD MÁXIMA, seguí estas al pie de la letra:\n${USER_INSTRUCCIONES}\n` : ''}
 ${fotosContext(fotos)}
 Devolvé SOLO JSON (sin markdown) con esta estructura:
@@ -407,6 +432,14 @@ Reglas generales:
   }
 
   if (USER_OVERLAY !== null && !isNaN(USER_OVERLAY)) contenido.overlay = USER_OVERLAY;
+  // Inyectar tipografía elegida por el usuario directamente en el sistema de diseño
+  if (USER_FUENTE_ID && FUENTES_HINTS[USER_FUENTE_ID]) {
+    const f = FUENTES_HINTS[USER_FUENTE_ID];
+    if (!contenido._sistema) contenido._sistema = {};
+    if (!contenido._sistema.tipografia) contenido._sistema.tipografia = {};
+    contenido._sistema.tipografia.display = { familia: f.display, url_import: f.url };
+    contenido._sistema.tipografia.body    = { familia: f.body, url_import: f.url };
+  }
   return contenido;
 }
 

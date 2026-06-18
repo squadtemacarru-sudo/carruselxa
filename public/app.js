@@ -134,8 +134,132 @@ $('#logToggle').addEventListener('click', () => {
 $('#btnGenerar').addEventListener('click', async () => {
   const tema = $('#temaInput').value.trim();
   if (!tema || !marcaActual) return;
-  await abrirModalPreguntar(tema);
+  abrirWizardEstilo(tema);
 });
+
+// ── WIZARD ESTILO ──────────────────────────────────
+const ESTILOS = [
+  { id: 'minimal',      nombre: 'Minimal',       desc: 'Limpio, elegante, mucho espacio',     paleta: ['#f8f8f6','#0a0a0a','#e8e8e4','#1a1a2e'] },
+  { id: 'bold',         nombre: 'Bold Impact',   desc: 'Alto contraste, tipografía grande',   paleta: ['#0a0a0a','#ffffff','#ff3c00','#222'] },
+  { id: 'editorial',    nombre: 'Editorial',     desc: 'Estilo revista, sofisticado',          paleta: ['#faf7f2','#1c1c1c','#c8a97e','#8c7b6b'] },
+  { id: 'vibrant',      nombre: 'Vibrant',       desc: 'Colorido, energético',                paleta: ['#6c2bd9','#f7e94b','#ff6b6b','#fff'] },
+  { id: 'dark-luxury',  nombre: 'Dark Luxury',   desc: 'Oscuro, premium, sofisticado',         paleta: ['#0d0d0d','#e8d5b0','#c9a84c','#1a1a1a'] },
+  { id: 'nature',       nombre: 'Nature',        desc: 'Verde, orgánico, fresco',             paleta: ['#f0f4ed','#1e3a2f','#4a8c5c','#b8d4c0'] },
+];
+
+const FUENTES = [
+  { id: 'playfair',      display: 'Playfair Display', body: 'Lato',          hint: 'Elegante, clásico',        url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lato:wght@400;700&display=swap' },
+  { id: 'oswald',        display: 'Oswald',           body: 'Open Sans',     hint: 'Bold, moderno',            url: 'https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=Open+Sans:wght@400;600&display=swap' },
+  { id: 'montserrat',    display: 'Montserrat',       body: 'Montserrat',    hint: 'Limpio, versátil',         url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap' },
+  { id: 'bebas',         display: 'Bebas Neue',       body: 'Roboto',        hint: 'Impacto, deportivo',       url: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap' },
+  { id: 'space-grotesk', display: 'Space Grotesk',    body: 'Inter',         hint: 'Tech, startup',            url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap' },
+  { id: 'dm-serif',      display: 'DM Serif Display', body: 'DM Sans',       hint: 'Editorial moderno',        url: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600&display=swap' },
+  { id: 'syne',          display: 'Syne',             body: 'Syne',          hint: 'Contemporáneo, artístico', url: 'https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&display=swap' },
+  { id: 'raleway',       display: 'Raleway',          body: 'Merriweather',  hint: 'Sofisticado, legible',     url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@600;800&family=Merriweather:wght@400;700&display=swap' },
+];
+
+let wizardTema        = '';
+let wizardEstiloId    = null;
+let wizardFuenteId    = null;
+let fontLinksLoaded   = false;
+
+function abrirWizardEstilo(tema) {
+  wizardTema     = tema;
+  wizardEstiloId = null;
+  wizardFuenteId = null;
+
+  // Render step 1
+  const grid = $('#estiloGrid');
+  grid.innerHTML = ESTILOS.map(e => `
+    <div class="estilo-card" data-id="${e.id}">
+      <div class="estilo-paleta">${e.paleta.map(c => `<span style="background:${c}"></span>`).join('')}</div>
+      <p class="estilo-nombre">${e.nombre}</p>
+      <p class="estilo-desc">${e.desc}</p>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.estilo-card').forEach(card => {
+    card.addEventListener('click', () => {
+      grid.querySelectorAll('.estilo-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      wizardEstiloId = card.dataset.id;
+      $('#estiloBtnNext').disabled = false;
+    });
+  });
+
+  $('#estiloStep1').classList.remove('hidden');
+  $('#estiloStep2').classList.add('hidden');
+  $('#modalEstilo').classList.remove('hidden');
+}
+
+function renderFuenteGrid() {
+  // Load all font links once
+  if (!fontLinksLoaded) {
+    FUENTES.forEach(f => {
+      if (!document.querySelector(`link[data-font="${f.id}"]`)) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = f.url;
+        link.dataset.font = f.id;
+        document.head.appendChild(link);
+      }
+    });
+    fontLinksLoaded = true;
+  }
+
+  const grid = $('#fuenteGrid');
+  grid.innerHTML = FUENTES.map(f => `
+    <div class="fuente-card" data-id="${f.id}" data-display="${f.display}">
+      <p class="fuente-preview" style="font-family:'${f.display}',serif">Tu titular aquí</p>
+      <p class="fuente-nombre">${f.display} / ${f.body}</p>
+      <p class="fuente-hint">${f.hint}</p>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.fuente-card').forEach(card => {
+    card.addEventListener('click', () => {
+      grid.querySelectorAll('.fuente-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      wizardFuenteId = card.dataset.id;
+      $('#fuenteBtnConfirmar').disabled = false;
+    });
+  });
+}
+
+function cerrarWizard() {
+  $('#modalEstilo').classList.add('hidden');
+}
+
+function confirmarWizardYGenerar() {
+  cerrarWizard();
+  abrirModalPreguntar(wizardTema);
+}
+
+$('#estiloClose').addEventListener('click', cerrarWizard);
+
+$('#estiloBtnSaltear').addEventListener('click', () => {
+  wizardEstiloId = null;
+  wizardFuenteId = null;
+  confirmarWizardYGenerar();
+});
+
+$('#estiloBtnNext').addEventListener('click', () => {
+  $('#estiloStep1').classList.add('hidden');
+  $('#estiloStep2').classList.remove('hidden');
+  renderFuenteGrid();
+});
+
+$('#estiloBtnPrev').addEventListener('click', () => {
+  $('#estiloStep2').classList.add('hidden');
+  $('#estiloStep1').classList.remove('hidden');
+});
+
+$('#fuenteBtnSaltear').addEventListener('click', () => {
+  wizardFuenteId = null;
+  confirmarWizardYGenerar();
+});
+
+$('#fuenteBtnConfirmar').addEventListener('click', confirmarWizardYGenerar);
 
 // ── MODAL PREGUNTAR ───────────────────────────────────
 let preguntasActuales = [];
@@ -354,7 +478,9 @@ async function dispararGenerar(respuestas = {}, instruccionesLibres = '') {
     marca: marcaActual,
     model: $('#modelSelect').value,
     respuestas,
-    instruccionesLibres
+    instruccionesLibres,
+    estiloId: wizardEstiloId || null,
+    fuenteId: wizardFuenteId || null,
   };
   if (fotosSeleccionadas.length) body.fotos = fotosSeleccionadas;
   const res = await fetch('/api/generar', {

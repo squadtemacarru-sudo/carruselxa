@@ -337,6 +337,36 @@
     </div>
   </div>
 
+  <!-- ── WIZARD ESTILO ── -->
+  <div id="modalEstilo" class="modal hidden">
+    <div class="modal-box estilo-box">
+      <!-- Step 1 -->
+      <div id="estiloStep1">
+        <div class="modal-header">
+          <span class="section-title">¿Qué estilo querés?</span>
+          <button class="modal-close" id="estiloClose">×</button>
+        </div>
+        <div class="estilo-grid" id="estiloGrid"></div>
+        <div class="estilo-nav">
+          <button class="btn-ghost" id="estiloBtnSaltear">Saltear todo →</button>
+          <button class="btn-primary" id="estiloBtnNext" disabled>Tipografía →</button>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div id="estiloStep2" class="hidden">
+        <div class="modal-header">
+          <span class="section-title">¿Qué tipografía querés?</span>
+          <button class="btn-ghost btn-sm" id="estiloBtnPrev">← Volver</button>
+        </div>
+        <div class="fuente-grid" id="fuenteGrid"></div>
+        <div class="estilo-nav">
+          <button class="btn-ghost" id="fuenteBtnSaltear">Saltear tipografía →</button>
+          <button class="btn-primary" id="fuenteBtnConfirmar" disabled>Generar carrusel →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal preguntar IA antes de generar -->
   <div id="modalPreguntar" class="modal hidden">
     <div class="modal-box">
