@@ -10,12 +10,24 @@
 const RC = { wrapper: null, gOverlay: 0.65, logo: null, ARROW: '→' };
 
 // ── Aplicar sistema de diseño ──
+// Acepta tanto el formato PLANO (per-slide _sistema con font_display_familia)
+// como el formato ANIDADO (top-level _sistema con tipografia.display.familia).
 function aplicarSistema(s, wrapper) {
   if (!s) return;
   const r = document.documentElement;
-  if (s.font_display_familia) r.style.setProperty('--font-display', `'${s.font_display_familia}', sans-serif`);
-  if (s.font_body_familia)    r.style.setProperty('--font-body',    `'${s.font_body_familia}', sans-serif`);
-  if (s.font_mono_familia)    r.style.setProperty('--font-mono',    `'${s.font_mono_familia}', monospace`);
+
+  // Resolver nombres de fuente: primero plano, luego anidado
+  const dispFamilia = s.font_display_familia || s.tipografia?.display?.familia;
+  const bodyFamilia = s.font_body_familia    || s.tipografia?.body?.familia;
+  const monoFamilia = s.font_mono_familia    || s.tipografia?.mono?.familia;
+  const dispUrl     = s.font_display_url     || s.tipografia?.display?.url_import;
+  const bodyUrl     = s.font_body_url        || s.tipografia?.body?.url_import;
+  const monoUrl     = s.font_mono_url        || s.tipografia?.mono?.url_import;
+
+  if (dispFamilia) r.style.setProperty('--font-display', `'${dispFamilia}', sans-serif`);
+  if (bodyFamilia) r.style.setProperty('--font-body',    `'${bodyFamilia}', sans-serif`);
+  if (monoFamilia) r.style.setProperty('--font-mono',    `'${monoFamilia}', monospace`);
+
   const p = s.paleta || {};
   if (p.fondo)      r.style.setProperty('--color-fondo',    p.fondo);
   if (p.headline)   r.style.setProperty('--color-headline', p.headline);
@@ -29,7 +41,7 @@ function aplicarSistema(s, wrapper) {
   if (l.headline_line_height)     r.style.setProperty('--lh-headline', l.headline_line_height);
   if (l.body_line_height)         r.style.setProperty('--lh-body',     l.body_line_height);
   ['font-display-link','font-body-link','font-mono-link'].forEach((id, i) => {
-    const url = [s.font_display_url, s.font_body_url, s.font_mono_url][i];
+    const url = [dispUrl, bodyUrl, monoUrl][i];
     if (url) { const el = document.getElementById(id); if (el) el.href = url; }
   });
 }

@@ -1161,7 +1161,11 @@ function renderEditorSlide(idx) {
     activeFields.forEach(({ key }) => {
       const el = document.getElementById(`ctrlText_${key}`);
       if (!el) return;
-      el.addEventListener('focus', saveSnapshot, { once: true });
+      el.addEventListener('focus', () => {
+        saveSnapshot();
+        // En mobile el teclado tapa el modal — scrollear para que el campo quede visible
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+      }, { once: true });
       el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; });
     });
     if (hasHeadlineLines) {
