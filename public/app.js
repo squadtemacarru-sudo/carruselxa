@@ -68,6 +68,9 @@ const log       = $('#log');
 const logStatus = $('#logStatus');
 let logVisible  = true;
 let editorRerenderizing = false;
+let editorTemplateHtml = null;
+let editorTemplateLoading = false;
+let liveUpdateTimer = null;
 
 function appendLog(line) {
   log.textContent += line;
@@ -968,6 +971,8 @@ async function editarTanda(tandaId) {
   editorTs       = Date.now();
   undoStack = [];
   redoStack = [];
+  editorTemplateHtml = null;
+  editorTemplateLoading = false;
   $('#editorLog').textContent = '';
   $('#editorLog').classList.add('hidden');
   $('#editorStatus').textContent = '';
@@ -975,7 +980,51 @@ async function editarTanda(tandaId) {
   renderEditorChips();
   renderEditorSlide(0);
   $('#modalEditor').classList.remove('hidden');
+
+  // Load sistema options
+  loadSistemaOptions(tandaId);
 }
+
+async function loadSistemaOptions(tandaId) {
+  const section = $('#editorSistemaSection');
+  const btnA = $('#btnSistemaA');
+  const btnB = $('#btnSistemaB');
+  try {
+    const res = await fetch(`/api/tandas/${tandaId}/preview-sistemas`);
+    if (!res.ok) { section.classList.add('hidden'); return; }
+    const data = await res.json();
+    const nameA = data.a?.nombre_sistema || 'A';
+    const nameB = data.b?.nombre_sistema || 'B';
+    const fontA = data.a?.tipografia?.display?.familia || '';
+    const fontB = data.b?.tipografia?.display?.familia || '';
+    btnA.textContent = `${nameA}${fontA ? ' · ' + fontA : ''}`;
+    btnB.textContent = `${nameB}${fontB ? ' · ' + fontB : ''}`;
+    const currentName = data.current?.nombre_sistema;
+    btnA.classList.toggle('active', currentName === data.a?.nombre_sistema);
+    btnB.classList.toggle('active', currentName === data.b?.nombre_sistema);
+    section.classList.remove('hidden');
+  } catch {
+    section.classList.add('hidden');
+  }
+}
+
+$('#btnSistemaA').addEventListener('click', async () => {
+  if (!editorTandaId) return;
+  await fetch(`/api/tandas/${editorTandaId}/apply-sistema`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sistema: 'a' })
+  });
+  loadSistemaOptions(editorTandaId);
+});
+
+$('#btnSistemaB').addEventListener('click', async () => {
+  if (!editorTandaId) return;
+  await fetch(`/api/tandas/${editorTandaId}/apply-sistema`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sistema: 'b' })
+  });
+  loadSistemaOptions(editorTandaId);
+});
 
 function renderEditorChips() {
   const chips = $('#editorChips');
@@ -994,7 +1043,7 @@ function renderEditorChips() {
 function renderEditorSlide(idx) {
   const slide = editorContenido.slides[idx];
   const num   = String(idx + 1).padStart(2, '0');
-  $('#editorSlideImg').src = `/tandas/${editorTandaId}/output/slide-${num}.png?t=${editorTs}`;
+  loadLivePreview(idx);
 
   const hasPhotoPos = !!slide.photo;
   const hasPhoto    = !!(slide.photo || slide.photo_before || slide.photo_after ||
@@ -1157,6 +1206,13 @@ function renderEditorSlide(idx) {
 
     $('#editorControls').appendChild(section);
 
+  if (slide._fotoSugerida) {
+    const section = document.createElement('div');
+    section.className = 'ctrl-section';
+    section.innerHTML = `<p class="ctrl-label">FOTO SUGERIDA</p><p class="ctrl-hint" style="font-style:italic;color:var(--text-muted)">${slide._fotoSugerida}</p>`;
+    $('#editorControls').appendChild(section);
+  }
+
     // Bind texto → editorContenido
     activeFields.forEach(({ key }) => {
       const el = document.getElementById(`ctrlText_${key}`);
@@ -1218,6 +1274,59 @@ function renderEditorSlide(idx) {
   bind('ctrlPhotoY',   'ctrlPhotoYVal',   v => { editorContenido.slides[editorSlideIdx]._photoPos = `center ${v}%`; }, v => `${v}%`);
   bind('ctrlSlideOv',  'ctrlSlideOvVal',  v => { editorContenido.slides[editorSlideIdx]._overlay = v; });
   bind('ctrlHsAjuste', null, v => { editorContenido.slides[editorSlideIdx]._headlineAjuste = v; });
+
+  // Debounced live update on any input change
+  $('#editorControls').addEventListener('input', () => {
+    clearTimeout(liveUpdateTimer);
+    liveUpdateTimer = setTimeout(() => sendLiveUpdate(editorSlideIdx), 200);
+  });
+}
+
+async function loadLivePreview(idx) {
+  const frame = $('#editorSlideFrame');
+  const img = $('#editorSlideImg');
+  const num = String(idx + 1).padStart(2, '0');
+
+  if (!editorTemplateHtml && !editorTemplateLoading) {
+    editorTemplateLoading = true;
+    try {
+      const res = await fetch(`/api/tandas/${editorTandaId}/template-html`);
+      if (res.ok) {
+        editorTemplateHtml = await res.text();
+      }
+    } catch {}
+    editorTemplateLoading = false;
+  }
+
+  if (editorTemplateHtml) {
+    if (!frame.srcdoc) {
+      frame.srcdoc = editorTemplateHtml;
+      frame.style.display = '';
+      img.style.display = 'none';
+      // Wait for frame load then send liveUpdate
+      frame.onload = () => sendLiveUpdate(idx);
+    } else {
+      sendLiveUpdate(idx);
+    }
+    // Scale frame to fit container
+    const wrap = $('#editorPreviewWrap') || frame.parentElement;
+    const containerWidth = wrap.offsetWidth || 400;
+    const scale = containerWidth / 1080;
+    frame.style.transform = `scale(${scale})`;
+    frame.style.height = `${1350 * scale}px`;
+    wrap.style.height = `${1350 * scale}px`;
+  } else {
+    // Fallback to img
+    img.style.display = '';
+    if (frame) frame.style.display = 'none';
+    img.src = `/tandas/${editorTandaId}/output/slide-${num}.png?t=${editorTs}`;
+  }
+}
+
+function sendLiveUpdate(idx) {
+  const frame = $('#editorSlideFrame');
+  if (!frame || !frame.contentWindow) return;
+  frame.contentWindow.postMessage({ type: 'liveUpdate', contenido: editorContenido, idx }, '*');
 }
 
 $('#editorClose').addEventListener('click', () => $('#modalEditor').classList.add('hidden'));

@@ -1220,6 +1220,21 @@
       }
     });
   }
+
+  window.addEventListener('message', (e) => {
+    if (!e.data || e.data.type !== 'liveUpdate') return;
+    const { contenido, idx } = e.data;
+    const sistema = contenido._sistema || {};
+    if (typeof aplicarSistema === 'function') aplicarSistema(sistema, document.querySelector('.wrapper') || document.body);
+    const wrapper = document.querySelector('.wrapper') || document.getElementById('wrapper');
+    if (!wrapper) return;
+    wrapper.innerHTML = '';
+    if (typeof buildAny === 'function') {
+      contenido.slides.forEach((s, i) => wrapper.appendChild(buildAny(s, i, contenido.slides.length)));
+    }
+    if (typeof window.__showSlide === 'function') window.__showSlide(idx || 0);
+  });
+  window.__liveMode = true;
 </script>
 </body>
 </html>
