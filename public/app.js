@@ -1089,37 +1089,79 @@ function renderEditorSlide(idx) {
     </div>
   `;
 
-  // Sección CONTENIDO — campos de texto editables
+  // Sección CONTENIDO — todos los campos de texto del slide
   const TEXT_FIELDS = [
-    { key: 'headline',     label: 'Titular',    multi: false },
-    { key: 'subheadline',  label: 'Subtitular', multi: false },
-    { key: 'body',         label: 'Cuerpo',     multi: true  },
-    { key: 'caption',      label: 'Caption',    multi: true  },
-    { key: 'stat',         label: 'Estadística',multi: false },
-    { key: 'label',        label: 'Etiqueta',   multi: false },
-    { key: 'quote',        label: 'Cita',       multi: true  },
-    { key: 'author',       label: 'Autor',      multi: false },
-    { key: 'cta',          label: 'CTA',        multi: false },
+    { key: 'headline',     label: 'Titular',         multi: false },
+    { key: 'subheadline',  label: 'Subtitular',      multi: false },
+    { key: 'kicker',       label: 'Kicker',          multi: false },
+    { key: 'eyebrow',      label: 'Eyebrow',         multi: false },
+    { key: 'body',         label: 'Cuerpo',          multi: true  },
+    { key: 'detail',       label: 'Detalle',         multi: true  },
+    { key: 'caption',      label: 'Caption',         multi: true  },
+    { key: 'stat',         label: 'Estadística',     multi: false },
+    { key: 'label',        label: 'Etiqueta',        multi: false },
+    { key: 'sub',          label: 'Sub',             multi: false },
+    { key: 'quote',        label: 'Cita',            multi: true  },
+    { key: 'author',       label: 'Autor',           multi: false },
+    { key: 'attr',         label: 'Atribución',      multi: false },
+    { key: 'note',         label: 'Nota',            multi: true  },
+    { key: 'line1',        label: 'Línea 1',         multi: false },
+    { key: 'line2',        label: 'Línea 2',         multi: false },
+    { key: 'footer_text',  label: 'Pie de página',   multi: false },
+    { key: 'handle',       label: 'Handle',          multi: false },
+    { key: 'cta',          label: 'CTA',             multi: false },
+    { key: 'contrast_top', label: 'Texto sup.',      multi: false },
+    { key: 'contrast_bottom', label: 'Texto inf.',   multi: false },
+    { key: 'label_top',    label: 'Etiqueta sup.',   multi: false },
+    { key: 'label_bottom', label: 'Etiqueta inf.',   multi: false },
   ];
-  const activeFields = TEXT_FIELDS.filter(f => slide[f.key] != null);
-  const hasItems     = Array.isArray(slide.items) && slide.items.length;
+  const activeFields    = TEXT_FIELDS.filter(f => slide[f.key] != null);
+  const hasItems        = Array.isArray(slide.items) && slide.items.length;
+  const hasHeadlineLines = Array.isArray(slide.headline_lines) && slide.headline_lines.length;
 
-  if (activeFields.length || hasItems) {
+  if (activeFields.length || hasItems || hasHeadlineLines) {
     const section = document.createElement('div');
     section.className = 'ctrl-section';
     section.innerHTML = `<p class="ctrl-label">CONTENIDO — slide ${num}</p>`;
+
+    // headline_lines: editar cada línea del hero cover
+    if (hasHeadlineLines) {
+      slide.headline_lines.forEach((line, li) => {
+        const fieldId = `ctrlHL_${li}`;
+        const row = document.createElement('div');
+        row.className = 'ctrl-row ctrl-row-col';
+        row.innerHTML = `
+          <span class="ctrl-row-label">Línea hero ${li + 1} <small style="opacity:.5">(${line.size || 'hero'})</small></span>
+          <input id="${fieldId}" class="ctrl-input" type="text" value="${String(line.text || '').replace(/"/g, '&quot;')}">
+        `;
+        section.appendChild(row);
+        const el = document.getElementById(fieldId);
+        if (el) {
+          el.addEventListener('focus', saveSnapshot, { once: true });
+          el.addEventListener('input', () => {
+            editorContenido.slides[editorSlideIdx].headline_lines[li].text = el.value;
+          });
+        }
+      });
+    }
 
     activeFields.forEach(({ key, label, multi }) => {
       const fieldId = `ctrlText_${key}`;
       const row = document.createElement('div');
       row.className = 'ctrl-row ctrl-row-col';
+      const safeVal = String(slide[key]).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       row.innerHTML = `
         <span class="ctrl-row-label">${label}</span>
         ${multi
-          ? `<textarea id="${fieldId}" class="ctrl-textarea" rows="3">${slide[key]}</textarea>`
+          ? `<textarea id="${fieldId}" class="ctrl-textarea" rows="3">${safeVal}</textarea>`
           : `<input  id="${fieldId}" class="ctrl-input" type="text" value="${String(slide[key]).replace(/"/g, '&quot;')}">`}
       `;
       section.appendChild(row);
+      const el = document.getElementById(fieldId);
+      if (el) {
+        el.addEventListener('focus', saveSnapshot, { once: true });
+        el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; });
+      }
     });
 
     if (hasItems) {
@@ -1131,19 +1173,7 @@ function renderEditorSlide(idx) {
         <textarea id="${fieldId}" class="ctrl-textarea" rows="${Math.min(slide.items.length + 1, 8)}">${slide.items.join('\n')}</textarea>
       `;
       section.appendChild(row);
-    }
-
-    $('#editorControls').appendChild(section);
-
-    // Bind texto → editorContenido
-    activeFields.forEach(({ key }) => {
-      const el = document.getElementById(`ctrlText_${key}`);
-      if (!el) return;
-      el.addEventListener('focus', saveSnapshot, { once: true });
-      el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; });
-    });
-    if (hasItems) {
-      const el = document.getElementById('ctrlText_items');
+      const el = document.getElementById(fieldId);
       if (el) {
         el.addEventListener('focus', saveSnapshot, { once: true });
         el.addEventListener('input', () => {
@@ -1151,6 +1181,8 @@ function renderEditorSlide(idx) {
         });
       }
     }
+
+    $('#editorControls').appendChild(section);
   }
 
   // Bind controls → editorContenido
