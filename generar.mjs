@@ -211,6 +211,9 @@ async function main() {
   await enableFontCache(page);
   await page.setViewport({ width: 1080, height: 1350, deviceScaleFactor: 2 });
   await page.goto(`file://${tmpHtml}`, { waitUntil: 'networkidle0' });
+  // Esperar a que todas las fuentes (incluyendo las cargadas dinámicamente) estén listas
+  await page.evaluate(() => document.fonts.ready);
+  await new Promise((r) => setTimeout(r, 400));
 
   const total = raw.slides.length;
   for (let i = 0; i < total; i++) {

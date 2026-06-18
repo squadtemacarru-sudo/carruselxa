@@ -1213,6 +1213,18 @@ function renderEditorSlide(idx) {
           </select>
         </div>
       </div>
+      <div class="ctrl-row">
+        <span class="ctrl-row-label">Color titular</span>
+        <div class="ctrl-right">
+          <input type="color" id="ctrlColorHeadline" value="${slide._colorHeadline || editorContenido._sistema?.paleta?.headline || '#ffffff'}">
+        </div>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-row-label">Color cuerpo</span>
+        <div class="ctrl-right">
+          <input type="color" id="ctrlColorBody" value="${slide._colorBody || editorContenido._sistema?.paleta?.body_text || '#e0e0e0'}">
+        </div>
+      </div>
       ${hasPhoto ? `<p class="ctrl-hint">Arrastrá la banda amarilla en el preview para mover el texto.</p>` : ''}
     </div>
   `;
@@ -1349,6 +1361,17 @@ function renderEditorSlide(idx) {
   bind('ctrlPhotoY',   'ctrlPhotoYVal',   v => { editorContenido.slides[editorSlideIdx]._photoPos = `center ${v}%`; }, v => `${v}%`);
   bind('ctrlSlideOv',  'ctrlSlideOvVal',  v => { editorContenido.slides[editorSlideIdx]._overlay = v; });
   bind('ctrlHsAjuste', null, v => { editorContenido.slides[editorSlideIdx]._headlineAjuste = v; });
+
+  const colorHl = document.getElementById('ctrlColorHeadline');
+  const colorBd = document.getElementById('ctrlColorBody');
+  if (colorHl) colorHl.addEventListener('input', () => {
+    saveSnapshot();
+    editorContenido.slides[editorSlideIdx]._colorHeadline = colorHl.value;
+  });
+  if (colorBd) colorBd.addEventListener('input', () => {
+    saveSnapshot();
+    editorContenido.slides[editorSlideIdx]._colorBody = colorBd.value;
+  });
 }
 
 $('#editorClose').addEventListener('click', () => $('#modalEditor').classList.add('hidden'));

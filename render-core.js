@@ -145,6 +145,10 @@ function buildSlide(slide, idx, total) {
     }
   }
 
+  // Colores personalizados por slide (del editor)
+  if (slide._colorHeadline) section.style.setProperty('--color-headline', slide._colorHeadline);
+  if (slide._colorBody)     section.style.setProperty('--color-body',     slide._colorBody);
+
   // Logo de marca (watermark)
   if (RC.logo) {
     const logo = el('img', 'brand-logo');
@@ -360,9 +364,7 @@ function cta(sec, s, layout, useGlass, glassOp) {
 
 // ─── HELPERS ─────────────────────────────────────────────────
 function divider() {
-  const d = el('div', 'c-divider-slash');
-  for (let i = 0; i < 3; i++) d.appendChild(el('span', '', '/'));
-  return d;
+  return el('div', 'c-divider-line');
 }
 
 function defaultLayout(type, slide) {
