@@ -42,7 +42,7 @@ async function callBlackbox(content, attempt = 0) {
   let response;
   try {
     const ac = new AbortController();
-    const abortTimer = setTimeout(() => ac.abort(), 20000);
+    const abortTimer = setTimeout(() => ac.abort(), 90000);
     try {
       response = await fetch('https://api.blackbox.ai/chat/completions', {
         signal: ac.signal,
@@ -65,7 +65,7 @@ async function callBlackbox(content, attempt = 0) {
     }
   } catch (netErr) {
     if (attempt < 3) {
-      const delay = [3000, 8000, 15000][attempt];
+      const delay = [5000, 12000, 25000][attempt];
       console.warn(`⏳ Error de red Blackbox (intento ${attempt + 1}): ${netErr.message} — reintentando en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return callBlackbox(content, attempt + 1);
@@ -83,7 +83,7 @@ async function callBlackbox(content, attempt = 0) {
   } catch {
     const preview = rawText.slice(0, 300).replace(/\n/g, ' ');
     if (attempt < 3) {
-      const delay = [3000, 8000, 15000][attempt];
+      const delay = [5000, 12000, 25000][attempt];
       console.warn(`⏳ Respuesta no-JSON de Blackbox (intento ${attempt + 1}, status ${response.status}) — reintentando en ${delay / 1000}s...`);
       console.warn(`   Preview: ${preview}`);
       await new Promise(r => setTimeout(r, delay));
@@ -96,7 +96,7 @@ async function callBlackbox(content, attempt = 0) {
     const body = JSON.stringify(data);
     const is429 = response.status === 429 || body.includes('RESOURCE_EXHAUSTED') || body.includes('429');
     if (is429 && attempt < 3) {
-      const delay = [3000, 8000, 15000][attempt];
+      const delay = [5000, 12000, 25000][attempt];
       console.warn(`⏳ Rate limit (intento ${attempt + 1}) — reintentando en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return callBlackbox(content, attempt + 1);
@@ -497,7 +497,7 @@ async function main() {
   if (skillsDocs) console.log('📚 Skills de copy cargadas.');
   if (memoria.length) console.log(`🧠 Memoria: ${memoria.length} carrusel(es) previos cargados.`);
   let contenido = await generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria);
-  contenido = await withTimeout(20000, scoreYCorregir(contenido, marca, tema), contenido);
+  contenido = await withTimeout(90000, scoreYCorregir(contenido, marca, tema), contenido);
   contenido._marca = marcaId;
 
   const carpeta = process.argv[3]

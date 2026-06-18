@@ -440,7 +440,7 @@ async function bbFetch(body, attempt = 0) {
   let res;
   try {
     const ac = new AbortController();
-    const abortTimer = setTimeout(() => ac.abort(), 20000);
+    const abortTimer = setTimeout(() => ac.abort(), 90000);
     try {
       res = await fetch('https://api.blackbox.ai/chat/completions', {
         signal: ac.signal,
@@ -453,7 +453,7 @@ async function bbFetch(body, attempt = 0) {
     }
   } catch (netErr) {
     if (attempt < 3) {
-      const delay = [3000, 8000, 15000][attempt];
+      const delay = [5000, 12000, 25000][attempt];
       console.warn(`⏳ Error de red Blackbox servidor (intento ${attempt + 1}): ${netErr.message} — reintentando en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return bbFetch(body, attempt + 1);
@@ -467,7 +467,7 @@ async function bbFetch(body, attempt = 0) {
     data = JSON.parse(rawText);
   } catch {
     if (attempt < 3) {
-      const delay = [3000, 8000, 15000][attempt];
+      const delay = [5000, 12000, 25000][attempt];
       console.warn(`⏳ Respuesta no-JSON de Blackbox servidor (intento ${attempt + 1}, status ${res.status}) — reintentando en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return bbFetch(body, attempt + 1);
@@ -479,7 +479,7 @@ async function bbFetch(body, attempt = 0) {
     const bodyStr = JSON.stringify(data);
     const is429 = res.status === 429 || bodyStr.includes('RESOURCE_EXHAUSTED') || bodyStr.includes('429');
     if (is429 && attempt < 3) {
-      const delay = [3000, 8000, 15000][attempt];
+      const delay = [5000, 12000, 25000][attempt];
       console.warn(`⏳ Rate limit servidor (intento ${attempt + 1}) — reintentando en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return bbFetch(body, attempt + 1);
