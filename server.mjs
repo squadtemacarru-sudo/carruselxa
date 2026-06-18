@@ -1255,6 +1255,33 @@ app.get('/api/tandas/:id/template-html', async (req, res) => {
   res.send(html);
 });
 
+app.get('/api/tandas/:id/preview-sistemas', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+  try {
+    const raw = JSON.parse(await readFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), 'utf-8'));
+    res.json({ a: raw._sistemaA || raw._sistema, b: raw._sistemaB || raw._sistema, current: raw._sistema });
+  } catch {
+    res.status(404).json({ error: 'Tanda no encontrada o sin analizar' });
+  }
+});
+
+app.post('/api/tandas/:id/apply-sistema', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+  const { sistema } = req.body || {};
+  if (sistema !== 'a' && sistema !== 'b') return res.status(400).json({ error: 'sistema debe ser "a" o "b"' });
+  try {
+    const filePath = path.join(__dirname, 'tandas', id, 'contenido.analizado.json');
+    const raw = JSON.parse(await readFile(filePath, 'utf-8'));
+    raw._sistema = sistema === 'a' ? (raw._sistemaA || raw._sistema) : (raw._sistemaB || raw._sistema);
+    await writeFile(filePath, JSON.stringify(raw, null, 2), 'utf-8');
+    res.json({ ok: true });
+  } catch {
+    res.status(404).json({ error: 'Tanda no encontrada o sin analizar' });
+  }
+});
+
 // Guarda overrides del editor y dispara re-render de los slides modificados
 app.post('/api/tandas/:id/save-overrides', async (req, res) => {
   const { id } = req.params;

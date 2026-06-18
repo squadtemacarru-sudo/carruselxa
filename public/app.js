@@ -1197,7 +1197,10 @@ async function editarTanda(tandaId) {
   $('#editorStatus').className = 'status';
   renderEditorChips();
   renderEditorSlide(0);
-  openModal($('#modalEditor'));
+  $('#modalEditor').classList.remove('hidden');
+
+  // Load sistema options
+  loadSistemaOptions(tandaId);
   initEditorSwipe();
 }
 
@@ -1223,6 +1226,47 @@ function initEditorSwipe() {
     renderEditorSlide(editorSlideIdx);
   }, { passive: true });
 }
+
+async function loadSistemaOptions(tandaId) {
+  const section = $('#editorSistemaSection');
+  const btnA = $('#btnSistemaA');
+  const btnB = $('#btnSistemaB');
+  try {
+    const res = await fetch(`/api/tandas/${tandaId}/preview-sistemas`);
+    if (!res.ok) { section.classList.add('hidden'); return; }
+    const data = await res.json();
+    const nameA = data.a?.nombre_sistema || 'A';
+    const nameB = data.b?.nombre_sistema || 'B';
+    const fontA = data.a?.tipografia?.display?.familia || '';
+    const fontB = data.b?.tipografia?.display?.familia || '';
+    btnA.textContent = `${nameA}${fontA ? ' · ' + fontA : ''}`;
+    btnB.textContent = `${nameB}${fontB ? ' · ' + fontB : ''}`;
+    const currentName = data.current?.nombre_sistema;
+    btnA.classList.toggle('active', currentName === data.a?.nombre_sistema);
+    btnB.classList.toggle('active', currentName === data.b?.nombre_sistema);
+    section.classList.remove('hidden');
+  } catch {
+    section.classList.add('hidden');
+  }
+}
+
+$('#btnSistemaA').addEventListener('click', async () => {
+  if (!editorTandaId) return;
+  await fetch(`/api/tandas/${editorTandaId}/apply-sistema`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sistema: 'a' })
+  });
+  loadSistemaOptions(editorTandaId);
+});
+
+$('#btnSistemaB').addEventListener('click', async () => {
+  if (!editorTandaId) return;
+  await fetch(`/api/tandas/${editorTandaId}/apply-sistema`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sistema: 'b' })
+  });
+  loadSistemaOptions(editorTandaId);
+});
 
 function renderEditorChips() {
   const chips = $('#editorChips');
