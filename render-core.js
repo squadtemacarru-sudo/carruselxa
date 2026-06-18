@@ -151,7 +151,7 @@ function buildSlide(slide, idx, total) {
 // ─── COVER ───────────────────────────────────────────────────
 function cover(sec, s, layout, useGlass, glassOp) {
   // cover-impact: stacked multi-line hero with headline_lines array
-  if (layout === 'cover-impact' && Array.isArray(s.headline_lines)) {
+  if (layout === 'cover-impact' && Array.isArray(s.headline_lines) && s.headline_lines.length) {
     const main = el('div', 'cover-impact-main');
     s.headline_lines.forEach(line => {
       const sz = line.size === 'hero' ? 'ci-hero' : line.size === 'md' ? 'ci-md' : 'ci-connector';

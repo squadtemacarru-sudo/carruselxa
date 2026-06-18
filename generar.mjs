@@ -136,6 +136,8 @@ async function main() {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
+      '--enable-features=ShapeDetection',
+      '--enable-blink-features=ShapeDetection',
     ],
   });
 
