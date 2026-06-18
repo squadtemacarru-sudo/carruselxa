@@ -580,6 +580,7 @@ B: razón`;
   } catch { /* default A */ }
 
   const winner = ganadora === 'B' ? sistemaB : sistemaA;
+  winner._sistemaAlt = (ganadora === 'B' ? sistemaA : sistemaB);
   console.log(`  🏆 Sistema elegido: ${ganadora} — ${winner.nombre_sistema}`);
   // Fuente forzada por el usuario desde las preferencias de marca
   if (USER_FONT_PAIR && FONT_PAIRS[USER_FONT_PAIR]) {
@@ -587,6 +588,9 @@ B: razón`;
     console.log(`  🔒 Fuente forzada por preferencia de marca: ${USER_FONT_PAIR}`);
   }
   winner.tipografia = resolveFontPair(winner.font_pair_id);
+  if (winner._sistemaAlt && !winner._sistemaAlt.tipografia) {
+    winner._sistemaAlt.tipografia = resolveFontPair(winner._sistemaAlt.font_pair_id);
+  }
   console.log(`  🎨 Paleta: fondo ${winner.paleta?.fondo} | acento ${winner.paleta?.acento}`);
   if (winner.reglas_estilo?.length) {
     console.log(`  📐 Reglas:`);
