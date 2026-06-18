@@ -1433,6 +1433,17 @@ function renderEditorSlide(idx) {
       section.appendChild(row);
     });
 
+    if (hasHeadlineLines) {
+      const fieldId = 'ctrlText_headline_lines';
+      const row = document.createElement('div');
+      row.className = 'ctrl-row ctrl-row-col';
+      row.innerHTML = `
+        <span class="ctrl-row-label">Titular (líneas, una por fila)</span>
+        <textarea id="${fieldId}" class="ctrl-textarea" rows="${Math.min(slide.headline_lines.length + 1, 6)}">${slide.headline_lines.map(l => typeof l === 'object' ? l.text : l).join('\n')}</textarea>
+      `;
+      section.appendChild(row);
+    }
+
     if (hasItems) {
       const row = document.createElement('div');
       row.className = 'ctrl-row ctrl-row-col';
@@ -1453,6 +1464,37 @@ function renderEditorSlide(idx) {
     }
 
     $('#editorControls').appendChild(section);
+
+    // Bind texto → editorContenido
+    activeFields.forEach(({ key }) => {
+      const el = document.getElementById(`ctrlText_${key}`);
+      if (!el) return;
+      el.addEventListener('focus', saveSnapshot, { once: true });
+      el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; });
+    });
+    if (hasHeadlineLines) {
+      const el = document.getElementById('ctrlText_headline_lines');
+      if (el) {
+        el.addEventListener('focus', saveSnapshot, { once: true });
+        el.addEventListener('input', () => {
+          const lines = el.value.split('\n');
+          const orig  = editorContenido.slides[editorSlideIdx].headline_lines;
+          editorContenido.slides[editorSlideIdx].headline_lines = lines.map((text, i) => {
+            const o = orig[i];
+            return (o && typeof o === 'object') ? { ...o, text } : text;
+          });
+        });
+      }
+    }
+    if (hasItems) {
+      const el = document.getElementById('ctrlText_items');
+      if (el) {
+        el.addEventListener('focus', saveSnapshot, { once: true });
+        el.addEventListener('input', () => {
+          editorContenido.slides[editorSlideIdx].items = el.value.split('\n').filter(l => l.trim());
+        });
+      }
+    }
   }
 
   // Bind controls → editorContenido
