@@ -766,7 +766,8 @@ function openLightbox(slides, index, tandaId = null) {
 
 function showSlide() {
   const url = currentSlides[currentIndex];
-  $('#lightboxImg').src = url;
+  const bust = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+  $('#lightboxImg').src = bust;
   $('#lightboxCounter').textContent = `${currentIndex + 1} / ${currentSlides.length}`;
   const dl = $('#lightboxDownload');
   dl.href     = url;
@@ -904,7 +905,7 @@ async function cargarGaleria() {
     const estado = t.estado || 'nuevo';
     return `
       <div class="tanda estado-${estado}" data-idx="${i}" data-estado="${estado}" data-id="${t.id}">
-        <img src="${t.slides[0]}" alt="${t.tema}" loading="lazy">
+        <img src="${t.slides[0]}?t=${t.ts || Date.now()}" alt="${t.tema}" loading="lazy">
         <span class="count">${t.slides.length}</span>
         <div class="label">
           <span class="tanda-tema">${t.tema}</span>
@@ -1261,6 +1262,18 @@ function renderEditorSlide(idx) {
           </select>
         </div>
       </div>
+      <div class="ctrl-row">
+        <span class="ctrl-row-label">Color titular</span>
+        <div class="ctrl-right">
+          <input type="color" id="ctrlColorHeadline" value="${slide._colorHeadline || editorContenido._sistema?.paleta?.headline || '#ffffff'}">
+        </div>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-row-label">Color cuerpo</span>
+        <div class="ctrl-right">
+          <input type="color" id="ctrlColorBody" value="${slide._colorBody || editorContenido._sistema?.paleta?.body_text || '#e0e0e0'}">
+        </div>
+      </div>
       ${hasPhoto ? `<p class="ctrl-hint">Arrastrá la banda amarilla en el preview para mover el texto.</p>` : ''}
     </div>
   `;
@@ -1475,6 +1488,17 @@ function renderEditorSlide(idx) {
   bind('ctrlSlideOv',  'ctrlSlideOvVal',  v => { editorContenido.slides[editorSlideIdx]._overlay = v; });
   bind('ctrlHsAjuste', null, v => { editorContenido.slides[editorSlideIdx]._headlineAjuste = v; });
 
+  const colorHl = document.getElementById('ctrlColorHeadline');
+  const colorBd = document.getElementById('ctrlColorBody');
+  if (colorHl) colorHl.addEventListener('input', () => {
+    saveSnapshot();
+    editorContenido.slides[editorSlideIdx]._colorHeadline = colorHl.value;
+  });
+  if (colorBd) colorBd.addEventListener('input', () => {
+    saveSnapshot();
+    editorContenido.slides[editorSlideIdx]._colorBody = colorBd.value;
+  });
+
   // Debounced live update on any input change
   $('#editorControls').addEventListener('input', () => {
     clearTimeout(liveUpdateTimer);
@@ -1503,12 +1527,10 @@ async function loadLivePreview(idx) {
       frame.srcdoc = editorTemplateHtml;
       frame.style.display = '';
       img.style.display = 'none';
-      // Wait for frame load then send liveUpdate
       frame.onload = () => sendLiveUpdate(idx);
     } else {
       sendLiveUpdate(idx);
     }
-    // Scale frame to fit container
     const wrap = $('#editorPreviewWrap') || frame.parentElement;
     const containerWidth = wrap.offsetWidth || 400;
     const scale = containerWidth / 1080;
@@ -1516,7 +1538,6 @@ async function loadLivePreview(idx) {
     frame.style.height = `${1350 * scale}px`;
     wrap.style.height = `${1350 * scale}px`;
   } else {
-    // Fallback to img
     img.style.display = '';
     if (frame) frame.style.display = 'none';
     img.src = `/tandas/${editorTandaId}/output/slide-${num}.png?t=${editorTs}`;
