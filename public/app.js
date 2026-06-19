@@ -763,7 +763,8 @@ function openLightbox(slides, index, tandaId = null) {
 
 function showSlide() {
   const url = currentSlides[currentIndex];
-  $('#lightboxImg').src = url;
+  const bust = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+  $('#lightboxImg').src = bust;
   $('#lightboxCounter').textContent = `${currentIndex + 1} / ${currentSlides.length}`;
   const dl = $('#lightboxDownload');
   dl.href     = url;
@@ -901,7 +902,7 @@ async function cargarGaleria() {
     const estado = t.estado || 'nuevo';
     return `
       <div class="tanda estado-${estado}" data-idx="${i}" data-estado="${estado}" data-id="${t.id}">
-        <img src="${t.slides[0]}" alt="${t.tema}" loading="lazy">
+        <img src="${t.slides[0]}?t=${t.ts || Date.now()}" alt="${t.tema}" loading="lazy">
         <span class="count">${t.slides.length}</span>
         <div class="label">
           <span class="tanda-tema">${t.tema}</span>
