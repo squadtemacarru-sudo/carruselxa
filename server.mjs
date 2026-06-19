@@ -719,6 +719,20 @@ app.post('/api/tandas/:id/upload-output', async (req, res) => {
   res.json({ ok: true, files: Object.keys(files).length });
 });
 
+// Subir fotos originales (base64) a /fotos para poder re-renderizar
+// Body: { "IMG_7672.jpg": "<base64>", ... }
+app.post('/api/upload-fotos', async (req, res) => {
+  await mkdir(FOTOS_DIR, { recursive: true });
+  const files = req.body;
+  const saved = [];
+  for (const [filename, b64] of Object.entries(files)) {
+    if (!/\.(jpe?g|png|webp|heic)$/i.test(filename)) continue;
+    await writeFile(path.join(FOTOS_DIR, filename), Buffer.from(b64, 'base64'));
+    saved.push(filename);
+  }
+  res.json({ ok: true, saved });
+});
+
 app.post('/api/tandas/:id/duplicar', async (req, res) => {
   const { id } = req.params;
   if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
