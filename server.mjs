@@ -704,6 +704,21 @@ app.put('/api/tandas/:id/contenido', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Subir slides pre-renderizados (base64) al output de una tanda
+// Body: { "slide-01.png": "<base64>", "slide-02.png": "<base64>", ... }
+app.post('/api/tandas/:id/upload-output', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+  const outDir = path.join(__dirname, 'tandas', id, 'output');
+  await mkdir(outDir, { recursive: true });
+  const files = req.body;
+  for (const [filename, b64] of Object.entries(files)) {
+    if (!/^slide-0\d\.png$/.test(filename)) continue;
+    await writeFile(path.join(outDir, filename), Buffer.from(b64, 'base64'));
+  }
+  res.json({ ok: true, files: Object.keys(files).length });
+});
+
 app.post('/api/tandas/:id/duplicar', async (req, res) => {
   const { id } = req.params;
   if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
