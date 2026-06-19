@@ -700,8 +700,13 @@ app.get('/api/tandas/:id/contenido', async (req, res) => {
 app.put('/api/tandas/:id/contenido', async (req, res) => {
   const { id } = req.params;
   if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
-  await writeFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), JSON.stringify(req.body, null, 2), 'utf-8');
-  res.json({ ok: true });
+  try {
+    await mkdir(path.join(__dirname, 'tandas', id), { recursive: true });
+    await writeFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), JSON.stringify(req.body, null, 2), 'utf-8');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Subir slides pre-renderizados (base64) al output de una tanda
