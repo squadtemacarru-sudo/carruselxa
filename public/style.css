@@ -719,6 +719,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .modal.hidden { display: none !important; }
 
+body.modal-open { overflow: hidden; }
+
 .modal-box {
   background: var(--surface);
   border-top: 1px solid var(--border);
@@ -1399,7 +1401,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 /* ── CHAT / ASISTENTE ───────────────────────────── */
 #tab-chat {
   padding: 0;
-  display: flex;
+}
+#tab-chat.active {
+  display: flex !important;
   flex-direction: column;
 }
 

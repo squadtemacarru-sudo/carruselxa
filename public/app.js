@@ -1,13 +1,31 @@
 const $ = (sel) => document.querySelector(sel);
 
+function openModal(el) {
+  el.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+function closeModal(el) {
+  el.classList.add('hidden');
+  // Only remove modal-open if no other modal is visible
+  if (!document.querySelector('.modal:not(.hidden)')) {
+    document.body.classList.remove('modal-open');
+  }
+}
+
 // ── TABS ──────────────────────────────────────────────
+function switchTab(tabId) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const btn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+  if (btn) btn.classList.add('active');
+  const tab = document.getElementById(tabId);
+  if (tab) tab.classList.add('active');
+}
+
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tabId = btn.dataset.tab;
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active');
-    $('#' + tabId).classList.add('active');
+    switchTab(tabId);
     if (tabId === 'tab-galeria') cargarGaleria();
     if (tabId === 'tab-fotos')   cargarFotosGrid();
   });
@@ -189,7 +207,7 @@ function abrirWizardEstilo(tema) {
 
   $('#estiloStep1').classList.remove('hidden');
   $('#estiloStep2').classList.add('hidden');
-  $('#modalEstilo').classList.remove('hidden');
+  openModal($('#modalEstilo'));
 }
 
 function renderFuenteGrid() {
@@ -227,7 +245,7 @@ function renderFuenteGrid() {
 }
 
 function cerrarWizard() {
-  $('#modalEstilo').classList.add('hidden');
+  closeModal($('#modalEstilo'));
 }
 
 function confirmarWizardYGenerar() {
@@ -281,7 +299,7 @@ async function abrirModalPreguntar(tema) {
   loader.classList.remove('hidden');
   content.classList.add('hidden');
   btnConf.classList.add('hidden');
-  modal.classList.remove('hidden');
+  openModal(modal);
 
   // Secciones que solo aparecen cuando hay fotos
   const rotSection = $('#rotacionSection');
@@ -494,15 +512,15 @@ async function dispararGenerar(respuestas = {}, instruccionesLibres = '') {
   }
 }
 
-$('#modalPreguntarClose').addEventListener('click', () => $('#modalPreguntar').classList.add('hidden'));
+$('#modalPreguntarClose').addEventListener('click', () => closeModal($('#modalPreguntar')));
 
 $('#btnSaltarPreguntas').addEventListener('click', () => {
-  $('#modalPreguntar').classList.add('hidden');
+  closeModal($('#modalPreguntar'));
   dispararGenerar();
 });
 
 $('#btnConfirmarPreguntas').addEventListener('click', () => {
-  $('#modalPreguntar').classList.add('hidden');
+  closeModal($('#modalPreguntar'));
   dispararGenerar(collectRespuestas(), $('#instruccionesLibres').value.trim());
 });
 
@@ -712,15 +730,15 @@ $('#btnAgregarFotos').addEventListener('click', async () => {
   $('#modalFotosGrid').querySelectorAll('.foto-thumb').forEach(el => {
     if (fotosSeleccionadas.includes(el.dataset.nombre)) el.classList.add('selected');
   });
-  $('#modalFotos').classList.remove('hidden');
+  openModal($('#modalFotos'));
 });
 
-$('#modalFotosClose').addEventListener('click', () => $('#modalFotos').classList.add('hidden'));
+$('#modalFotosClose').addEventListener('click', () => closeModal($('#modalFotos')));
 
 $('#btnConfirmarFotos').addEventListener('click', () => {
   fotosSeleccionadas = [...$('#modalFotosGrid').querySelectorAll('.foto-thumb.selected')]
     .map(el => el.dataset.nombre);
-  $('#modalFotos').classList.add('hidden');
+  closeModal($('#modalFotos'));
   renderFotosChips();
 });
 
@@ -805,8 +823,8 @@ $('#lightboxDuplicar').addEventListener('click', async () => {
   }
 });
 
-$('#captionClose').addEventListener('click', () => $('#modalCaption').classList.add('hidden'));
-$('#modalCaption').addEventListener('click', e => { if (e.target === $('#modalCaption')) $('#modalCaption').classList.add('hidden'); });
+$('#captionClose').addEventListener('click', () => closeModal($('#modalCaption')));
+$('#modalCaption').addEventListener('click', e => { if (e.target === $('#modalCaption')) closeModal($('#modalCaption')); });
 
 $('#btnCopiarCaption').addEventListener('click', () => {
   navigator.clipboard.writeText($('#captionText').value).then(() => {
@@ -823,7 +841,7 @@ let captionTandaId = null;
 
 function abrirCaption(tandaId) {
   captionTandaId = tandaId;
-  $('#modalCaption').classList.remove('hidden');
+  openModal($('#modalCaption'));
   generarCaption(tandaId);
 }
 
@@ -1103,7 +1121,7 @@ async function editarTanda(tandaId) {
   $('#editorStatus').className = 'status';
   renderEditorChips();
   renderEditorSlide(0);
-  $('#modalEditor').classList.remove('hidden');
+  openModal($('#modalEditor'));
 }
 
 function renderEditorChips() {
@@ -1375,7 +1393,7 @@ function renderEditorSlide(idx) {
   });
 }
 
-$('#editorClose').addEventListener('click', () => $('#modalEditor').classList.add('hidden'));
+$('#editorClose').addEventListener('click', () => closeModal($('#modalEditor')));
 $('#btnUndo').addEventListener('click', editorUndo);
 $('#btnRedo').addEventListener('click', editorRedo);
 
