@@ -5,282 +5,317 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Carrusel Generator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,700;1,900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,700;1,700;1,900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <header class="topbar">
-    <span class="topbar-title">CARRUSEL<em class="acc">GEN</em></span>
-    <select id="marcaSelect"></select>
-  </header>
-
-  <!-- ── TAB: GENERAR ───────────────────────────────── -->
-  <section class="tab active" id="tab-generar">
-
-    <div class="gen-hero">
-      <p class="gen-label">Tema del carrusel</p>
-      <textarea id="temaInput" rows="3" placeholder="Ej: Por qué entrenar solo no alcanza después de los 30"></textarea>
-
-      <!-- Fotos seleccionadas -->
-      <div id="fotosRow" class="fotos-row hidden">
-        <div id="fotosChips" class="fotos-chips"></div>
-        <button class="btn-ghost btn-sm" id="btnClearFotos">Quitar fotos</button>
-      </div>
-
-      <div class="gen-actions">
-        <button id="btnAgregarFotos" class="btn-secondary btn-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          Fotos
-        </button>
-        <select id="modelSelect" class="model-select">
-          <option value="blackboxai/anthropic/claude-sonnet-4.6">Sonnet 4.6</option>
-          <option value="blackboxai/anthropic/claude-sonnet-4.5">Sonnet 4.5</option>
-          <option value="claude-3-5-sonnet-20241022">Claude 3.5</option>
-        </select>
-        <button id="btnGenerar" class="btn-primary btn-grow">Generar</button>
-      </div>
+  <!-- ── SIDEBAR (desktop only) ────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-mark">CARRUSEL<em class="acc">GEN</em></span>
     </div>
-
-    <div class="divider-row">
-      <span class="divider-line"></span>
-      <span class="divider-text">o</span>
-      <span class="divider-line"></span>
+    <nav class="sidebar-nav">
+      <button class="nav-btn active" data-tab="tab-generar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span>Generar</span>
+      </button>
+      <button class="nav-btn" data-tab="tab-fotos">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <span>Fotos</span>
+      </button>
+      <button class="nav-btn" data-tab="tab-galeria">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span>Galería</span>
+      </button>
+      <button class="nav-btn" data-tab="tab-config">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Config</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <select id="marcaSelect"></select>
     </div>
+  </aside>
 
-    <div class="lote-row">
-      <div class="lote-info">
-        <span class="lote-title">Tanda automática</span>
-        <span class="lote-sub">Rota los temas guardados</span>
-      </div>
-      <div class="lote-controls">
-        <input id="minutosInput" type="number" min="5" max="180" value="45">
-        <span class="lote-min">min</span>
-        <button id="btnLote" class="btn-secondary">Iniciar</button>
-      </div>
-    </div>
+  <!-- ── MAIN CONTENT ──────────────────────────────── -->
+  <main class="main-content">
 
-    <!-- Log — visible solo cuando hay actividad -->
-    <div id="logWrap" class="log-wrap hidden">
-      <div class="log-header">
-        <span id="logStatus" class="log-status">Generando...</span>
-        <button class="log-toggle" id="logToggle">ocultar</button>
-      </div>
-      <pre id="log" class="log"></pre>
-    </div>
+    <!-- ── TAB: GENERAR ─────────────────────────────── -->
+    <section class="tab active" id="tab-generar">
 
-  </section>
+      <div class="gen-hero">
+        <p class="gen-label">Tema del carrusel</p>
+        <textarea id="temaInput" rows="5" placeholder="Por qué entrenar solo no alcanza después de los 30"></textarea>
 
-  <!-- ── TAB: FOTOS ─────────────────────────────────── -->
-  <section class="tab" id="tab-fotos">
-    <div class="section-header">
-      <span class="section-title">Fotos</span>
-      <label class="btn-primary btn-sm file-btn">
-        + Subir fotos
-        <input id="fotosUpload" type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple hidden>
-      </label>
-    </div>
-    <p class="hint">Las fotos subidas acá se pueden usar como fondo en los carruseles.</p>
-
-    <div id="upload-progress" class="upload-progress hidden">
-      <div class="upload-bar"><div id="upload-bar-inner" class="upload-bar-inner"></div></div>
-      <span id="upload-progress-text"></span>
-    </div>
-
-    <div id="fotosGrid" class="fotos-grid"></div>
-    <p id="fotosEmpty" class="empty-msg hidden">Todavía no hay fotos subidas.</p>
-  </section>
-
-  <!-- ── TAB: GALERÍA ──────────────────────────────── -->
-  <section class="tab" id="tab-galeria">
-    <div class="section-header">
-      <span class="section-title">Galería</span>
-      <button id="btnRefrescar" class="btn-ghost btn-sm">Refrescar</button>
-    </div>
-    <div class="galeria-filter">
-      <button class="galeria-tab active" data-filter="todos">Todos</button>
-      <button class="galeria-tab" data-filter="guardado">Guardados</button>
-      <button class="galeria-tab" data-filter="descartado">Descartados</button>
-    </div>
-    <div id="galeria" class="galeria"></div>
-    <p id="galeriaEmpty" class="empty-msg hidden">Todavía no hay carruseles generados.</p>
-  </section>
-
-  <!-- ── TAB: CONFIGURAR ───────────────────────────── -->
-  <section class="tab" id="tab-config">
-
-    <div class="config-block">
-      <div class="config-block-header" data-toggle="bloque-marca">
-        <span class="section-title">Identidad de marca</span>
-        <span class="toggle-icon">›</span>
-      </div>
-      <div class="config-block-body collapsed" id="bloque-marca">
-        <p class="hint">Define la voz, audiencia y paleta que usa la IA al escribir y diseñar.</p>
-        <div class="field-group">
-          <label>Nombre <input id="mNombre" type="text"></label>
-          <label>Instagram (@handle) <input id="mHandle" type="text" placeholder="@tuusuario"></label>
-          <label>Industria <input id="mIndustria" type="text"></label>
-          <label>Audiencia <input id="mAudiencia" type="text"></label>
-          <label>Posicionamiento <input id="mPosicionamiento" type="text"></label>
-          <label class="full">Producto / qué ofrecés <textarea id="mProducto" rows="2"></textarea></label>
-          <label class="full">Voz y tono <textarea id="mVoz" rows="2"></textarea></label>
-          <label class="full">Palabras a evitar (separadas por coma) <input id="mEvitar" type="text"></label>
-          <label>Color fondo
-            <div class="color-field">
-              <input type="color" id="mFondoSwatch" value="#040404">
-              <input id="mFondo" type="text" placeholder="#040404" maxlength="7">
-            </div>
-          </label>
-          <label>Color acento
-            <div class="color-field">
-              <input type="color" id="mAcentoSwatch" value="#e8ff00">
-              <input id="mAcento" type="text" placeholder="#e8ff00" maxlength="7">
-            </div>
-          </label>
-          <label class="full">Cómo usar los colores <input id="mPaletaDesc" type="text" placeholder="Ej: variá el acento por carrusel según el tema, no siempre lima"></label>
+        <!-- Fotos seleccionadas -->
+        <div id="fotosRow" class="fotos-row hidden">
+          <div id="fotosChips" class="fotos-chips"></div>
+          <button class="btn-ghost btn-sm" id="btnClearFotos">Quitar fotos</button>
         </div>
-        <div class="logo-row">
-          <img id="logoPreview" class="logo-preview" alt="">
-          <label class="btn-ghost file-btn">
-            Cambiar logo
-            <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
-          </label>
+
+        <div class="gen-actions">
+          <button id="btnAgregarFotos" class="btn-secondary btn-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Fotos
+          </button>
+          <select id="modelSelect" class="model-select">
+            <option value="blackboxai/anthropic/claude-sonnet-4.6">Sonnet 4.6</option>
+            <option value="blackboxai/anthropic/claude-sonnet-4.5">Sonnet 4.5</option>
+            <option value="claude-3-5-sonnet-20241022">Claude 3.5</option>
+          </select>
         </div>
-        <button id="btnGuardarMarca" class="btn-primary btn-full">Guardar identidad</button>
-        <span id="marcaStatus" class="status"></span>
-      </div>
-    </div>
 
-    <div class="config-block">
-      <div class="config-block-header" data-toggle="bloque-temas">
-        <span class="section-title">Temas en rotación</span>
-        <span class="toggle-icon">›</span>
+        <button id="btnGenerar" class="btn-primary btn-full btn-generar">Generar carrusel</button>
       </div>
-      <div class="config-block-body collapsed" id="bloque-temas">
-        <p class="hint">Uno por línea. Se usan en la tanda automática y como sugerencias al generar.</p>
-        <textarea id="temasArea" rows="10" style="margin-top:8px"></textarea>
-        <button id="btnGuardarTemas" class="btn-primary btn-full" style="margin-top:10px">Guardar temas</button>
-        <span id="temasStatus" class="status"></span>
-      </div>
-    </div>
 
-    <div class="config-block">
-      <div class="config-block-header" data-toggle="bloque-clonar">
-        <span class="section-title">Clonador de diseño</span>
-        <span class="toggle-icon">›</span>
+      <div class="divider-row">
+        <span class="divider-line"></span>
+        <span class="divider-text">o</span>
+        <span class="divider-line"></span>
       </div>
-      <div class="config-block-body collapsed" id="bloque-clonar">
-        <p class="hint">Subí slides de carruseles cuyo <strong>diseño visual</strong> te guste. La IA los usa como dirección de arte al generar nuevos carruseles — paleta, tipografía, composición.</p>
 
-        <label class="btn-secondary btn-full file-btn" style="margin-top:10px;justify-content:center">
-          + Agregar referencias visuales
-          <input id="clonarInput" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+      <div class="lote-row">
+        <div class="lote-info">
+          <span class="lote-title">Tanda automática</span>
+          <span class="lote-sub">Rota los temas guardados</span>
+        </div>
+        <div class="lote-controls">
+          <input id="minutosInput" type="number" min="5" max="180" value="45">
+          <span class="lote-min">min</span>
+          <button id="btnLote" class="btn-secondary btn-sm">Iniciar</button>
+        </div>
+      </div>
+
+      <!-- Log -->
+      <div id="logWrap" class="log-wrap hidden">
+        <div class="log-header">
+          <span id="logStatus" class="log-status">Generando...</span>
+          <button class="log-toggle" id="logToggle">ocultar</button>
+        </div>
+        <pre id="log" class="log"></pre>
+      </div>
+
+    </section>
+
+    <!-- ── TAB: FOTOS ────────────────────────────────── -->
+    <section class="tab" id="tab-fotos">
+      <div class="section-header">
+        <span class="section-title">Fotos</span>
+        <label class="btn-primary btn-sm file-btn">
+          + Subir
+          <input id="fotosUpload" type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple hidden>
         </label>
-
-        <div id="clonarGrid" class="fotos-grid" style="margin-top:12px"></div>
-        <p id="clonarEmpty" class="hint" style="margin-top:8px">No hay referencias guardadas para esta marca.</p>
       </div>
-    </div>
+      <p class="hint">Las fotos subidas acá se pueden usar como fondo en los carruseles.</p>
 
-    <div class="config-block">
-      <div class="config-block-header" data-toggle="bloque-estudiar">
-        <span class="section-title">Estudiar carruseles</span>
-        <span class="toggle-icon">›</span>
+      <div id="upload-progress" class="upload-progress hidden">
+        <div class="upload-bar"><div id="upload-bar-inner" class="upload-bar-inner"></div></div>
+        <span id="upload-progress-text"></span>
       </div>
-      <div class="config-block-body collapsed" id="bloque-estudiar">
-        <p class="hint">Subí slides de carruseles que te gusten. La IA analiza el estilo visual y de copy, y lo usa al generar los tuyos.</p>
 
-        <label class="btn-secondary btn-full file-btn" style="margin-top:8px;justify-content:center">
-          + Elegir slides para analizar
-          <input id="estudiarInput" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
-        </label>
+      <div id="fotosGrid" class="fotos-grid"></div>
+      <p id="fotosEmpty" class="empty-msg hidden">Todavía no hay fotos subidas.</p>
+    </section>
 
-        <div id="estudiarPreviews" class="fotos-grid" style="margin-top:10px"></div>
+    <!-- ── TAB: GALERÍA ──────────────────────────────── -->
+    <section class="tab" id="tab-galeria">
+      <div class="section-header">
+        <span class="section-title">Galería</span>
+        <button id="btnRefrescar" class="btn-ghost btn-sm">Refrescar</button>
+      </div>
+      <div class="galeria-filter">
+        <button class="galeria-tab active" data-filter="todos">Todos</button>
+        <button class="galeria-tab" data-filter="guardado">Guardados</button>
+        <button class="galeria-tab" data-filter="descartado">Descartados</button>
+      </div>
+      <div id="galeria" class="galeria"></div>
+      <p id="galeriaEmpty" class="empty-msg hidden">Todavía no hay carruseles generados.</p>
+    </section>
 
-        <button id="btnEstudiar" class="btn-primary btn-full" style="margin-top:10px" disabled>Analizar con IA</button>
-        <div id="estudiarStatus" class="status" style="margin-top:6px"></div>
+    <!-- ── TAB: CONFIGURAR ───────────────────────────── -->
+    <section class="tab" id="tab-config">
 
-        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-          <div class="section-header" style="margin-bottom:8px">
-            <span style="font-size:13px;font-weight:600;color:var(--text-muted)">ESTILO APRENDIDO</span>
-            <button id="btnBorrarRefs" class="btn-ghost btn-sm">Borrar todo</button>
+      <div class="config-block">
+        <div class="config-block-header" data-toggle="bloque-marca">
+          <span class="section-title">
+            <span class="config-dot"></span>Identidad de marca
+          </span>
+          <span class="toggle-icon">›</span>
+        </div>
+        <div class="config-block-body collapsed" id="bloque-marca">
+          <p class="hint">Define la voz, audiencia y paleta que usa la IA al escribir y diseñar.</p>
+          <div class="field-group">
+            <label>Nombre <input id="mNombre" type="text"></label>
+            <label>Instagram (@handle) <input id="mHandle" type="text" placeholder="@tuusuario"></label>
+            <label>Industria <input id="mIndustria" type="text"></label>
+            <label>Audiencia <input id="mAudiencia" type="text"></label>
+            <label>Posicionamiento <input id="mPosicionamiento" type="text"></label>
+            <label class="full">Producto / qué ofrecés <textarea id="mProducto" rows="2"></textarea></label>
+            <label class="full">Voz y tono <textarea id="mVoz" rows="2"></textarea></label>
+            <label class="full">Palabras a evitar (separadas por coma) <input id="mEvitar" type="text"></label>
+            <label>Color fondo
+              <div class="color-field">
+                <input type="color" id="mFondoSwatch" value="#040404">
+                <input id="mFondo" type="text" placeholder="#040404" maxlength="7">
+              </div>
+            </label>
+            <label>Color acento
+              <div class="color-field">
+                <input type="color" id="mAcentoSwatch" value="#e8ff00">
+                <input id="mAcento" type="text" placeholder="#e8ff00" maxlength="7">
+              </div>
+            </label>
+            <label class="full">Cómo usar los colores <input id="mPaletaDesc" type="text" placeholder="Ej: variá el acento por carrusel según el tema"></label>
           </div>
-          <textarea id="referenciasArea" rows="10" placeholder="Todavía no hay referencias para esta marca. Subí slides arriba para que la IA aprenda el estilo."></textarea>
-          <button id="btnGuardarRefs" class="btn-secondary btn-full" style="margin-top:8px">Guardar cambios</button>
+          <div class="logo-row">
+            <img id="logoPreview" class="logo-preview" alt="">
+            <label class="btn-ghost file-btn btn-sm">
+              Cambiar logo
+              <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+            </label>
+          </div>
+          <button id="btnGuardarMarca" class="btn-primary btn-full">Guardar identidad</button>
+          <span id="marcaStatus" class="status"></span>
         </div>
       </div>
-    </div>
 
-    <div class="config-block">
-      <div class="config-block-header" data-toggle="bloque-templates">
-        <span class="section-title">Templates de generación</span>
-        <span class="toggle-icon">›</span>
-      </div>
-      <div class="config-block-body collapsed" id="bloque-templates">
-        <p class="hint">Guardá instrucciones que usás seguido. Se pueden aplicar al generar con un click.</p>
-        <div id="templatesList"></div>
-        <div class="tpl-form">
-          <input id="tplNombre" type="text" placeholder="Nombre del template">
-          <textarea id="tplInstrucciones" rows="3" placeholder="Instrucciones para la IA (tono, estructura, restricciones...)"></textarea>
-          <button id="btnGuardarTemplate" class="btn-secondary btn-full">+ Guardar template</button>
+      <div class="config-block">
+        <div class="config-block-header" data-toggle="bloque-temas">
+          <span class="section-title">
+            <span class="config-dot"></span>Temas en rotación
+          </span>
+          <span class="toggle-icon">›</span>
+        </div>
+        <div class="config-block-body collapsed" id="bloque-temas">
+          <p class="hint">Uno por línea. Se usan en la tanda automática y como sugerencias al generar.</p>
+          <textarea id="temasArea" rows="10"></textarea>
+          <button id="btnGuardarTemas" class="btn-primary btn-full">Guardar temas</button>
+          <span id="temasStatus" class="status"></span>
         </div>
       </div>
-    </div>
 
-    <div class="config-block">
-      <div class="config-block-header" data-toggle="bloque-diseno">
-        <span class="section-title">Diseño base</span>
-        <span class="toggle-icon">›</span>
+      <div class="config-block">
+        <div class="config-block-header" data-toggle="bloque-clonar">
+          <span class="section-title">
+            <span class="config-dot"></span>Clonador de diseño
+          </span>
+          <span class="toggle-icon">›</span>
+        </div>
+        <div class="config-block-body collapsed" id="bloque-clonar">
+          <p class="hint">Subí slides de carruseles cuyo <strong>diseño visual</strong> te guste. La IA los usa como dirección de arte al generar nuevos carruseles — paleta, tipografía, composición.</p>
+          <label class="btn-secondary btn-full file-btn">
+            + Agregar referencias visuales
+            <input id="clonarInput" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+          </label>
+          <div id="clonarGrid" class="fotos-grid"></div>
+          <p id="clonarEmpty" class="hint">No hay referencias guardadas para esta marca.</p>
+        </div>
       </div>
-      <div class="config-block-body collapsed" id="bloque-diseno">
-        <p class="hint">Tipografía por defecto para esta marca. La IA la respeta en todos los carruseles. Si elegís "IA elige", la IA decide por cada carrusel según el tema.</p>
-        <div id="fontPairGrid" class="font-pair-grid"></div>
-        <span id="disenoStatus" class="status" style="margin-top:10px;display:block"></span>
-      </div>
-    </div>
 
-    <div class="config-block">
-      <div class="config-block-header" data-toggle="bloque-nueva-marca">
-        <span class="section-title">Nueva marca</span>
-        <span class="toggle-icon">›</span>
+      <div class="config-block">
+        <div class="config-block-header" data-toggle="bloque-estudiar">
+          <span class="section-title">
+            <span class="config-dot"></span>Estudiar carruseles
+          </span>
+          <span class="toggle-icon">›</span>
+        </div>
+        <div class="config-block-body collapsed" id="bloque-estudiar">
+          <p class="hint">Subí slides de carruseles que te gusten. La IA analiza el estilo visual y de copy, y lo usa al generar los tuyos.</p>
+          <label class="btn-secondary btn-full file-btn">
+            + Elegir slides para analizar
+            <input id="estudiarInput" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+          </label>
+          <div id="estudiarPreviews" class="fotos-grid"></div>
+          <button id="btnEstudiar" class="btn-primary btn-full" disabled>Analizar con IA</button>
+          <div id="estudiarStatus" class="status"></div>
+          <div class="config-sub-section">
+            <div class="section-header">
+              <span class="config-sublabel">Estilo aprendido</span>
+              <button id="btnBorrarRefs" class="btn-ghost btn-sm">Borrar todo</button>
+            </div>
+            <textarea id="referenciasArea" rows="10" placeholder="Todavía no hay referencias para esta marca. Subí slides arriba para que la IA aprenda el estilo."></textarea>
+            <button id="btnGuardarRefs" class="btn-secondary btn-full">Guardar cambios</button>
+          </div>
+        </div>
       </div>
-      <div class="config-block-body collapsed" id="bloque-nueva-marca">
-        <p class="hint">Creá un perfil nuevo para otra marca o cliente.</p>
-        <input id="nuevaMarcaNombre" type="text" placeholder="Nombre de la marca">
-        <button id="btnNuevaMarca" class="btn-secondary btn-full" style="margin-top:8px">Crear marca</button>
+
+      <div class="config-block">
+        <div class="config-block-header" data-toggle="bloque-templates">
+          <span class="section-title">
+            <span class="config-dot"></span>Templates de generación
+          </span>
+          <span class="toggle-icon">›</span>
+        </div>
+        <div class="config-block-body collapsed" id="bloque-templates">
+          <p class="hint">Guardá instrucciones que usás seguido. Se pueden aplicar al generar con un click.</p>
+          <div id="templatesList"></div>
+          <div class="tpl-form">
+            <input id="tplNombre" type="text" placeholder="Nombre del template">
+            <textarea id="tplInstrucciones" rows="3" placeholder="Instrucciones para la IA (tono, estructura, restricciones...)"></textarea>
+            <button id="btnGuardarTemplate" class="btn-secondary btn-full">+ Guardar template</button>
+          </div>
+        </div>
       </div>
-    </div>
 
-  </section>
+      <div class="config-block">
+        <div class="config-block-header" data-toggle="bloque-diseno">
+          <span class="section-title">
+            <span class="config-dot"></span>Diseño base
+          </span>
+          <span class="toggle-icon">›</span>
+        </div>
+        <div class="config-block-body collapsed" id="bloque-diseno">
+          <p class="hint">Tipografía por defecto para esta marca. La IA la respeta en todos los carruseles. Si elegís "IA elige", la IA decide por cada carrusel según el tema.</p>
+          <div id="fontPairGrid" class="font-pair-grid"></div>
+          <span id="disenoStatus" class="status"></span>
+        </div>
+      </div>
 
-  <!-- ── BOTTOM NAV ────────────────────────────────── -->
+      <div class="config-block">
+        <div class="config-block-header" data-toggle="bloque-nueva-marca">
+          <span class="section-title">
+            <span class="config-dot"></span>Nueva marca
+          </span>
+          <span class="toggle-icon">›</span>
+        </div>
+        <div class="config-block-body collapsed" id="bloque-nueva-marca">
+          <p class="hint">Creá un perfil nuevo para otra marca o cliente.</p>
+          <input id="nuevaMarcaNombre" type="text" placeholder="Nombre de la marca">
+          <button id="btnNuevaMarca" class="btn-secondary btn-full">Crear marca</button>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ── BOTTOM DOCK (mobile only) ────────────────── -->
   <nav class="bottom-nav">
     <button class="nav-btn active" data-tab="tab-generar">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-      <span>Generar</span>
     </button>
     <button class="nav-btn" data-tab="tab-fotos">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-      <span>Fotos</span>
     </button>
     <button class="nav-btn" data-tab="tab-galeria">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      <span>Galería</span>
     </button>
     <button class="nav-btn" data-tab="tab-config">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      <span>Config</span>
     </button>
   </nav>
 
-  <!-- ── LIGHTBOX ───────────────────────────────────── -->
+  <!-- ── LIGHTBOX ──────────────────────────────────── -->
   <div id="lightbox" class="lightbox hidden">
-    <button id="lightboxClose" class="lightbox-close">×</button>
+    <button id="lightboxClose" class="lightbox-close" aria-label="Cerrar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
     <img id="lightboxImg" src="" alt="">
     <div class="lightbox-nav">
-      <button id="lightboxPrev">‹</button>
+      <button id="lightboxPrev" aria-label="Anterior">‹</button>
       <span id="lightboxCounter"></span>
-      <button id="lightboxNext">›</button>
+      <button id="lightboxNext" aria-label="Siguiente">›</button>
     </div>
     <div class="lightbox-footer">
       <a id="lightboxDownload" class="lightbox-download" download>↓ Descargar</a>
@@ -295,7 +330,7 @@
     <div class="modal-box">
       <div class="modal-header">
         <span class="section-title">Caption</span>
-        <button class="modal-close" id="captionClose">×</button>
+        <button class="modal-close" id="captionClose" aria-label="Cerrar">×</button>
       </div>
       <div id="captionLoader" class="caption-loader">
         <span class="preguntar-dots"><span></span><span></span><span></span></span>
@@ -312,12 +347,12 @@
     </div>
   </div>
 
-  <!-- ── EDITOR DE CARRUSEL ──────────────────────── -->
+  <!-- ── EDITOR DE CARRUSEL ────────────────────────── -->
   <div id="modalEditor" class="modal hidden">
     <div class="modal-box editor-box">
       <div class="modal-header">
         <span class="section-title">Editor</span>
-        <button class="modal-close" id="editorClose">×</button>
+        <button class="modal-close" id="editorClose" aria-label="Cerrar">×</button>
       </div>
 
       <div class="editor-chips" id="editorChips"></div>
@@ -346,14 +381,14 @@
     </div>
   </div>
 
-  <!-- ── WIZARD ESTILO ── -->
+  <!-- ── WIZARD ESTILO ─────────────────────────────── -->
   <div id="modalEstilo" class="modal hidden">
     <div class="modal-box estilo-box">
       <!-- Step 1 -->
       <div id="estiloStep1">
         <div class="modal-header">
           <span class="section-title">¿Qué estilo querés?</span>
-          <button class="modal-close" id="estiloClose">×</button>
+          <button class="modal-close" id="estiloClose" aria-label="Cerrar">×</button>
         </div>
         <div class="estilo-grid" id="estiloGrid"></div>
         <div class="estilo-nav">
@@ -376,14 +411,14 @@
     </div>
   </div>
 
-  <!-- Modal preguntar IA antes de generar -->
+  <!-- ── MODAL PREGUNTAR ───────────────────────────── -->
   <div id="modalPreguntar" class="modal hidden">
     <div class="modal-box">
       <div class="modal-header">
         <span class="section-title">Personalizar</span>
         <div style="display:flex;gap:10px;align-items:center">
           <button id="btnSaltarPreguntas" class="btn-ghost btn-sm">Saltar →</button>
-          <button class="modal-close" id="modalPreguntarClose">×</button>
+          <button class="modal-close" id="modalPreguntarClose" aria-label="Cerrar">×</button>
         </div>
       </div>
 
@@ -393,13 +428,13 @@
       </div>
 
       <div id="preguntarContent" class="hidden">
-        <!-- Rotación — solo cuando hay fotos -->
+        <!-- Rotación -->
         <div id="rotacionSection" class="pregunta-block hidden">
           <p class="pregunta-label">¿Las fotos están bien orientadas?</p>
           <div id="rotacionGrid" class="rotacion-grid"></div>
         </div>
 
-        <!-- Fotos por slide — solo cuando hay fotos -->
+        <!-- Fotos por slide -->
         <div id="fpsSlidesSection" class="pregunta-block hidden">
           <p class="pregunta-label">¿Querés asignar fotos a slides específicas? <span class="lbl-opcional">(opcional)</span></p>
           <div class="fps-slots" id="fpsSlotsGrid"></div>
@@ -408,17 +443,20 @@
             <div class="fps-picker-grid" id="fpsPickerGrid"></div>
           </div>
         </div>
-        <!-- Preguntas generadas por la IA -->
+
+        <!-- Preguntas IA -->
         <div id="preguntasContainer"></div>
+
         <!-- Templates -->
         <div id="tplPickerBlock" class="pregunta-block hidden">
           <p class="pregunta-label">Aplicar template</p>
           <div id="tplPickerChips" class="tpl-chips"></div>
         </div>
+
         <!-- Campo libre -->
         <div class="pregunta-block">
           <p class="pregunta-label">¿Algo más para la IA?</p>
-          <textarea id="instruccionesLibres" rows="2" placeholder="Ej: el header tiene que ser una pregunta, usá solo datos concretos, evitá frases motivacionales..."></textarea>
+          <textarea id="instruccionesLibres" rows="2" placeholder="Ej: el header tiene que ser una pregunta, usá solo datos concretos..."></textarea>
         </div>
       </div>
 
@@ -426,12 +464,12 @@
     </div>
   </div>
 
-  <!-- Modal selección de fotos para generar -->
+  <!-- ── MODAL FOTOS ───────────────────────────────── -->
   <div id="modalFotos" class="modal hidden">
     <div class="modal-box">
       <div class="modal-header">
         <span class="section-title">Elegí las fotos</span>
-        <button class="modal-close" id="modalFotosClose">×</button>
+        <button class="modal-close" id="modalFotosClose" aria-label="Cerrar">×</button>
       </div>
       <p class="hint">Seleccioná 2-3 fotos para el carrusel.</p>
       <div id="modalFotosGrid" class="fotos-grid"></div>
@@ -440,5 +478,7 @@
   </div>
 
   <script src="app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+  <script src="animations.js"></script>
 </body>
 </html>
