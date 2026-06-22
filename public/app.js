@@ -166,14 +166,24 @@ const ESTILOS = [
 ];
 
 const FUENTES = [
-  { id: 'playfair',      display: 'Playfair Display', body: 'Lato',          hint: 'Elegante, clásico',        url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lato:wght@400;700&display=swap' },
-  { id: 'oswald',        display: 'Oswald',           body: 'Open Sans',     hint: 'Bold, moderno',            url: 'https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=Open+Sans:wght@400;600&display=swap' },
-  { id: 'montserrat',    display: 'Montserrat',       body: 'Montserrat',    hint: 'Limpio, versátil',         url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap' },
-  { id: 'bebas',         display: 'Bebas Neue',       body: 'Roboto',        hint: 'Impacto, deportivo',       url: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap' },
-  { id: 'space-grotesk', display: 'Space Grotesk',    body: 'Inter',         hint: 'Tech, startup',            url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap' },
-  { id: 'dm-serif',      display: 'DM Serif Display', body: 'DM Sans',       hint: 'Editorial moderno',        url: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600&display=swap' },
-  { id: 'syne',          display: 'Syne',             body: 'Syne',          hint: 'Contemporáneo, artístico', url: 'https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&display=swap' },
-  { id: 'raleway',       display: 'Raleway',          body: 'Merriweather',  hint: 'Sofisticado, legible',     url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@600;800&family=Merriweather:wght@400;700&display=swap' },
+  { id: 'playfair',        display: 'Playfair Display', body: 'Lato',              hint: 'Luxury · premium · editorial',      url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lato:wght@400;700&display=swap' },
+  { id: 'oswald',          display: 'Oswald',           body: 'DM Sans',           hint: 'Deportivo · directo · masculino',   url: 'https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=DM+Sans:wght@400;600&display=swap' },
+  { id: 'montserrat',      display: 'Montserrat',       body: 'Montserrat',        hint: 'Versátil · limpio · corporativo',   url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap' },
+  { id: 'bebas',           display: 'Bebas Neue',       body: 'Inter',             hint: 'Editorial · fitness · impacto',     url: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600&display=swap' },
+  { id: 'space-grotesk',   display: 'Space Grotesk',    body: 'Inter',             hint: 'Tech · datos · startup',            url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap' },
+  { id: 'dm-serif',        display: 'DM Serif Display', body: 'DM Sans',           hint: 'Revista · editorial cálido',        url: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600&display=swap' },
+  { id: 'syne',            display: 'Syne',             body: 'Inter',             hint: 'Diseño de autor · disruptivo',      url: 'https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=Inter:wght@400;600&display=swap' },
+  { id: 'raleway',         display: 'Raleway',          body: 'Outfit',            hint: 'Aspiracional · femenino',           url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@600;800&family=Outfit:wght@400;600&display=swap' },
+  { id: 'barlow-cond',     display: 'Barlow Condensed', body: 'Barlow',            hint: 'Moderno · clean · tech',            url: 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600&display=swap' },
+  { id: 'anton',           display: 'Anton',            body: 'Inter',             hint: 'Street · urbano · agresivo',        url: 'https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600&display=swap' },
+  { id: 'archivo-black',   display: 'Archivo Black',    body: 'Inter',             hint: 'Editorial bold · diseño',           url: 'https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;600&display=swap' },
+  { id: 'unbounded',       display: 'Unbounded',        body: 'Inter',             hint: 'Web3 · tech extremo · bold',        url: 'https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;600&display=swap' },
+  { id: 'instrument',      display: 'Instrument Serif', body: 'DM Sans',           hint: 'Ultra premium · luxury',            url: 'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;600&display=swap' },
+  { id: 'poppins',         display: 'Poppins',          body: 'Poppins',           hint: 'Amigable · popular · accesible',    url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap' },
+  { id: 'cormorant',       display: 'Cormorant Garamond', body: 'Lato',            hint: 'Moda · lujo · fashion',             url: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@400;600&display=swap' },
+  { id: 'plus-jakarta',    display: 'Plus Jakarta Sans', body: 'Plus Jakarta Sans', hint: 'Moderno · profesional · SaaS',     url: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap' },
+  { id: 'fraunces',        display: 'Fraunces',         body: 'Jost',              hint: 'Orgánico · artesanal · editorial',  url: 'https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Jost:wght@400;500&display=swap' },
+  { id: 'clash',           display: 'Clash Display',    body: 'Satoshi',           hint: 'Youth · streetwear · moderno',      url: 'https://fonts.googleapis.com/css2?family=Clash+Display:wght@600;700&family=Satoshi:wght@400;500&display=swap' },
 ];
 
 let wizardTema        = '';

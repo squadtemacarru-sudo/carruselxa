@@ -42,7 +42,17 @@ const FUENTES_HINTS = {
   'space-grotesk': { display: 'Space Grotesk',    body: 'Inter',         url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap' },
   'dm-serif':      { display: 'DM Serif Display', body: 'DM Sans',       url: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600&display=swap' },
   'syne':          { display: 'Syne',             body: 'Syne',          url: 'https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&display=swap' },
-  'raleway':       { display: 'Raleway',          body: 'Merriweather',  url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@600;800&family=Merriweather:wght@400;700&display=swap' },
+  'raleway':       { display: 'Raleway',          body: 'Outfit',            url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@600;800&family=Outfit:wght@400;600&display=swap' },
+  'barlow-cond':   { display: 'Barlow Condensed', body: 'Barlow',            url: 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600&display=swap' },
+  'anton':         { display: 'Anton',            body: 'Inter',             url: 'https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600&display=swap' },
+  'archivo-black': { display: 'Archivo Black',    body: 'Inter',             url: 'https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;600&display=swap' },
+  'unbounded':     { display: 'Unbounded',        body: 'Inter',             url: 'https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Inter:wght@400;600&display=swap' },
+  'instrument':    { display: 'Instrument Serif', body: 'DM Sans',           url: 'https://fonts.googleapis.com/css2?family=Instrument+Serif&family=DM+Sans:wght@400;600&display=swap' },
+  'poppins':       { display: 'Poppins',          body: 'Poppins',           url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap' },
+  'cormorant':     { display: 'Cormorant Garamond', body: 'Lato',            url: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Lato:wght@400;700&display=swap' },
+  'plus-jakarta':  { display: 'Plus Jakarta Sans', body: 'Plus Jakarta Sans', url: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap' },
+  'fraunces':      { display: 'Fraunces',         body: 'Jost',              url: 'https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700;900&family=Jost:wght@400;500&display=swap' },
+  'clash':         { display: 'Clash Display',    body: 'Inter',             url: 'https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=inter@400,600&display=swap' },
 };
 
 const SYSTEM_PROMPT = `Sos un equipo de élite de 2 personas trabajando como una sola: un director de arte senior con más de 15 años en agencias top de contenido para Instagram, y un estratega de marketing/copywriting senior especializado en marcas personales de fitness y coaching premium.
