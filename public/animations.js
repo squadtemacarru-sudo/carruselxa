@@ -250,3 +250,136 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 });
+
+
+// ── MOBILE TOUCH ──────────────────────────────────────────────────────────────
+
+// ─── T1. SWIPE LEFT/RIGHT TO CHANGE TABS ─────────────────────────────────────
+// Runs outside DOMContentLoaded because it is self-contained and defensive.
+(function setupSwipeTabs() {
+  const tabs = ['tab-generar', 'tab-fotos', 'tab-galeria', 'tab-config'];
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  const el = document.querySelector('.main-content') || document.body;
+
+  el.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  el.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+
+    // Require a meaningful horizontal movement and reject mostly-vertical gestures
+    if (Math.abs(dx) < 50 || Math.abs(dy) > 80) return;
+
+    const activeTab = document.querySelector('.tab.active');
+    if (!activeTab) return;
+
+    const currentIndex = tabs.indexOf(activeTab.id);
+    if (currentIndex === -1) return;
+
+    const nextIndex = dx < 0
+      ? Math.min(currentIndex + 1, tabs.length - 1)  // swipe left → next tab
+      : Math.max(currentIndex - 1, 0);               // swipe right → prev tab
+
+    if (nextIndex === currentIndex) return;
+
+    // Delegate to the existing nav-btn click handler so app.js tab logic runs
+    const btn = document.querySelector(`.nav-btn[data-tab="${tabs[nextIndex]}"]`);
+    if (btn) btn.click();
+  }, { passive: true });
+})();
+
+
+// ─── T2. PULL-DOWN-TO-REFRESH PREVENTION ─────────────────────────────────────
+// Blocks iOS rubber-band pull-to-refresh when a modal-box is at scroll top
+// and has no scrollable content. Non-passive so preventDefault() can fire.
+(function preventPullRefresh() {
+  function attachToBox(box) {
+    box.addEventListener('touchmove', e => {
+      if (box.scrollTop === 0 && e.touches[0].clientY > 0) {
+        // Only block when the box itself has nothing to scroll
+        if (box.scrollHeight <= box.clientHeight) e.preventDefault();
+      }
+    }, { passive: false });
+  }
+
+  // Attach to any modal-box already in the DOM
+  document.querySelectorAll('.modal-box').forEach(attachToBox);
+
+  // Also catch modal-boxes injected dynamically
+  new MutationObserver(mutations => {
+    mutations.forEach(m => {
+      m.addedNodes.forEach(node => {
+        if (node.nodeType !== 1) return;
+        if (node.classList && node.classList.contains('modal-box')) {
+          attachToBox(node);
+        }
+        node.querySelectorAll && node.querySelectorAll('.modal-box').forEach(attachToBox);
+      });
+    });
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+
+
+// ─── T3. TOUCH FEEDBACK (NO HOVER ON MOBILE) ─────────────────────────────────
+// Provides immediate visual feedback on tap since :hover is unreliable on touch.
+// Nav-btn already has a spring scale on click (section 6); these touchstart/end
+// listeners add a faster leading-edge response without duplicating click logic.
+(function touchFeedback() {
+  if (!('ontouchstart' in window)) return;
+
+  // ── Nav buttons ──
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('touchstart', () => {
+      anime({ targets: btn, scale: 0.92, duration: 80, easing: 'easeOutQuad' });
+    }, { passive: true });
+
+    btn.addEventListener('touchend', () => {
+      anime({ targets: btn, scale: 1, duration: 200, easing: 'easeOutElastic(1, 0.5)' });
+    }, { passive: true });
+
+    // Restore scale if the finger slides off without lifting
+    btn.addEventListener('touchcancel', () => {
+      anime({ targets: btn, scale: 1, duration: 200, easing: 'easeOutQuad' });
+    }, { passive: true });
+  });
+
+  // ── Generate / primary CTA ──
+  const genBtn = document.getElementById('btnGenerar');
+  if (genBtn) {
+    genBtn.addEventListener('touchstart', () => {
+      anime({ targets: genBtn, scale: 0.97, duration: 80, easing: 'easeOutQuad' });
+    }, { passive: true });
+
+    genBtn.addEventListener('touchend', () => {
+      anime({ targets: genBtn, scale: 1, duration: 300, easing: 'easeOutElastic(1, 0.5)' });
+    }, { passive: true });
+
+    genBtn.addEventListener('touchcancel', () => {
+      anime({ targets: genBtn, scale: 1, duration: 200, easing: 'easeOutQuad' });
+    }, { passive: true });
+  }
+
+  // ── Gallery cards — delegated so dynamically added cards are covered ──
+  document.addEventListener('touchstart', e => {
+    const card = e.target.closest('.tanda');
+    if (!card) return;
+    anime({ targets: card, scale: 0.97, duration: 80, easing: 'easeOutQuad' });
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    const card = e.target.closest('.tanda');
+    if (!card) return;
+    anime({ targets: card, scale: 1, duration: 300, easing: 'easeOutElastic(1, 0.5)' });
+  }, { passive: true });
+
+  document.addEventListener('touchcancel', e => {
+    const card = e.target.closest('.tanda');
+    if (!card) return;
+    anime({ targets: card, scale: 1, duration: 200, easing: 'easeOutQuad' });
+  }, { passive: true });
+})();
