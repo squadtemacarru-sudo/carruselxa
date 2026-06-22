@@ -1140,5 +1140,150 @@ app.post('/preview/broadcast', express.json(), (req, res) => {
   res.status(204).end();
 });
 
+// ─────────────────────────────────────────────────────────────────────
+// Chat conversacional — asistente de IA para gestionar carruseles
+// ─────────────────────────────────────────────────────────────────────
+app.post('/api/chat', async (req, res) => {
+  const { message, history = [], marca: marcaId = 'squadteam' } = req.body || {};
+  if (!message || typeof message !== 'string') return res.status(400).json({ error: 'Falta message' });
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+
+  // Cargar lista de tandas para dar contexto a la IA
+  const dir = path.join(__dirname, 'tandas');
+  let tandas = [];
+  try {
+    const folders = await readdir(dir);
+    for (const f of folders) {
+      const outDir = path.join(dir, f, 'output');
+      let slides;
+      try { slides = (await readdir(outDir)).filter(x => x.endsWith('.png')).sort(); } catch { continue; }
+      if (!slides.length) continue;
+
+      let tema = f;
+      try {
+        const c = JSON.parse(await readFile(path.join(dir, f, 'contenido.json'), 'utf-8'));
+        const cover = c.slides?.find(s => s.type === 'cover');
+        tema = (cover?.headline || tema).replace(/\n/g, ' ');
+      } catch {}
+
+      let estado = 'nuevo';
+      try { estado = JSON.parse(await readFile(path.join(dir, f, 'estado.json'), 'utf-8')).estado || 'nuevo'; } catch {}
+
+      const ts = Number(f.split('_')[0]) || 0;
+      const fecha = ts ? new Date(ts).toLocaleDateString('es-UY') : '?';
+      tandas.push({ id: f, tema, fecha, estado, slides: slides.length });
+    }
+    tandas.sort((a, b) => (Number(b.id.split('_')[0]) || 0) - (Number(a.id.split('_')[0]) || 0));
+  } catch {}
+
+  // Info de la marca
+  let marca = {};
+  try { marca = JSON.parse(await readFile(path.join(__dirname, 'marcas', marcaId, 'marca.json'), 'utf-8')); } catch {}
+
+  const tandasResumen = tandas.length
+    ? tandas.slice(0, 20).map(t => `- ID: ${t.id} | Tema: "${t.tema}" | ${t.slides} slides | ${t.fecha} | Estado: ${t.estado}`).join('\n')
+    : 'No hay carruseles generados todavía.';
+
+  // Si la conversación menciona una tanda específica, cargar su contenido para contexto
+  const allText = history.slice(-6).map(h => h.content).concat([message]).join(' ');
+  const mentionedId = tandas.find(t => allText.includes(t.id))?.id
+    || tandas.find(t => allText.toLowerCase().includes(t.tema.toLowerCase().slice(0, 20)))?.id;
+
+  let tandaContexto = '';
+  if (mentionedId) {
+    try {
+      const tc = JSON.parse(await readFile(path.join(__dirname, 'tandas', mentionedId, 'contenido.analizado.json'), 'utf-8'));
+      const slidesInfo = tc.slides.map((s, i) => {
+        const titulo = s.headline || s.title || (Array.isArray(s.headline_lines) ? s.headline_lines.join(' ') : '') || s.stat || '';
+        const sub = s.subheadline || s.body || s.caption || '';
+        return `  Slide ${i + 1} (${s.type}): headline="${titulo}"${sub ? ` | sub="${sub}"` : ''}${s.photo ? ' | [tiene foto de fondo]' : ''}`;
+      }).join('\n');
+      tandaContexto = `\n\nCONTENIDO DEL CARRUSEL ${mentionedId}:\n${slidesInfo}`;
+    } catch {}
+  }
+
+  const systemPrompt = `Sos el asistente de CarruselGen para la marca "${marca.nombre || marcaId}".
+Ayudás al usuario a gestionar sus carruseles de Instagram generados con IA.
+
+CARRUSELES DISPONIBLES (más recientes primero):
+${tandasResumen}${tandaContexto}
+
+ACCIONES QUE PODÉS TOMAR:
+Cuando el usuario quiera realizar una acción concreta, incluí al final de tu respuesta un bloque de acción en este formato exacto:
+<action>{"type":"TIPO","params":{...}}</action>
+
+Tipos de acción disponibles:
+- show_tanda: { "id": "tanda_id" } — abre el carrusel en la galería
+- generate: { "tema": "tema del carrusel" } — genera un nuevo carrusel
+- set_estado: { "id": "tanda_id", "estado": "guardado" } — marca como "guardado" o "descartado"
+- go_tab: { "tab": "tab-galeria" } — navega a una pestaña (tab-generar, tab-galeria, tab-fotos, tab-config)
+- open_editor: { "id": "tanda_id", "slide": 1 } — abre el editor visual para ese carrusel (slide es opcional, 1-based)
+- edit_slide: { "id": "tanda_id", "slide": 3, "fields": { "headline": "nuevo texto" } } — edita campos de texto de un slide y re-renderiza. Campos posibles: headline, subheadline, body, caption, kicker, eyebrow, stat, label, note, detail, sub, attr, footer_text
+
+REGLAS:
+- Respondé siempre en español rioplatense, de forma amigable y concisa.
+- Si el usuario menciona un carrusel por tema o número de orden, identificá el ID correcto de la lista.
+- Si el usuario quiere generar algo nuevo, usá la acción generate.
+- Podés hacer UNA SOLA acción por respuesta.
+- Si el usuario quiere cambiar el texto de un slide específico, usá edit_slide — SÍ podés editar slides directamente.
+- Si el usuario pide editar algo visualmente complejo (cambiar una foto, el layout), sugerí open_editor.
+- Mantené las respuestas cortas (máximo 3 oraciones) a menos que el usuario pida detalles.`;
+
+  const messages = [
+    ...history.slice(-10).map(h => ({ role: h.role, content: h.content })),
+    { role: 'user', content: message }
+  ];
+
+  try {
+    const raw = await bbFetch({ max_tokens: 600, system: systemPrompt, messages });
+
+    const actionMatch = raw.match(/<action>([\s\S]*?)<\/action>/);
+    let action = null;
+    let reply = raw.replace(/<action>[\s\S]*?<\/action>/g, '').trim();
+
+    if (actionMatch) {
+      try { action = JSON.parse(actionMatch[1]); } catch {}
+    }
+
+    // Ejecutar edit_slide server-side
+    if (action?.type === 'edit_slide') {
+      const { id: tandaId, slide: slideNum, fields } = action.params || {};
+      if (isValidTandaId(tandaId) && slideNum && fields) {
+        try {
+          const contenidoPath = path.join(__dirname, 'tandas', tandaId, 'contenido.analizado.json');
+          const contenido = JSON.parse(await readFile(contenidoPath, 'utf-8'));
+          const idx = Number(slideNum) - 1;
+          if (contenido.slides[idx]) {
+            Object.assign(contenido.slides[idx], fields);
+            await writeFile(contenidoPath, JSON.stringify(contenido, null, 2), 'utf-8');
+
+            // Disparar re-render en background si no hay job corriendo
+            if (!jobRunning) {
+              jobRunning = true;
+              jobLog = [];
+              const extraEnv = {};
+              if (fotosCloud.size > 0) {
+                const mapObj = {};
+                for (const [n, { url }] of fotosCloud.entries()) mapObj[n] = url;
+                extraEnv.FOTOS_MAP = JSON.stringify(mapObj);
+              }
+              runStep(['generar.mjs', `tandas/${tandaId}/contenido.analizado.json`], extraEnv)
+                .catch(e => broadcast(`\n❌ ${e.message}\n`))
+                .finally(() => { jobRunning = false; });
+            }
+            action.executed = true;
+          }
+        } catch (e) {
+          reply += `\n(Error al aplicar la edición: ${e.message})`;
+        }
+      }
+    }
+
+    res.json({ reply, action });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🎬 Carrusel Generator UI → http://localhost:${PORT}`));

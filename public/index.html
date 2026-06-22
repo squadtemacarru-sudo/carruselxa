@@ -106,6 +106,29 @@
     <p id="galeriaEmpty" class="empty-msg hidden">Todavía no hay carruseles generados.</p>
   </section>
 
+  <!-- ── TAB: ASISTENTE ──────────────────────────────── -->
+  <section class="tab" id="tab-chat">
+    <div class="chat-wrap">
+      <div id="chatMessages" class="chat-messages">
+        <div class="chat-bubble chat-ai">
+          <div class="chat-avatar">AI</div>
+          <div class="chat-text">¡Hola! Soy tu asistente de carruseles. Podés pedirme que genere un nuevo carrusel, que te muestre los que ya tenés, o que guarde o descarte alguno. ¿En qué te ayudo?</div>
+        </div>
+      </div>
+      <div class="chat-suggestions" id="chatSuggestions">
+        <button class="chat-suggestion" data-msg="¿Qué carruseles tengo?">Ver mis carruseles</button>
+        <button class="chat-suggestion" data-msg="Generá un carrusel sobre los 5 errores más comunes al entrenar">Nuevo carrusel</button>
+        <button class="chat-suggestion" data-msg="Guardá el carrusel más reciente">Guardar el último</button>
+      </div>
+      <form class="chat-input-row" id="chatForm">
+        <textarea id="chatInput" class="chat-input" placeholder="Escribí tu mensaje..." rows="1"></textarea>
+        <button type="submit" class="chat-send" id="chatSend">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </form>
+    </div>
+  </section>
+
   <!-- ── TAB: CONFIGURAR ───────────────────────────── -->
   <section class="tab" id="tab-config">
 
@@ -266,6 +289,10 @@
     <button class="nav-btn" data-tab="tab-galeria">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       <span>Galería</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-chat">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span>Asistente</span>
     </button>
     <button class="nav-btn" data-tab="tab-config">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>

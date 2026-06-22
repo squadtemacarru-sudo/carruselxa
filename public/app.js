@@ -1580,6 +1580,224 @@ function renderFontPairGrid() {
   });
 }
 
+// ── CHAT / ASISTENTE ──────────────────────────────────
+(function initChat() {
+  const form        = $('#chatForm');
+  const input       = $('#chatInput');
+  const messages    = $('#chatMessages');
+  const sendBtn     = $('#chatSend');
+  const suggestions = $('#chatSuggestions');
+  if (!form) return;
+
+  let chatHistory = []; // { role: 'user'|'assistant', content: string }
+
+  function scrollBottom() {
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function addBubble(role, text, actionCard = null) {
+    const wrap = document.createElement('div');
+    wrap.className = `chat-bubble chat-${role === 'user' ? 'user' : 'ai'}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-avatar';
+    avatar.textContent = role === 'user' ? 'TÚ' : 'AI';
+
+    const textEl = document.createElement('div');
+    textEl.className = 'chat-text';
+    textEl.textContent = text;
+
+    wrap.appendChild(avatar);
+    const right = document.createElement('div');
+    right.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-width:calc(100% - 50px)';
+    right.appendChild(textEl);
+    if (actionCard) right.appendChild(actionCard);
+    wrap.appendChild(right);
+
+    messages.appendChild(wrap);
+    scrollBottom();
+    return wrap;
+  }
+
+  function addTyping() {
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-bubble chat-ai chat-typing';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-avatar';
+    avatar.textContent = 'AI';
+
+    const textEl = document.createElement('div');
+    textEl.className = 'chat-text';
+    for (let i = 0; i < 3; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'chat-dot';
+      textEl.appendChild(dot);
+    }
+
+    wrap.appendChild(avatar);
+    wrap.appendChild(textEl);
+    messages.appendChild(wrap);
+    scrollBottom();
+    return wrap;
+  }
+
+  function buildActionCard(action) {
+    if (!action) return null;
+    const card = document.createElement('div');
+    card.className = 'chat-action-card';
+
+    const label = document.createElement('span');
+    label.className = 'chat-action-label';
+
+    const btn = document.createElement('button');
+    btn.className = 'chat-action-btn';
+
+    if (action.type === 'show_tanda') {
+      label.textContent = `Ver carrusel`;
+      btn.textContent = 'Abrir';
+      btn.addEventListener('click', () => {
+        // Switch to gallery tab and highlight the tanda
+        switchTab('tab-galeria');
+        setTimeout(() => {
+          const el = document.querySelector(`[data-tanda-id="${action.params.id}"]`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      });
+    } else if (action.type === 'generate') {
+      label.textContent = `Generar: "${action.params.tema}"`;
+      btn.textContent = 'Generar';
+      btn.addEventListener('click', () => {
+        switchTab('tab-generar');
+        const temaInput = $('#temaInput');
+        if (temaInput) temaInput.value = action.params.tema;
+        setTimeout(() => $('#btnGenerar')?.click(), 200);
+      });
+    } else if (action.type === 'set_estado') {
+      label.textContent = `Marcar como ${action.params.estado}`;
+      btn.textContent = 'Confirmar';
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+          await fetch(`/api/tandas/${action.params.id}/estado`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: action.params.estado })
+          });
+          btn.textContent = '✓ Listo';
+          setTimeout(() => cargarGaleria(), 500);
+        } catch { btn.textContent = 'Error'; }
+      });
+    } else if (action.type === 'go_tab') {
+      label.textContent = `Ir a ${action.params.tab.replace('tab-', '')}`;
+      btn.textContent = 'Ir';
+      btn.addEventListener('click', () => switchTab(action.params.tab));
+    } else if (action.type === 'open_editor') {
+      label.textContent = `Abrir editor`;
+      btn.textContent = 'Editar';
+      btn.addEventListener('click', () => {
+        // Find the tanda in gallery and trigger its edit button
+        switchTab('tab-galeria');
+        setTimeout(() => {
+          const el = document.querySelector(`[data-tanda-id="${action.params.id}"]`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.querySelector?.('.btn-edit')?.click();
+          }
+        }, 400);
+      });
+    } else if (action.type === 'edit_slide') {
+      if (action.executed) {
+        label.textContent = `Slide ${action.params.slide} editado — re-renderizando`;
+        btn.textContent = 'Ver galería';
+        btn.addEventListener('click', () => {
+          switchTab('tab-galeria');
+          setTimeout(() => cargarGaleria(), 1000);
+        });
+      } else {
+        label.textContent = `Editar slide ${action.params.slide}`;
+        btn.textContent = 'Ver galería';
+        btn.addEventListener('click', () => switchTab('tab-galeria'));
+      }
+    } else {
+      return null;
+    }
+
+    card.appendChild(label);
+    card.appendChild(btn);
+    return card;
+  }
+
+  async function sendMessage(text) {
+    if (!text.trim()) return;
+    if (sendBtn.disabled) return;
+
+    suggestions.style.display = 'none';
+    sendBtn.disabled = true;
+    input.value = '';
+    input.style.height = 'auto';
+
+    addBubble('user', text);
+    chatHistory.push({ role: 'user', content: text });
+
+    const typingEl = addTyping();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history: chatHistory.slice(-10), marca: marcaActual })
+      });
+      const data = await res.json();
+      typingEl.remove();
+
+      const actionCard = buildActionCard(data.action);
+      addBubble('assistant', data.reply || 'Lo siento, no pude procesar eso.', actionCard);
+      chatHistory.push({ role: 'assistant', content: data.reply || '' });
+
+      // Auto-execute non-destructive navigation actions
+      if (data.action?.type === 'go_tab') {
+        switchTab(data.action.params.tab);
+      }
+      // If slide was edited server-side, refresh gallery in background
+      if (data.action?.type === 'edit_slide' && data.action.executed) {
+        setTimeout(() => cargarGaleria(), 4000);
+      }
+    } catch (e) {
+      typingEl.remove();
+      addBubble('assistant', 'Hubo un error al conectarme con la IA. Intentá de nuevo.');
+    }
+
+    sendBtn.disabled = false;
+    input.focus();
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    sendMessage(input.value.trim());
+  });
+
+  // Auto-resize textarea
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  });
+
+  // Enter to send (Shift+Enter for newline)
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input.value.trim());
+    }
+  });
+
+  // Suggestion chips
+  suggestions.querySelectorAll('.chat-suggestion').forEach(btn => {
+    btn.addEventListener('click', () => sendMessage(btn.dataset.msg));
+  });
+})();
+
 // ── INIT ──────────────────────────────────────────────
 (async () => {
   await cargarMarcas();
