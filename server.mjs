@@ -831,6 +831,47 @@ app.put('/api/tandas/:id/estado', async (req, res) => {
   const { estado } = req.body;
   if (!['nuevo', 'guardado', 'descartado'].includes(estado)) return res.status(400).json({ error: 'estado inválido' });
   await writeFile(path.join(__dirname, 'tandas', id, 'estado.json'), JSON.stringify({ estado }, null, 2), 'utf-8');
+
+  // Al aprobar: subir slides a Cloudinary si todavía no están subidos
+  if (estado === 'guardado' && CLD_CLOUD && CLD_PRESET) {
+    const outDir = path.join(__dirname, 'tandas', id, 'output');
+    const cldFile = path.join(outDir, 'cloudinary.json');
+    let alreadyUploaded = false;
+    try {
+      const existing = JSON.parse(await readFile(cldFile, 'utf-8'));
+      alreadyUploaded = Array.isArray(existing) && existing.length > 0 && existing[0]?.startsWith('http');
+    } catch {}
+
+    if (!alreadyUploaded) {
+      (async () => {
+        try {
+          let slides = [];
+          try { slides = (await readdir(outDir)).filter(f => /^slide-0\d\.png$/.test(f)).sort(); } catch {}
+          if (!slides.length) return;
+          console.log(`☁️  Auto-subiendo ${slides.length} slides de ${id} a Cloudinary...`);
+          const folder = `carrusel-generator/${id}`;
+          const urls = [];
+          for (const s of slides) {
+            const buf = await readFile(path.join(outDir, s));
+            const form = new FormData();
+            form.append('file', new Blob([buf], { type: 'image/png' }), s);
+            form.append('upload_preset', CLD_PRESET);
+            form.append('folder', folder);
+            const r = await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/image/upload`, { method: 'POST', body: form });
+            const d = await r.json();
+            const url = d.secure_url || null;
+            urls.push(url);
+            console.log(`  ↑ ${s} → ${url}`);
+          }
+          await writeFile(cldFile, JSON.stringify(urls.filter(Boolean), null, 2), 'utf-8');
+          console.log(`✅ Cloudinary: ${id} guardado`);
+        } catch (e) {
+          console.error(`❌ Cloudinary auto-upload error (${id}):`, e.message);
+        }
+      })();
+    }
+  }
+
   res.json({ ok: true });
 });
 
@@ -1218,6 +1259,227 @@ app.post('/preview/broadcast', express.json(), (req, res) => {
   const payload = `data: ${JSON.stringify(event)}\n\n`;
   for (const client of previewClients) { try { client.write(payload); } catch {} }
   res.status(204).end();
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Consola — comandos directos + chat con IA
+// ─────────────────────────────────────────────────────────────────────
+app.post('/api/consola', async (req, res) => {
+  const input  = (req.body.input || '').trim();
+  const marca  = req.body.marca || 'squadteam';
+  if (!input) return res.json({ lines: [] });
+
+  // Comandos directos (empiezan con /)
+  if (input.startsWith('/')) {
+    const [cmd, ...args] = input.slice(1).trim().split(/\s+/);
+
+    switch (cmd.toLowerCase()) {
+
+      case 'help':
+        return res.json({ lines: [
+          '  /listar             — lista las últimas 10 tandas',
+          '  /info <id>          — detalle de una tanda',
+          '  /generar <tema>     — genera un carrusel nuevo',
+          '  /analizar <id>      — re-analiza una tanda existente',
+          '  /guardar <id>       — marca una tanda como guardada',
+          '  /descartar <id>     — marca una tanda como descartada',
+          '  /fotos              — lista las fotos disponibles',
+          '  /help               — muestra este mensaje',
+          '',
+          '  También podés escribir en lenguaje natural y la IA interpreta.',
+        ]});
+
+      case 'listar': {
+        const dir = path.join(__dirname, 'tandas');
+        let folders = [];
+        try { folders = await readdir(dir); } catch {}
+        const items = [];
+        for (const f of folders) {
+          let tema = f;
+          try {
+            const c = JSON.parse(await readFile(path.join(dir, f, 'contenido.json'), 'utf-8'));
+            const cover = c.slides?.find(s => s.type === 'cover');
+            tema = (cover?.headline || tema).replace(/\n/g, ' ').slice(0, 60);
+          } catch {}
+          let estado = 'nuevo';
+          try {
+            const e = JSON.parse(await readFile(path.join(dir, f, 'estado.json'), 'utf-8'));
+            estado = e.estado || 'nuevo';
+          } catch {}
+          const ts = Number(f.split('_')[0]) || 0;
+          items.push({ id: f, tema, estado, ts });
+        }
+        items.sort((a, b) => b.ts - a.ts);
+        const last10 = items.slice(0, 10);
+        if (!last10.length) return res.json({ lines: ['  (no hay tandas todavía)'] });
+        return res.json({ lines: last10.map(t => `  [${t.estado}] ${t.id}  —  ${t.tema}`) });
+      }
+
+      case 'info': {
+        const id = args[0];
+        if (!id || !isValidTandaId(id)) return res.json({ lines: ['  ✗ id inválido. Uso: /info <id>'] });
+        try {
+          const c = JSON.parse(await readFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), 'utf-8'));
+          const estado = JSON.parse(await readFile(path.join(__dirname, 'tandas', id, 'estado.json'), 'utf-8')).estado || 'nuevo';
+          const lines = [
+            `  id:     ${id}`,
+            `  estado: ${estado}`,
+            `  marca:  ${c._marca || '—'}`,
+            `  slides: ${c.slides?.length || 0}`,
+            ...( c.slides || []).map((s, i) => `    slide ${i+1} [${s.type}]: ${(s.headline || s.title || s.stat || '').replace(/\n/g,' ').slice(0,50)}`),
+          ];
+          return res.json({ lines });
+        } catch {
+          return res.json({ lines: [`  ✗ Tanda no encontrada: ${id}`] });
+        }
+      }
+
+      case 'generar': {
+        const tema = args.join(' ');
+        if (!tema) return res.json({ lines: ['  ✗ Uso: /generar <tema del carrusel>'] });
+        if (jobRunning) return res.json({ lines: ['  ✗ Ya hay una generación en curso. Esperá a que termine.'] });
+        // Inicia el job y responde con streaming:true para que el frontend conecte al SSE
+        jobRunning = true;
+        jobLog = [];
+        res.json({ lines: [`  ▶ Generando: "${tema}"...`, '  Conectando al log en vivo...'], streaming: true });
+        (async () => {
+          try {
+            const carpeta = path.join('tandas', `${Date.now()}_${slugify(tema)}`);
+            broadcast(`\n=== Consola: Generando "${tema}" (marca: ${marca}) ===\n`);
+            await runStep(['crear.mjs', tema, carpeta, marca]);
+            await runStep(['analizar.mjs', `${carpeta}/contenido.json`]);
+            await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`]);
+            broadcast(`\n✅ Listo: ${carpeta}\n`);
+          } catch(e) {
+            broadcast(`\n❌ Error: ${e.message}\n`);
+          } finally {
+            jobRunning = false;
+          }
+        })();
+        return;
+      }
+
+      case 'analizar': {
+        const id = args[0];
+        if (!id || !isValidTandaId(id)) return res.json({ lines: ['  ✗ Uso: /analizar <id>'] });
+        if (jobRunning) return res.json({ lines: ['  ✗ Hay una generación en curso.'] });
+        const contenidoPath = `tandas/${id}/contenido.json`;
+        try { await readFile(path.join(__dirname, contenidoPath)); } catch {
+          return res.json({ lines: [`  ✗ Tanda no encontrada: ${id}`] });
+        }
+        jobRunning = true;
+        jobLog = [];
+        res.json({ lines: [`  ▶ Analizando ${id}...`], streaming: true });
+        (async () => {
+          try {
+            broadcast(`\n=== Consola: Analizando ${id} ===\n`);
+            await runStep(['analizar.mjs', contenidoPath]);
+            broadcast(`\n✅ Análisis completo\n`);
+          } catch(e) {
+            broadcast(`\n❌ Error: ${e.message}\n`);
+          } finally {
+            jobRunning = false;
+          }
+        })();
+        return;
+      }
+
+      case 'guardar':
+      case 'descartar': {
+        const id = args[0];
+        if (!id || !isValidTandaId(id)) return res.json({ lines: [`  ✗ Uso: /${cmd} <id>`] });
+        const estado = cmd === 'guardar' ? 'guardado' : 'descartado';
+        try {
+          await writeFile(path.join(__dirname, 'tandas', id, 'estado.json'), JSON.stringify({ estado }, null, 2));
+          return res.json({ lines: [`  ✓ Tanda ${id} marcada como ${estado}.`] });
+        } catch {
+          return res.json({ lines: [`  ✗ No se pudo actualizar: tanda no encontrada`] });
+        }
+      }
+
+      case 'fotos': {
+        const lista = [...fotosCloud.entries()];
+        if (!lista.length) return res.json({ lines: ['  (no hay fotos subidas)'] });
+        return res.json({ lines: lista.map(([nombre]) => `  ${nombre}`) });
+      }
+
+      default:
+        return res.json({ lines: [`  ✗ Comando desconocido: /${cmd}. Escribí /help para ver los comandos.`] });
+    }
+  }
+
+  // ── Chat con IA (lenguaje natural) ──
+  try {
+    // Contexto: últimas 5 tandas
+    let tandaCtx = '';
+    try {
+      const dir = path.join(__dirname, 'tandas');
+      const folders = await readdir(dir);
+      const sorted = folders
+        .map(f => ({ id: f, ts: Number(f.split('_')[0]) || 0 }))
+        .sort((a,b) => b.ts - a.ts)
+        .slice(0, 5);
+      tandaCtx = sorted.map(t => `- ${t.id}`).join('\n');
+    } catch {}
+
+    const systemPrompt = `Sos el asistente de control de Carruselesgen — un generador de carruseles de Instagram.
+El usuario puede pedirte cosas en lenguaje natural y vos respondés con una acción JSON.
+
+Tandas recientes disponibles:
+${tandaCtx || '(ninguna)'}
+
+Comandos disponibles: /listar, /info <id>, /generar <tema>, /analizar <id>, /guardar <id>, /descartar <id>, /fotos
+
+Respondé SOLO con un JSON así:
+{ "mensaje": "texto para mostrarle al usuario", "comando": "/comando a ejecutar o null si no hay acción" }
+
+Ejemplos:
+Usuario: "mostrá las últimas tandas"
+{ "mensaje": "Listando las últimas tandas:", "comando": "/listar" }
+
+Usuario: "generá un carrusel sobre los errores que cometen los emprendedores"
+{ "mensaje": "Generando carrusel sobre ese tema...", "comando": "/generar los errores que cometen los emprendedores" }
+
+Usuario: "¿cuántas fotos tengo?"
+{ "mensaje": "Revisando las fotos disponibles:", "comando": "/fotos" }
+
+Usuario: "hola"
+{ "mensaje": "Hola. Podés escribir /help para ver qué puedo hacer, o pedirme algo en lenguaje natural.", "comando": null }`;
+
+    const raw = await callBlackboxText(`${systemPrompt}\n\nUsuario: "${input}"`, 300);
+    let parsed;
+    try {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+    } catch {
+      return res.json({ lines: [`  IA: ${raw.slice(0, 200)}`] });
+    }
+
+    const mensaje = parsed.mensaje || '';
+    const comando = parsed.comando || null;
+
+    if (!comando) {
+      return res.json({ lines: mensaje ? [`  IA: ${mensaje}`] : ['  (sin respuesta)'] });
+    }
+
+    // Ejecutar el comando que sugirió la IA recursivamente
+    const subRes = await fetch(`http://localhost:${process.env.PORT || 3000}/api/consola`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: req.headers.cookie || '' },
+      body: JSON.stringify({ input: comando, marca })
+    });
+    const subData = await subRes.json();
+    return res.json({
+      lines: [
+        ...(mensaje ? [`  IA: ${mensaje}`] : []),
+        ...(subData.lines || [])
+      ],
+      streaming: subData.streaming,
+    });
+
+  } catch(e) {
+    return res.json({ lines: [`  ✗ Error IA: ${e.message}`] });
+  }
 });
 
 const PORT = process.env.PORT || 3000;

@@ -121,8 +121,11 @@ function connectStream() {
     }
     if (isDone) {
       setRunning(false);
-      cargarGaleria();
-      document.querySelector('.nav-btn[data-tab="tab-galeria"]')?.click();
+      // Esperar 1.5s para que el server termine de escribir archivos antes de recargar
+      setTimeout(async () => {
+        await cargarGaleria();
+        document.querySelector('.nav-btn[data-tab="tab-galeria"]')?.click();
+      }, 1500);
     }
     if (isError) { setRunning(false); logStatus.style.color = 'var(--red)'; logStatus.textContent = 'Error'; }
   };
