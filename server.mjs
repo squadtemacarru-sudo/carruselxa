@@ -312,13 +312,19 @@ app.post('/api/generar-story', async (req, res) => {
       if (req.body.fuenteId) extraEnv.USER_FUENTE_ID = req.body.fuenteId;
       if (req.body.paletaId) extraEnv.USER_PALETA_ID = req.body.paletaId;
       if (req.body.instruccionesLibres) extraEnv.USER_INSTRUCCIONES = req.body.instruccionesLibres;
+      if (fotosCloud.size > 0) {
+        const mapObj = {};
+        for (const [n, { url }] of fotosCloud.entries()) mapObj[n] = url;
+        extraEnv.FOTOS_MAP = JSON.stringify(mapObj);
+        extraEnv.USER_FOTOS = [...fotosCloud.keys()].join(',');
+      }
 
       try {
         const mData = JSON.parse(await readFile(path.join(__dirname, 'marcas', marcaId, 'marca.json'), 'utf-8'));
         if (mData.handle) extraEnv.USER_HANDLE = mData.handle;
       } catch {}
 
-      await runStep(['crear-story.mjs', tema, carpeta, marcaId], extraEnv);
+      await runStep(['crear-story.mjs', tema, carpeta, marcaId, extraEnv.USER_FOTOS || ''], extraEnv);
       await runStep(['analizar.mjs', `${carpeta}/contenido.json`], extraEnv);
       await runStep(['generar-story.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
 
