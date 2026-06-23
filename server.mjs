@@ -1467,7 +1467,7 @@ app.post('/api/chat', async (req, res) => {
   }
 
   const systemPrompt = `Sos el asistente de CarruselGen para la marca "${marca.nombre || marcaId}".
-Ayudas al usuario a gestionar sus carruseles de Instagram generados con IA.
+Ayudas al usuario a gestionar y crear carruseles e historias de Instagram generados con IA.
 El handle de Instagram de la marca es: ${marca.handle || '@tumarca'}
 
 CARRUSELES DISPONIBLES (mas recientes primero):
@@ -1479,11 +1479,26 @@ Cuando el usuario quiera realizar una accion concreta, inclui EXACTAMENTE este b
 
 Tipos de accion disponibles:
 - show_tanda: { "id": "tanda_id" } — abre el carrusel en la galeria
-- generate: { "tema": "tema del carrusel" } — genera un nuevo carrusel
 - set_estado: { "id": "tanda_id", "estado": "guardado" } — marca como "guardado" o "descartado"
 - go_tab: { "tab": "tab-galeria" } — navega a una pestana
 - open_editor: { "id": "tanda_id", "slide": 1 } — abre el editor visual
 - edit_slide: { "id": "tanda_id", "slide": 3, "fields": { "headline": "nuevo texto" } } — edita campos de texto de un slide y RE-RENDERIZA automaticamente. Campos: headline, subheadline, body, caption, kicker, eyebrow, stat, label, note, detail, sub, attr, footer_text, handle
+- propose_plan: { "format": "carrusel"|"story", "tema": "resumen del tema acordado", "slides": [{"position":1,"type":"cover","title":"descripcion breve","notes":"que va aqui"},...] } — propone un plan de slides para que el usuario lo apruebe o modifique ANTES de generar
+- confirm_generate: { "format": "carrusel"|"story", "tema": "tema completo con todo el contexto acordado", "plan": [{"position":1,"type":"cover","title":"...","notes":"..."},...] } — ejecuta la generacion con el plan acordado. Usar SOLO cuando el usuario confirme explicitamente ("si", "dale", "generá", "asi esta bien", "perfecto").
+
+MODO PLANIFICADOR — REGLA PRINCIPAL:
+Cuando el usuario quiera crear algo NUEVO (carrusel, story, infograma, transformacion, etc.), NO uses confirm_generate directamente.
+Primero entendes el pedido, haces 1-2 preguntas clave si falta informacion, luego propones un plan con propose_plan.
+El usuario puede modificar el plan conversacionalmente. Solo cuando confirme, uses confirm_generate.
+
+Preguntas utiles segun el caso:
+- ¿Es para el feed (carrusel 4:5) o para historias (story 9:16)?
+- ¿Tiene fotos para usar o es tipografico?
+- ¿Cual es el objetivo: educar, vender, mostrar un resultado, contar un proceso?
+- Si es transformacion: ¿cuantas semanas, que cambio, hay testimonio del alumno?
+
+Tipos de slide disponibles para el plan:
+  cover, list, statement, quote, cta, split_v, before_after, big_number, timeline, grid, grid_stats, comparison, steps, icon_list
 
 REGLAS CRITICAS:
 - Usa SIEMPRE el ID exacto de la lista. NUNCA inventes o modifiques IDs.
@@ -1492,7 +1507,7 @@ REGLAS CRITICAS:
 - Si el usuario dice "el ultimo carrusel" o "ese carrusel", usa el ID marcado como [MAS RECIENTE].
 - El carrusel EN CONTEXTO es el que tenes detallado arriba. Refiere a ese por defecto salvo que el usuario pida otro.
 - Si el usuario pide editar multiples slides, edita uno por respuesta y avisa que seguiras con el proximo.
-- Responde en espanol rioplatense, amigable y conciso (maximo 3 oraciones).
+- Responde en espanol rioplatense, amigable y conciso.
 - Usa el historial del chat para mantener contexto.`;
 
   const messages = [
@@ -1540,6 +1555,40 @@ REGLAS CRITICAS:
         } catch (e) {
           reply += `\n(No pude aplicar la edicion: ${e.message})`;
         }
+      }
+    }
+
+    // Ejecutar confirm_generate server-side
+    if (action?.type === 'confirm_generate') {
+      const { format = 'carrusel', tema = '', plan = [] } = action.params || {};
+      if (!jobRunning && tema) {
+        jobRunning = true;
+        jobLog = [];
+        const extraEnv = {};
+        if (fotosCloud.size > 0) {
+          const mapObj = {};
+          for (const [n, { url }] of fotosCloud.entries()) mapObj[n] = url;
+          extraEnv.FOTOS_MAP = JSON.stringify(mapObj);
+        }
+        if (plan.length) extraEnv.USER_PLAN = JSON.stringify(plan);
+        const carpeta = path.join(format === 'story' ? 'stories' : 'tandas', `${Date.now()}_${slugify(tema)}`);
+        const scripts = format === 'story'
+          ? [['crear-story.mjs', tema, carpeta, marcaId], ['generar-story.mjs', `${carpeta}/contenido.json`]]
+          : [['crear.mjs', tema, carpeta, marcaId], ['analizar.mjs', `${carpeta}/contenido.json`], ['generar.mjs', `${carpeta}/contenido.analizado.json`]];
+        (async () => {
+          try {
+            broadcast(`\n=== Chat: Generando "${tema}" (${format}) ===\n`);
+            for (const step of scripts) await runStep(step, extraEnv);
+            broadcast(`\n✅ Listo: ${carpeta}\n`);
+          } catch (e) {
+            broadcast(`\n❌ ${e.message}\n`);
+          } finally { jobRunning = false; }
+        })();
+        action.executing = true;
+        action.carpeta = carpeta;
+      } else if (jobRunning) {
+        reply += '\n(Hay una generación en curso, esperá a que termine.)';
+        action = null;
       }
     }
 
