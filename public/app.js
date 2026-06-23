@@ -155,6 +155,12 @@ $('#btnGenerar').addEventListener('click', async () => {
   abrirWizardEstilo(tema);
 });
 
+// ── AUTO-GUARDADO DEL DRAFT ──────────────────────────
+const DRAFT_KEY = 'carruselgen_draft_tema';
+$('#temaInput').addEventListener('input', () => {
+  localStorage.setItem(DRAFT_KEY, $('#temaInput').value);
+});
+
 // ── WIZARD ESTILO ──────────────────────────────────
 const ESTILOS = [
   { id: 'minimal',      nombre: 'Minimal',       desc: 'Limpio, elegante, mucho espacio',     paleta: ['#f8f8f6','#0a0a0a','#e8e8e4','#1a1a2e'] },
@@ -186,17 +192,31 @@ const FUENTES = [
   { id: 'clash',           display: 'Clash Display',    body: 'Satoshi',           hint: 'Youth · streetwear · moderno',      url: 'https://fonts.googleapis.com/css2?family=Clash+Display:wght@600;700&family=Satoshi:wght@400;500&display=swap' },
 ];
 
+const PALETAS = [
+  { id: 'negro-lima',       nombre: 'Negro Lima',        desc: 'Energético · fitness · alto impacto',       preview: ['#040404','#e8ff00','#ffffff'] },
+  { id: 'blanco-negro',     nombre: 'Minimal Blanco',    desc: 'Limpio · premium · tipográfico',            preview: ['#fafafa','#0a0a0a','#555'] },
+  { id: 'negro-rojo',       nombre: 'Rojo Oscuro',       desc: 'Urgencia · agresivo · impacto',             preview: ['#0d0d0d','#e83030','#ffffff'] },
+  { id: 'crema-marron',     nombre: 'Editorial Crema',   desc: 'Sofisticado · editorial · café',            preview: ['#faf7f2','#8c6a4f','#1c1c1c'] },
+  { id: 'azul-cyan',        nombre: 'Tech Azul',         desc: 'Digital · startup · datos',                 preview: ['#020b18','#00cfff','#e8f4ff'] },
+  { id: 'violeta-amarillo', nombre: 'Vibrant Pop',       desc: 'Llamativo · creativo · joven',              preview: ['#1a0533','#f7e94b','#ff6b8a'] },
+  { id: 'verde-crema',      nombre: 'Nature Orgánico',   desc: 'Wellness · bienestar · natural',            preview: ['#1e3a2f','#a8d5b5','#f0f4ed'] },
+  { id: 'dorado-negro',     nombre: 'Dark Luxury',       desc: 'Oscuro · premium · lujo',                   preview: ['#0d0d0d','#c9a84c','#e8d5b0'] },
+  { id: 'blanco-naranja',   nombre: 'Energía Blanca',    desc: 'Limpio con punch · dinámico',               preview: ['#ffffff','#ff5722','#222'] },
+  { id: 'rosa-negro',       nombre: 'Fashion Dark',      desc: 'Moda · femenino · lifestyle oscuro',        preview: ['#0d0d0d','#e8658a','#f5e6ee'] },
+];
+
 let wizardTema        = '';
 let wizardEstiloId    = null;
 let wizardFuenteId    = null;
+let wizardPaletaId    = null;
 let fontLinksLoaded   = false;
 
 function abrirWizardEstilo(tema) {
   wizardTema     = tema;
   wizardEstiloId = null;
   wizardFuenteId = null;
+  wizardPaletaId = null;
 
-  // Render step 1
   const grid = $('#estiloGrid');
   grid.innerHTML = ESTILOS.map(e => `
     <div class="estilo-card" data-id="${e.id}">
@@ -217,11 +237,11 @@ function abrirWizardEstilo(tema) {
 
   $('#estiloStep1').classList.remove('hidden');
   $('#estiloStep2').classList.add('hidden');
+  $('#estiloStep3').classList.add('hidden');
   openModal($('#modalEstilo'));
 }
 
 function renderFuenteGrid() {
-  // Load all font links once
   if (!fontLinksLoaded) {
     FUENTES.forEach(f => {
       if (!document.querySelector(`link[data-font="${f.id}"]`)) {
@@ -249,7 +269,27 @@ function renderFuenteGrid() {
       grid.querySelectorAll('.fuente-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
       wizardFuenteId = card.dataset.id;
-      $('#fuenteBtnConfirmar').disabled = false;
+      $('#fuenteBtnNext2').disabled = false;
+    });
+  });
+}
+
+function renderPaletaGrid() {
+  const grid = $('#paletaGrid');
+  grid.innerHTML = PALETAS.map(p => `
+    <div class="paleta-card" data-id="${p.id}">
+      <div class="paleta-swatches">${p.preview.map(c => `<span class="paleta-swatch" style="background:${c}"></span>`).join('')}</div>
+      <p class="paleta-nombre">${p.nombre}</p>
+      <p class="paleta-desc">${p.desc}</p>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.paleta-card').forEach(card => {
+    card.addEventListener('click', () => {
+      grid.querySelectorAll('.paleta-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      wizardPaletaId = card.dataset.id;
+      $('#paletaBtnConfirmar').disabled = false;
     });
   });
 }
@@ -268,6 +308,7 @@ $('#estiloClose').addEventListener('click', cerrarWizard);
 $('#estiloBtnSaltear').addEventListener('click', () => {
   wizardEstiloId = null;
   wizardFuenteId = null;
+  wizardPaletaId = null;
   confirmarWizardYGenerar();
 });
 
@@ -284,10 +325,28 @@ $('#estiloBtnPrev').addEventListener('click', () => {
 
 $('#fuenteBtnSaltear').addEventListener('click', () => {
   wizardFuenteId = null;
+  $('#estiloStep2').classList.add('hidden');
+  $('#estiloStep3').classList.remove('hidden');
+  renderPaletaGrid();
+});
+
+$('#fuenteBtnNext2').addEventListener('click', () => {
+  $('#estiloStep2').classList.add('hidden');
+  $('#estiloStep3').classList.remove('hidden');
+  renderPaletaGrid();
+});
+
+$('#paletaBtnPrev').addEventListener('click', () => {
+  $('#estiloStep3').classList.add('hidden');
+  $('#estiloStep2').classList.remove('hidden');
+});
+
+$('#paletaBtnSaltear').addEventListener('click', () => {
+  wizardPaletaId = null;
   confirmarWizardYGenerar();
 });
 
-$('#fuenteBtnConfirmar').addEventListener('click', confirmarWizardYGenerar);
+$('#paletaBtnConfirmar').addEventListener('click', confirmarWizardYGenerar);
 
 // ── MODAL PREGUNTAR ───────────────────────────────────
 let preguntasActuales = [];
@@ -500,6 +559,7 @@ function collectRespuestas() {
 }
 
 async function dispararGenerar(respuestas = {}, instruccionesLibres = '') {
+  localStorage.removeItem(DRAFT_KEY);
   setRunning(true);
   const body = {
     tema: $('#temaInput').value.trim(),
@@ -509,6 +569,7 @@ async function dispararGenerar(respuestas = {}, instruccionesLibres = '') {
     instruccionesLibres,
     estiloId: wizardEstiloId || null,
     fuenteId: wizardFuenteId || null,
+    paletaId: wizardPaletaId || null,
   };
   if (fotosSeleccionadas.length) body.fotos = fotosSeleccionadas;
   const res = await fetch('/api/generar', {
@@ -787,7 +848,12 @@ function openLightbox(slides, index, tandaId = null) {
   $('#lightboxEdit').classList.toggle('hidden', !hasId);
   $('#lightboxCaption').classList.toggle('hidden', !hasId);
   $('#lightboxDuplicar').classList.toggle('hidden', !hasId);
+  $('#lightboxZip').classList.toggle('hidden', !hasId);
 }
+
+$('#lightboxZip').addEventListener('click', () => {
+  if (currentTandaId) window.location.href = '/api/tandas/' + currentTandaId + '/zip';
+});
 
 function showSlide() {
   const url = currentSlides[currentIndex];
@@ -1132,6 +1198,30 @@ async function editarTanda(tandaId) {
   renderEditorChips();
   renderEditorSlide(0);
   openModal($('#modalEditor'));
+  initEditorSwipe();
+}
+
+let editorSwipeTouchX = 0;
+
+function initEditorSwipe() {
+  const wrap = $('.editor-preview-wrap');
+  if (!wrap || wrap._swipeInited) return;
+  wrap._swipeInited = true;
+  wrap.addEventListener('touchstart', e => {
+    editorSwipeTouchX = e.touches[0].clientX;
+  }, { passive: true });
+  wrap.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - editorSwipeTouchX;
+    if (Math.abs(dx) < 50) return;
+    const total = editorContenido?.slides?.length || 1;
+    if (dx < 0) {
+      editorSlideIdx = (editorSlideIdx + 1) % total;
+    } else {
+      editorSlideIdx = (editorSlideIdx - 1 + total) % total;
+    }
+    renderEditorChips();
+    renderEditorSlide(editorSlideIdx);
+  }, { passive: true });
 }
 
 function renderEditorChips() {
@@ -1403,9 +1493,36 @@ function renderEditorSlide(idx) {
   });
 }
 
-$('#editorClose').addEventListener('click', () => closeModal($('#modalEditor')));
+$('#editorClose').addEventListener('click', () => {
+  clearInterval(editorLiveTimer);
+  editorLivePreview = false;
+  const btn = $('#btnLivePreview');
+  if (btn) btn.classList.remove('active');
+  closeModal($('#modalEditor'));
+});
 $('#btnUndo').addEventListener('click', editorUndo);
 $('#btnRedo').addEventListener('click', editorRedo);
+
+let editorLivePreview = false;
+let editorLiveTimer = null;
+
+$('#btnLivePreview').addEventListener('click', () => {
+  editorLivePreview = !editorLivePreview;
+  const btn = $('#btnLivePreview');
+  if (editorLivePreview) {
+    btn.classList.add('active');
+    btn.textContent = '◉ Viva';
+    editorLiveTimer = setInterval(() => {
+      const img = $('#editorSlideImg');
+      if (img) img.src = img.src.replace(/\?t=\d+/, '') + '?t=' + Date.now();
+    }, 3000);
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = '◎ Vista';
+    clearInterval(editorLiveTimer);
+    editorLiveTimer = null;
+  }
+});
 
 $('#btnRerenderizar').addEventListener('click', async () => {
   const btn = $('#btnRerenderizar');
@@ -1835,4 +1952,7 @@ function renderFontPairGrid() {
   cargarGaleria();
   checkStatus();
   connectStream();
+  // Restaurar draft del tema
+  const savedTema = localStorage.getItem(DRAFT_KEY);
+  if (savedTema) $('#temaInput').value = savedTema;
 })();

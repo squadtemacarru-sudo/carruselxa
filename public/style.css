@@ -1601,3 +1601,32 @@ body.modal-open { overflow: hidden; }
 }
 .chat-send:disabled { opacity: 0.4; cursor: default; }
 .chat-send svg { display: block; }
+
+/* ── PALETA DE COLORES WIZARD ─────────────────────── */
+.paleta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 16px;
+  overflow-y: auto;
+  max-height: 55vh;
+}
+.paleta-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.paleta-card.selected { border-color: var(--acc); }
+.paleta-swatches { display: flex; gap: 4px; margin-bottom: 8px; }
+.paleta-swatch { height: 20px; flex: 1; border-radius: 4px; }
+.paleta-nombre { font-size: 13px; font-weight: 600; }
+.paleta-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── LIVE PREVIEW BUTTON ──────────────────────────── */
+#btnLivePreview.active {
+  border-color: var(--acc);
+  color: var(--acc);
+}

@@ -24,6 +24,7 @@ const USER_HANDLE = process.env.USER_HANDLE || '';
 
 const USER_ESTILO_ID = process.env.USER_ESTILO_ID || '';
 const USER_FUENTE_ID = process.env.USER_FUENTE_ID || '';
+const USER_PALETA_ID = process.env.USER_PALETA_ID || '';
 
 const ESTILOS_HINTS = {
   'minimal':     'Estilo MINIMAL: fondo muy claro o blanco, texto oscuro, paleta muy reducida (máximo 2-3 colores), mucho espacio en blanco, tipografía ligera. Sin decoraciones recargadas. Paleta sugerida: fondo #f8f8f6, headline #0a0a0a, acento #1a1a2e.',
@@ -32,6 +33,19 @@ const ESTILOS_HINTS = {
   'vibrant':     'Estilo VIBRANT: colores vivos y saturados, fondo morado o azul fuerte, acentos amarillo eléctrico y rosa. Energético y llamativo. Paleta sugerida: fondo #6c2bd9, headline #ffffff, acento #f7e94b.',
   'dark-luxury': 'Estilo DARK LUXURY: fondos muy oscuros casi negros, tipografía en dorado o crema, detalles finos. Aspecto premium y sofisticado. Paleta sugerida: fondo #0d0d0d, headline #e8d5b0, acento #c9a84c.',
   'nature':      'Estilo NATURE: verdes naturales, fondos claros verdosos, paleta orgánica. Fresco y auténtico. Paleta sugerida: fondo #f0f4ed, headline #1e3a2f, acento #4a8c5c.',
+};
+
+const PALETAS_HINTS = {
+  'negro-lima':      { fondo: '#040404', acento: '#e8ff00', texto: '#ffffff' },
+  'blanco-negro':    { fondo: '#fafafa', acento: '#0a0a0a', texto: '#0a0a0a' },
+  'negro-rojo':      { fondo: '#0d0d0d', acento: '#e83030', texto: '#ffffff' },
+  'crema-marron':    { fondo: '#faf7f2', acento: '#8c6a4f', texto: '#1c1c1c' },
+  'azul-cyan':       { fondo: '#020b18', acento: '#00cfff', texto: '#e8f4ff' },
+  'violeta-amarillo':{ fondo: '#1a0533', acento: '#f7e94b', texto: '#ffffff' },
+  'verde-crema':     { fondo: '#1e3a2f', acento: '#a8d5b5', texto: '#f0f4ed' },
+  'dorado-negro':    { fondo: '#0d0d0d', acento: '#c9a84c', texto: '#e8d5b0' },
+  'blanco-naranja':  { fondo: '#ffffff', acento: '#ff5722', texto: '#111111' },
+  'rosa-negro':      { fondo: '#0d0d0d', acento: '#e8658a', texto: '#f5e6ee' },
 };
 
 const FUENTES_HINTS = {
@@ -389,7 +403,7 @@ ${memoriaContext(memoria)}GUÍAS DE COPY (aplicá lo que tenga sentido para este
 ${skillsDocs}
 ${referenciasIG ? `\nESTILO DE REFERENCIA (notas sobre perfiles de IG que le gustan al cliente):\n${referenciasIG}\n` : ''}
 ${USER_ESTILO_ID && ESTILOS_HINTS[USER_ESTILO_ID] ? `\nESTILO VISUAL ELEGIDO POR EL USUARIO — aplicá esto al sistema de diseño:\n${ESTILOS_HINTS[USER_ESTILO_ID]}\n` : ''}
-${USER_FUENTE_ID && FUENTES_HINTS[USER_FUENTE_ID] ? `\nTIPOGRAFÍA ELEGIDA POR EL USUARIO — usá EXACTAMENTE estas fuentes en _sistema.tipografia:\n- Display/Titular: "${FUENTES_HINTS[USER_FUENTE_ID].display}"\n- Cuerpo: "${FUENTES_HINTS[USER_FUENTE_ID].body}"\n- URL de import: "${FUENTES_HINTS[USER_FUENTE_ID].url}"\n` : ''}
+${USER_FUENTE_ID && FUENTES_HINTS[USER_FUENTE_ID] ? `\nTIPOGRAFÍA ELEGIDA POR EL USUARIO — usá EXACTAMENTE estas fuentes en _sistema.tipografia:\n- Display/Titular: "${FUENTES_HINTS[USER_FUENTE_ID].display}"\n- Cuerpo: "${FUENTES_HINTS[USER_FUENTE_ID].body}"\n- URL de import: "${FUENTES_HINTS[USER_FUENTE_ID].url}"\n` : ''}${USER_PALETA_ID && PALETAS_HINTS[USER_PALETA_ID] ? `\nPALETA ELEGIDA POR EL USUARIO — usá EXACTAMENTE estos colores en _sistema.paleta:\n- Fondo: "${PALETAS_HINTS[USER_PALETA_ID].fondo}"\n- Acento: "${PALETAS_HINTS[USER_PALETA_ID].acento}"\n- Texto: "${PALETAS_HINTS[USER_PALETA_ID].texto}"\n` : ''}
 ${USER_INSTRUCCIONES ? `\nINSTRUCCIONES ESPECÍFICAS DEL USUARIO — PRIORIDAD MÁXIMA, seguí estas al pie de la letra:\n${USER_INSTRUCCIONES}\n` : ''}
 ${fotosContext(fotos)}
 Devolvé SOLO JSON (sin markdown) con esta estructura:
@@ -443,13 +457,21 @@ Reglas generales:
   }
 
   if (USER_OVERLAY !== null && !isNaN(USER_OVERLAY)) contenido.overlay = USER_OVERLAY;
-  // Inyectar tipografía elegida por el usuario directamente en el sistema de diseño
   if (USER_FUENTE_ID && FUENTES_HINTS[USER_FUENTE_ID]) {
     const f = FUENTES_HINTS[USER_FUENTE_ID];
     if (!contenido._sistema) contenido._sistema = {};
     if (!contenido._sistema.tipografia) contenido._sistema.tipografia = {};
     contenido._sistema.tipografia.display = { familia: f.display, url_import: f.url };
     contenido._sistema.tipografia.body    = { familia: f.body, url_import: f.url };
+  }
+  if (USER_PALETA_ID && PALETAS_HINTS[USER_PALETA_ID]) {
+    const p = PALETAS_HINTS[USER_PALETA_ID];
+    if (!contenido._sistema) contenido._sistema = {};
+    if (!contenido._sistema.paleta) contenido._sistema.paleta = {};
+    contenido._sistema.paleta.fondo      = p.fondo;
+    contenido._sistema.paleta.headline   = p.texto;
+    contenido._sistema.paleta.body_text  = p.texto;
+    contenido._sistema.paleta.acento     = p.acento;
   }
   return contenido;
 }

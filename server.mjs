@@ -17,6 +17,7 @@ import { readFile, writeFile, readdir, mkdir, unlink, copyFile } from 'node:fs/p
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWriteStream } from 'node:fs';
+import { deflateRawSync, crc32 } from 'node:zlib';
 
 // Clientes SSE que se desconectan emiten ECONNRESET — no debe crashear el proceso
 process.on('uncaughtException', (err) => {
@@ -217,6 +218,7 @@ app.post('/api/generar', async (req, res) => {
       if (req.body.model) extraEnv.USER_MODEL = req.body.model;
       if (req.body.estiloId) extraEnv.USER_ESTILO_ID = req.body.estiloId;
       if (req.body.fuenteId) extraEnv.USER_FUENTE_ID = req.body.fuenteId;
+      if (req.body.paletaId) extraEnv.USER_PALETA_ID = req.body.paletaId;
 
       // Preferencias de diseño guardadas para la marca (fuente, etc.)
       try {
@@ -727,6 +729,94 @@ app.post('/api/tandas/:id/duplicar', async (req, res) => {
   } catch {}
 
   res.json({ id: newId });
+});
+
+// ZIP download — empaqueta todos los PNGs de una tanda
+app.get('/api/tandas/:id/zip', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+
+  const outDir = path.join(__dirname, 'tandas', id, 'output');
+  let files;
+  try {
+    files = (await readdir(outDir)).filter(f => f.endsWith('.png')).sort();
+  } catch {
+    return res.status(404).json({ error: 'Tanda no encontrada' });
+  }
+  if (!files.length) return res.status(404).json({ error: 'Sin slides' });
+
+  // Build ZIP in memory (PKZIP format, deflate)
+  const localHeaders = [];
+  const centralDirs  = [];
+  let offset = 0;
+
+  for (const filename of files) {
+    const raw  = await readFile(path.join(outDir, filename));
+    const comp = deflateRawSync(raw, { level: 6 });
+    const crc  = crc32(raw);
+    const now  = new Date();
+    const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1));
+    const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate());
+    const nameBuf = Buffer.from(filename, 'utf8');
+
+    // Local file header
+    const lh = Buffer.alloc(30 + nameBuf.length);
+    lh.writeUInt32LE(0x04034b50, 0);  // signature
+    lh.writeUInt16LE(20, 4);           // version needed
+    lh.writeUInt16LE(0, 6);            // flags
+    lh.writeUInt16LE(8, 8);            // compression: deflate
+    lh.writeUInt16LE(dosTime, 10);
+    lh.writeUInt16LE(dosDate, 12);
+    lh.writeUInt32LE(crc >>> 0, 14);
+    lh.writeUInt32LE(comp.length, 18);
+    lh.writeUInt32LE(raw.length, 22);
+    lh.writeUInt16LE(nameBuf.length, 26);
+    lh.writeUInt16LE(0, 28);            // extra field length
+    nameBuf.copy(lh, 30);
+
+    localHeaders.push(Buffer.concat([lh, comp]));
+
+    // Central directory entry
+    const cd = Buffer.alloc(46 + nameBuf.length);
+    cd.writeUInt32LE(0x02014b50, 0);
+    cd.writeUInt16LE(20, 4);
+    cd.writeUInt16LE(20, 6);
+    cd.writeUInt16LE(0, 8);
+    cd.writeUInt16LE(8, 10);
+    cd.writeUInt16LE(dosTime, 12);
+    cd.writeUInt16LE(dosDate, 14);
+    cd.writeUInt32LE(crc >>> 0, 16);
+    cd.writeUInt32LE(comp.length, 20);
+    cd.writeUInt32LE(raw.length, 24);
+    cd.writeUInt16LE(nameBuf.length, 28);
+    cd.writeUInt16LE(0, 30);           // extra
+    cd.writeUInt16LE(0, 32);           // comment
+    cd.writeUInt16LE(0, 34);           // disk start
+    cd.writeUInt16LE(0, 36);           // internal attr
+    cd.writeUInt32LE(0, 38);           // external attr
+    cd.writeUInt32LE(offset, 42);      // local header offset
+    nameBuf.copy(cd, 46);
+
+    centralDirs.push(cd);
+    offset += lh.length + comp.length;
+  }
+
+  const cdBuf     = Buffer.concat(centralDirs);
+  const eocd      = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(files.length, 8);
+  eocd.writeUInt16LE(files.length, 10);
+  eocd.writeUInt32LE(cdBuf.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  eocd.writeUInt16LE(0, 20);
+
+  const zip = Buffer.concat([...localHeaders, cdBuf, eocd]);
+  const slug = id.split('_').slice(1).join('-') || id;
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="carrusel-${slug}.zip"`);
+  res.send(zip);
 });
 
 app.post('/api/tandas/:id/caption', async (req, res) => {

@@ -310,7 +310,8 @@
       <button id="lightboxNext">›</button>
     </div>
     <div class="lightbox-footer">
-      <a id="lightboxDownload" class="lightbox-download" download>↓ Descargar</a>
+      <a id="lightboxDownload" class="lightbox-download" download>↓ Slide</a>
+      <button id="lightboxZip"      class="lightbox-download hidden">⬇ ZIP</button>
       <button id="lightboxCaption"  class="lightbox-edit hidden">✍ Caption</button>
       <button id="lightboxDuplicar" class="lightbox-edit hidden">⊕ Clonar</button>
       <button id="lightboxEdit"     class="lightbox-edit hidden">✎ Editar</button>
@@ -357,8 +358,9 @@
 
       <pre id="editorLog" class="log hidden" style="max-height:110px;margin-top:14px"></pre>
       <div class="editor-footer-row">
-        <button id="btnUndo" class="btn-secondary" title="Deshacer (Ctrl+Z)" disabled>↩ Deshacer</button>
-        <button id="btnRedo" class="btn-secondary" title="Rehacer (Ctrl+Y)" disabled>↪ Rehacer</button>
+        <button id="btnUndo" class="btn-secondary" title="Deshacer (Ctrl+Z)" disabled>↩</button>
+        <button id="btnRedo" class="btn-secondary" title="Rehacer (Ctrl+Y)" disabled>↪</button>
+        <button id="btnLivePreview" class="btn-secondary" title="Refresca el preview cada 3s">◎ Vista</button>
         <button id="btnRerenderizar" class="btn-primary btn-grow">Re-renderizar</button>
         <span id="editorStatus" class="status"></span>
       </div>
@@ -389,7 +391,19 @@
         <div class="fuente-grid" id="fuenteGrid"></div>
         <div class="estilo-nav">
           <button class="btn-ghost" id="fuenteBtnSaltear">Saltear tipografía →</button>
-          <button class="btn-primary" id="fuenteBtnConfirmar" disabled>Generar carrusel →</button>
+          <button class="btn-primary" id="fuenteBtnNext2" disabled>Paleta →</button>
+        </div>
+      </div>
+      <!-- Step 3 -->
+      <div id="estiloStep3" class="hidden">
+        <div class="modal-header">
+          <span class="section-title">¿Qué paleta de colores?</span>
+          <button class="btn-ghost btn-sm" id="paletaBtnPrev">← Volver</button>
+        </div>
+        <div class="paleta-grid" id="paletaGrid"></div>
+        <div class="estilo-nav">
+          <button class="btn-ghost" id="paletaBtnSaltear">Saltear paleta →</button>
+          <button class="btn-primary" id="paletaBtnConfirmar" disabled>Generar carrusel →</button>
         </div>
       </div>
     </div>
