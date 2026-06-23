@@ -25,6 +25,8 @@ const USER_HANDLE = process.env.USER_HANDLE || '';
 const USER_ESTILO_ID = process.env.USER_ESTILO_ID || '';
 const USER_FUENTE_ID = process.env.USER_FUENTE_ID || '';
 const USER_PALETA_ID = process.env.USER_PALETA_ID || '';
+let USER_PLAN = [];
+try { if (process.env.USER_PLAN) USER_PLAN = JSON.parse(process.env.USER_PLAN); } catch {}
 
 const ESTILOS_HINTS = {
   'minimal':     'Estilo MINIMAL: fondo muy claro o blanco, texto oscuro, paleta muy reducida (máximo 2-3 colores), mucho espacio en blanco, tipografía ligera. Sin decoraciones recargadas. Paleta sugerida: fondo #f8f8f6, headline #0a0a0a, acento #1a1a2e.',
@@ -439,7 +441,9 @@ Tipos de alto impacto visual — USÁ AL MENOS UNO cuando el tema lo permita:
 - grid: cuando el tema presenta 4 beneficios, pilares o conceptos paralelos. { “type”: “grid”, “headline”: “LO QUE\\nGANÁS”, “cells”: [{“icon”:”fitness_center”,”label”:”FUERZA”,”text”:”texto corto”},{“icon”:”psychology”,”label”:”ENFOQUE”,”text”:”texto corto”},{“icon”:”bolt”,”label”:”ENERGÍA”,”text”:”texto corto”},{“icon”:”trending_up”,”label”:”RESULTADO”,”text”:”texto corto”}] }
   IMPORTANTE: el campo “icon” del grid debe ser un nombre de Material Symbols (Google). Opciones: fitness_center, psychology, bolt, trending_up, restaurant, timer, water_drop, monitor_heart, nightlight, local_fire_department, sports, self_improvement, emoji_events, star, check_circle, rocket_launch, favorite, directions_run, speed, schedule, school, workspace_premium, shield, flag, groups, eco, nutrition, bedtime, mood, flash_on, whatshot
 
-Regla de estructura: el slide 1 siempre es “cover”, el slide 6 siempre es “cta”. Los 4 del medio son libres — combiná tipos base y de alto impacto según lo que mejor cuente el tema.
+${USER_PLAN.length ? `PLAN ACORDADO CON EL USUARIO — seguí EXACTAMENTE esta estructura (respetá tipos y orden, ajustá el copy):
+${USER_PLAN.map(s => `  Slide ${s.position}: [${s.type}] ${s.title}${s.notes ? ` — ${s.notes}` : ''}`).join('\n')}
+El JSON debe tener EXACTAMENTE ${USER_PLAN.length} slides en ese orden.` : `Regla de estructura: slide 1 siempre “cover”, slide 4 siempre “cta”. Los del medio son libres.`}
 ${fotos?.length ? '' : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
 Reglas generales:
 - El tema debe tratarse con un ángulo específico, no genérico.

@@ -2043,6 +2043,40 @@ function renderFontPairGrid() {
         btn.textContent = 'Ver galería';
         btn.addEventListener('click', () => switchTab('tab-galeria'));
       }
+    } else if (action.type === 'propose_plan') {
+      // Render rich plan card
+      const plan = action.params?.slides || [];
+      const format = action.params?.format || 'carrusel';
+      const planCard = document.createElement('div');
+      planCard.className = 'plan-card';
+      planCard.innerHTML = `
+        <div class="plan-header">📋 Plan propuesto — ${format === 'story' ? 'Historia' : 'Carrusel'} (${plan.length} slides)</div>
+        <div class="plan-slides">${plan.map(s => `
+          <div class="plan-slide">
+            <span class="plan-num">${s.position}</span>
+            <span class="plan-type">${s.type}</span>
+            <span class="plan-desc">${s.title || ''}${s.notes ? ` — ${s.notes}` : ''}</span>
+          </div>`).join('')}
+        </div>
+        <div class="plan-actions">
+          <button class="btn-secondary plan-btn-edit">✏ Modificar</button>
+          <button class="btn-primary plan-btn-ok">✓ Generar así</button>
+        </div>`;
+      planCard.querySelector('.plan-btn-edit').addEventListener('click', () => {
+        const inp = $('#chatInput');
+        if (inp) { inp.focus(); inp.placeholder = '¿Qué cambiamos?'; }
+      });
+      planCard.querySelector('.plan-btn-ok').addEventListener('click', () => {
+        const inp = $('#chatInput');
+        if (inp) { inp.value = 'Generá con este plan'; inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }
+      });
+      return planCard;
+    } else if (action.type === 'confirm_generate') {
+      label.textContent = action.executing
+        ? `Generando ${action.params?.format || 'carrusel'}... revisá el log`
+        : `Generación lista`;
+      btn.textContent = 'Ver log';
+      btn.addEventListener('click', () => switchTab('tab-generar'));
     } else {
       return null;
     }
