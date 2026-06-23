@@ -399,7 +399,94 @@ function buildAny(slide, i, total) {
   if (slide.type === 'big_number')   return buildBigNumber(slide, i, total);
   if (slide.type === 'timeline')     return buildTimeline(slide, i, total);
   if (slide.type === 'grid')         return buildGrid(slide, i, total);
+  if (slide.type === 'grid_stats')   return buildGridStats(slide, i, total);
+  if (slide.type === 'comparison')   return buildComparison(slide, i, total);
+  if (slide.type === 'steps')        return buildSteps(slide, i, total);
+  if (slide.type === 'icon_list')    return buildIconList(slide, i, total);
   return buildSlide(slide, i, total);
+}
+
+// ── INFOGRAFÍA: Grid Stats ────────────────────────────────────────────
+function buildGridStats(slide, i, total) {
+  const sec = el('div', 'slide-grid-stats' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  sec.appendChild(el('span','slide-tag', `0${i+1} — 0${total}`));
+  if (slide.title) sec.appendChild(el('p','infog-title', esc(slide.title)));
+  const grid = el('div','gs-grid');
+  (slide.items || []).forEach(item => {
+    const card = el('div','gs-card');
+    if (item.icon) { const ico = el('span','material-symbols-outlined gs-ico'); ico.textContent = item.icon; card.appendChild(ico); }
+    if (item.value) card.appendChild(el('p','gs-value', esc(item.value)));
+    if (item.label) card.appendChild(el('p','gs-label', esc(item.label)));
+    grid.appendChild(card);
+  });
+  sec.appendChild(grid);
+  if (RC.logo) { const logo = el('img','brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
+  return sec;
+}
+
+// ── INFOGRAFÍA: Comparison ────────────────────────────────────────────
+function buildComparison(slide, i, total) {
+  const sec = el('div', 'slide-comparison' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  sec.appendChild(el('span','slide-tag', `0${i+1} — 0${total}`));
+  if (slide.title) sec.appendChild(el('p','infog-title', esc(slide.title)));
+  const header = el('div','cmp-header');
+  header.appendChild(el('span','cmp-col cmp-spacer', ''));
+  header.appendChild(el('span','cmp-col cmp-a', esc(slide.col_a || 'A')));
+  header.appendChild(el('span','cmp-col cmp-b', esc(slide.col_b || 'B')));
+  sec.appendChild(header);
+  const body = el('div','cmp-body');
+  (slide.rows || []).forEach(row => {
+    const r = el('div','cmp-row');
+    r.appendChild(el('span','cmp-col cmp-label', esc(row.label || '')));
+    r.appendChild(el('span','cmp-col cmp-av', esc(row.a || '')));
+    r.appendChild(el('span','cmp-col cmp-bv', esc(row.b || '')));
+    body.appendChild(r);
+  });
+  sec.appendChild(body);
+  if (RC.logo) { const logo = el('img','brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
+  return sec;
+}
+
+// ── INFOGRAFÍA: Steps ─────────────────────────────────────────────────
+function buildSteps(slide, i, total) {
+  const sec = el('div', 'slide-steps' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  sec.appendChild(el('span','slide-tag', `0${i+1} — 0${total}`));
+  if (slide.title) sec.appendChild(el('p','infog-title', esc(slide.title)));
+  const list = el('div','stp-list');
+  (slide.items || []).forEach(item => {
+    const row = el('div','stp-row');
+    row.appendChild(el('span','stp-num', esc(item.step || '')));
+    if (item.icon) { const ico = el('span','material-symbols-outlined stp-ico'); ico.textContent = item.icon; row.appendChild(ico); }
+    const body = el('div','stp-body');
+    if (item.title) body.appendChild(el('p','stp-title', esc(item.title)));
+    if (item.desc)  body.appendChild(el('p','stp-desc',  esc(item.desc)));
+    row.appendChild(body);
+    list.appendChild(row);
+  });
+  sec.appendChild(list);
+  if (RC.logo) { const logo = el('img','brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
+  return sec;
+}
+
+// ── INFOGRAFÍA: Icon List ─────────────────────────────────────────────
+function buildIconList(slide, i, total) {
+  const sec = el('div', 'slide-icon-list' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  sec.appendChild(el('span','slide-tag', `0${i+1} — 0${total}`));
+  if (slide.title) sec.appendChild(el('p','infog-title', esc(slide.title)));
+  const list = el('div','il-list');
+  (slide.items || []).forEach(item => {
+    const row = el('div','il-row');
+    if (item.icon) { const ico = el('span','material-symbols-outlined il-ico'); ico.textContent = item.icon; row.appendChild(ico); }
+    if (item.text) row.appendChild(el('span','il-text', esc(item.text)));
+    list.appendChild(row);
+  });
+  sec.appendChild(list);
+  if (RC.logo) { const logo = el('img','brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
+  return sec;
 }
 
 // ── MODELO A: Split Vertical ──────────────────────────────────────────
@@ -629,4 +716,89 @@ function autofitSvContrast(section) {
       guard++;
     }
   });
+}
+
+// ── INFOGRAPHIC: Grid Stats ───────────────────────────────────────────────
+// JSON: { type, title, items: [{icon, value, label}] }
+function buildGridStats(slide, i, total) {
+  const sec = el('div', 'slide-grid-stats' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  if (slide.title) sec.appendChild(el('p', 'infog-title', esc(slide.title)));
+  const grid = el('div', 'grid-stats-grid');
+  (slide.items || []).forEach(item => {
+    const card = el('div', 'stat-card');
+    if (item.icon) card.appendChild(el('span', 'material-symbols-outlined', esc(item.icon)));
+    if (item.value) card.appendChild(el('p', 'stat-value', esc(item.value)));
+    if (item.label) card.appendChild(el('p', 'stat-label', esc(item.label)));
+    grid.appendChild(card);
+  });
+  sec.appendChild(grid);
+  if (RC.logo) { const logo = el('img', 'brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
+  return sec;
+}
+
+// ── INFOGRAPHIC: Comparison ───────────────────────────────────────────────
+// JSON: { type, title, col_a, col_b, rows: [{label, a, b}] }
+function buildComparison(slide, i, total) {
+  const sec = el('div', 'slide-comparison' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  if (slide.title) sec.appendChild(el('p', 'infog-title', esc(slide.title)));
+  const header = el('div', 'comparison-header');
+  header.appendChild(el('span', '', ''));
+  header.appendChild(el('span', '', esc(slide.col_a || '')));
+  header.appendChild(el('span', 'col-b', esc(slide.col_b || '')));
+  sec.appendChild(header);
+  (slide.rows || []).forEach(row => {
+    const rowEl = el('div', 'comparison-row');
+    rowEl.appendChild(el('span', 'c-label', esc(row.label || '')));
+    rowEl.appendChild(el('span', '', esc(row.a || '')));
+    rowEl.appendChild(el('span', 'c-b', esc(row.b || '')));
+    sec.appendChild(rowEl);
+  });
+  if (RC.logo) { const logo = el('img', 'brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
+  return sec;
+}
+
+// ── INFOGRAPHIC: Steps ────────────────────────────────────────────────────
+// JSON: { type, title, items: [{icon, step, title, desc}] }
+function buildSteps(slide, i, total) {
+  const sec = el('div', 'slide-steps' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  if (slide.title) sec.appendChild(el('p', 'infog-title', esc(slide.title)));
+  const list = el('div', 'steps-list');
+  (slide.items || []).forEach(item => {
+    const stepEl = el('div', 'step-item');
+    if (item.step) stepEl.appendChild(el('span', 'step-num', esc(item.step)));
+    if (item.icon) {
+      const iconWrap = el('span', 'step-icon');
+      iconWrap.appendChild(el('span', 'material-symbols-outlined', esc(item.icon)));
+      stepEl.appendChild(iconWrap);
+    }
+    const body = el('div', 'step-body');
+    if (item.title) body.appendChild(el('p', 'step-title', esc(item.title)));
+    if (item.desc)  body.appendChild(el('p', 'step-desc',  esc(item.desc)));
+    stepEl.appendChild(body);
+    list.appendChild(stepEl);
+  });
+  sec.appendChild(list);
+  if (RC.logo) { const logo = el('img', 'brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
+  return sec;
+}
+
+// ── INFOGRAPHIC: Icon List ────────────────────────────────────────────────
+// JSON: { type, title, items: [{icon, text}] }
+function buildIconList(slide, i, total) {
+  const sec = el('div', 'slide-icon-list' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  if (slide.title) sec.appendChild(el('p', 'infog-title', esc(slide.title)));
+  const container = el('div', 'icon-list-items');
+  (slide.items || []).forEach(item => {
+    const itemEl = el('div', 'icon-list-item');
+    if (item.icon) itemEl.appendChild(el('span', 'material-symbols-outlined', esc(item.icon)));
+    if (item.text) itemEl.appendChild(el('span', 'text', esc(item.text)));
+    container.appendChild(itemEl);
+  });
+  sec.appendChild(container);
+  if (RC.logo) { const logo = el('img', 'brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
+  return sec;
 }
