@@ -25,6 +25,8 @@ const USER_HANDLE = process.env.USER_HANDLE || '';
 const USER_ESTILO_ID = process.env.USER_ESTILO_ID || '';
 const USER_FUENTE_ID = process.env.USER_FUENTE_ID || '';
 const USER_PALETA_ID = process.env.USER_PALETA_ID || '';
+let USER_PLAN = [];
+try { if (process.env.USER_PLAN) USER_PLAN = JSON.parse(process.env.USER_PLAN); } catch {}
 
 const ESTILOS_HINTS = {
   'minimal':     'Estilo MINIMAL: fondo muy claro o blanco, texto oscuro, paleta muy reducida (máximo 2-3 colores), mucho espacio en blanco, tipografía ligera. Sin decoraciones recargadas. Paleta sugerida: fondo #f8f8f6, headline #0a0a0a, acento #1a1a2e.',
@@ -454,7 +456,9 @@ Tipos de infografía (usá cuando el tema pide datos, comparaciones o pasos visu
 - icon_list: lista visual de beneficios/razones con ícono grande. Ideal para “por qué elegirnos”, “lo que incluye”, features destacados. { “type”: “icon_list”, “title”: “¿POR QUÉ ELEGIRNOS?”, “items”: [{“icon”:”verified”,”text”:”Certificados y con experiencia”},{“icon”:”support_agent”,”text”:”Atención 24/7 personalizada”},{“icon”:”payments”,”text”:”Precios transparentes sin letra chica”}] }
   ICONOS VÁLIDOS para tipos de infografía (Material Symbols snake_case): verified, support_agent, payments, rocket_launch, person_add, search, bolt, trending_up, groups, star, check_circle, schedule, timer, local_fire_department, fitness_center, psychology, school, workspace_premium, shield, flag, eco, favorite, speed, flash_on, emoji_events, monitor_heart, nutrition, self_improvement, celebration, lightbulb, key, lock, thumb_up, leaderboard, bar_chart, pie_chart, insights, public, handshake, savings, credit_card, inventory_2, storefront, delivery_dining, medical_services, spa, sports, directions_run
 
-Regla de estructura: el slide 1 siempre es “cover”, el slide 6 siempre es “cta”. Los 4 del medio son libres — combiná tipos base y de alto impacto según lo que mejor cuente el tema.
+${USER_PLAN.length ? `PLAN ACORDADO CON EL USUARIO — seguí EXACTAMENTE esta estructura de slides (respetá tipos y orden, ajustá el copy):
+${USER_PLAN.map(s => `  Slide ${s.position}: [${s.type}] ${s.title}${s.notes ? ` — ${s.notes}` : ''}`).join('\n')}
+El JSON debe tener EXACTAMENTE ${USER_PLAN.length} slides en ese orden.` : `Regla de estructura: el slide 1 siempre es “cover”, el slide 6 siempre es “cta”. Los 4 del medio son libres — combiná tipos base y de alto impacto según lo que mejor cuente el tema.`}
 ${fotos?.length ? '' : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
 Reglas generales:
 - El tema debe tratarse con un ángulo específico, no genérico.

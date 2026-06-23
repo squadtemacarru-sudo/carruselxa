@@ -25,6 +25,8 @@ const USER_HANDLE = process.env.USER_HANDLE || '';
 const USER_ESTILO_ID = process.env.USER_ESTILO_ID || '';
 const USER_FUENTE_ID = process.env.USER_FUENTE_ID || '';
 const USER_PALETA_ID = process.env.USER_PALETA_ID || '';
+let USER_PLAN = [];
+try { if (process.env.USER_PLAN) USER_PLAN = JSON.parse(process.env.USER_PLAN); } catch {}
 
 const ESTILOS_HINTS = {
   'minimal':     'Estilo MINIMAL: fondo muy claro o blanco, texto oscuro, paleta muy reducida (máximo 2-3 colores), mucho espacio en blanco, tipografía ligera. Sin decoraciones recargadas. Paleta sugerida: fondo #f8f8f6, headline #0a0a0a, acento #1a1a2e.',
@@ -381,26 +383,27 @@ function slugify(str) {
 function fotosContext(fotos) {
   if (!fotos?.length) return '';
   return `
-FOTOS DISPONIBLES PARA ESTE CARRUSEL (copiá el valor exacto de cada foto, puede ser URL https:// o nombre de archivo). TODAS deben quedar asignadas, y NINGUNA puede repetirse en más de un campo/slide:
+FOTOS DISPONIBLES (copiá el valor exacto, puede ser URL https:// o nombre de archivo). No repitas una foto en más de un slide:
 ${fotos.map(f => `- ${f}`).join('\n')}
 
-Elegí 2-3 slides (de las 6) para que usen estas fotos con alguno de estos tipos multi-foto, según lo que mejor sirva al tema:
-- { "type": "full_impact", "photo": "<archivo>", "line1": "línea de contexto", "line2": "headline\\nde impacto", "footer_text": "frase corta" }
-- { "type": "before_after", "photo_before": "<archivo>", "photo_after": "<archivo>", "label_before": "ANTES", "label_after": "DESPUÉS", "headline": "afirmación corta", "sub": "una línea de desarrollo" }
-- { "type": "split_v", "photo_top": "<archivo>", "photo_bottom": "<archivo>", "label_top": "ETIQUETA A", "contrast_top": "frase corta", "label_bottom": "ETIQUETA B", "contrast_bottom": "frase corta" }
-- { "type": "triple_v", "rows": [{"num":"01","text":"texto corto","photo":"<archivo>"}, {"num":"02","text":"texto corto","photo":"<archivo>"}, {"num":"03","text":"texto corto","photo":"<archivo>"}] }
-- cualquier slide clásica (cover/statement/quote) también puede llevar "photo": "<archivo>" como fondo simple.
+Las stories pueden ser tipográficas o con foto — mezclá según lo que mejor cuente el tema. Usá fotos en estos tipos:
+- { "type": "full_impact", "photo": "<archivo>", "line1": "línea corta de contexto", "line2": "HEADLINE\\nIMPACTO", "footer_text": "frase breve" }
+- { "type": "before_after", "photo_before": "<archivo>", "photo_after": "<archivo>", "label_before": "ANTES", "label_after": "DESPUÉS", "headline": "resultado en pocas palabras", "sub": "una línea" }
+- { "type": "cover", "photo": "<archivo>", "headline": "titular\\ncorto", "kicker": "frase de apoyo" } — foto como fondo del cover
+- cualquier slide clásica (statement/quote/cta) puede llevar "photo": "<archivo>" como fondo con overlay.
 
-El resto de las slides seguí el formato clásico de abajo, sin campo "photo".`;
+Las slides SIN foto van sin campo "photo" y son 100% tipográficas — ambas opciones son válidas en la misma story.`;
 }
 
 async function generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria) {
-  const promptText = `Generá el contenido de una STORY de Instagram de 4 slides sobre el siguiente tema.
+  const slideCount = USER_PLAN.length || 4;
+  const promptText = `Generá el contenido de una STORY de Instagram de ${slideCount} slides sobre el siguiente tema.
 
 FORMATO: Story de Instagram (9:16, vertical). Cada slide se ve ~2-3 segundos. Texto MÍNIMO.
 REGLAS DE STORY:
-- Máximo 4 slides (cover + 2 contenido + CTA)
-- Cada slide: UN headline corto (máximo 5 palabras) + opcionalmente UNA línea de cuerpo (máximo 8 palabras)
+- ${slideCount} slides en total
+- Cada slide tipográfico: UN headline corto (máximo 5 palabras) + opcionalmente UNA línea de cuerpo (máximo 8 palabras)
+- Los slides con foto pueden tener menos texto — la imagen habla sola
 - Sin listas largas. Sin items. Sin párrafos.
 - Visual primero: el tipo “statement” y “cover” son los mejores para stories
 - El slide 1 es el hook — tiene que detener el scroll en 0.5 segundos
@@ -416,7 +419,7 @@ ${fotosContext(fotos)}
 Devolvé SOLO JSON (sin markdown):
 {
   “overlay”: 0.55,
-  “slides”: [ /* EXACTAMENTE 4 slides */ ]
+  “slides”: [ /* EXACTAMENTE ${slideCount} slides */ ]
 }
 
 TIPOS DE SLIDE disponibles — elegí el más adecuado para cada posición:
@@ -439,7 +442,9 @@ Tipos de alto impacto visual — USÁ AL MENOS UNO cuando el tema lo permita:
 - grid: cuando el tema presenta 4 beneficios, pilares o conceptos paralelos. { “type”: “grid”, “headline”: “LO QUE\\nGANÁS”, “cells”: [{“icon”:”fitness_center”,”label”:”FUERZA”,”text”:”texto corto”},{“icon”:”psychology”,”label”:”ENFOQUE”,”text”:”texto corto”},{“icon”:”bolt”,”label”:”ENERGÍA”,”text”:”texto corto”},{“icon”:”trending_up”,”label”:”RESULTADO”,”text”:”texto corto”}] }
   IMPORTANTE: el campo “icon” del grid debe ser un nombre de Material Symbols (Google). Opciones: fitness_center, psychology, bolt, trending_up, restaurant, timer, water_drop, monitor_heart, nightlight, local_fire_department, sports, self_improvement, emoji_events, star, check_circle, rocket_launch, favorite, directions_run, speed, schedule, school, workspace_premium, shield, flag, groups, eco, nutrition, bedtime, mood, flash_on, whatshot
 
-Regla de estructura: el slide 1 siempre es “cover”, el slide 6 siempre es “cta”. Los 4 del medio son libres — combiná tipos base y de alto impacto según lo que mejor cuente el tema.
+${USER_PLAN.length ? `PLAN ACORDADO CON EL USUARIO — seguí EXACTAMENTE esta estructura (respetá tipos y orden, ajustá el copy):
+${USER_PLAN.map(s => `  Slide ${s.position}: [${s.type}] ${s.title}${s.notes ? ` — ${s.notes}` : ''}`).join('\n')}
+El JSON debe tener EXACTAMENTE ${USER_PLAN.length} slides en ese orden.` : `Regla de estructura: slide 1 siempre “cover”, slide 4 siempre “cta”. Los del medio son libres.`}
 ${fotos?.length ? '' : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
 Reglas generales:
 - El tema debe tratarse con un ángulo específico, no genérico.
@@ -555,7 +560,7 @@ async function main() {
     process.exit(1);
   }
   const marcaId = process.argv[4] || 'squadteam';
-  const fotos = (process.argv[5] || '').split(',').map(f => f.trim()).filter(Boolean);
+  const fotos = (process.argv[5] || process.env.USER_FOTOS || '').split(',').map(f => f.trim()).filter(Boolean);
 
   const [marca, skillsDocs, referenciasIG, memoria] = await Promise.all([
     loadMarca(marcaId),
