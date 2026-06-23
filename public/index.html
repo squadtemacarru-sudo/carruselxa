@@ -39,6 +39,7 @@
           <option value="claude-3-5-sonnet-20241022">Claude 3.5</option>
         </select>
         <button id="btnGenerar" class="btn-primary btn-grow">Generar</button>
+        <button id="btnGenerarStory" class="btn-secondary">Story</button>
       </div>
     </div>
 
@@ -104,6 +105,12 @@
     </div>
     <div id="galeria" class="galeria"></div>
     <p id="galeriaEmpty" class="empty-msg hidden">Todavía no hay carruseles generados.</p>
+
+    <div class="section-header" style="margin-top:24px">
+      <span class="section-title">Stories</span>
+    </div>
+    <div id="storiesGaleria" class="galeria stories-galeria"></div>
+    <p id="storiesEmpty" class="empty-msg hidden">Todavía no hay stories generadas.</p>
   </section>
 
   <!-- ── TAB: ASISTENTE ──────────────────────────────── -->
@@ -259,6 +266,20 @@
         <p class="hint">Tipografía por defecto para esta marca. La IA la respeta en todos los carruseles. Si elegís "IA elige", la IA decide por cada carrusel según el tema.</p>
         <div id="fontPairGrid" class="font-pair-grid"></div>
         <span id="disenoStatus" class="status" style="margin-top:10px;display:block"></span>
+      </div>
+    </div>
+
+    <div class="config-block">
+      <div class="config-block-header" data-toggle="bloque-highlights">
+        <span class="section-title">Highlights Covers</span>
+        <span class="toggle-icon">›</span>
+      </div>
+      <div class="config-block-body collapsed" id="bloque-highlights">
+        <p class="hint">Generá portadas para tus Highlights de Instagram. Cada cover tiene un emoji + etiqueta + color.</p>
+        <div id="highlightsList"></div>
+        <button id="btnAddHighlight" class="btn-secondary btn-full">+ Agregar cover</button>
+        <button id="btnGenerarHighlights" class="btn-primary btn-full" style="margin-top:8px">Generar covers</button>
+        <div id="highlightsOutput" class="fotos-grid" style="margin-top:12px"></div>
       </div>
     </div>
 

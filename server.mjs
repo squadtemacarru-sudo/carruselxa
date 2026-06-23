@@ -359,6 +359,52 @@ app.get('/api/stories', async (req, res) => {
   res.json(items);
 });
 
+// ─────────────────────────────────────────────────────────────────────
+// Highlights Covers — generar y listar por marca
+// ─────────────────────────────────────────────────────────────────────
+app.post('/api/highlights', async (req, res) => {
+  if (jobRunning) return res.status(409).json({ error: 'Ya hay una generación en curso' });
+  const marcaId = req.body.marca || 'squadteam';
+  const items = req.body.items;
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Se esperaba un array items con { label, emoji, color }' });
+
+  const highlightsDir = path.join(__dirname, 'marcas', marcaId, 'highlights');
+  await mkdir(highlightsDir, { recursive: true });
+
+  const hlJsonPath = path.join(highlightsDir, 'highlights.json');
+  await writeFile(hlJsonPath, JSON.stringify(items, null, 2), 'utf-8');
+
+  jobRunning = true;
+  jobLog = [];
+  res.json({ ok: true });
+
+  (async () => {
+    try {
+      broadcast(`\n=== Generando Highlight Covers para ${marcaId} ===\n`);
+      await runStep(['generar-highlights.mjs', `marcas/${marcaId}/highlights/highlights.json`, `marcas/${marcaId}/highlights`]);
+      broadcast(`\n✅ Listo\n`);
+    } catch (e) {
+      broadcast(`\n❌ Error: ${e.message}\n`);
+    } finally {
+      jobRunning = false;
+    }
+  })();
+});
+
+app.get('/api/marcas/:id/highlights', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  const outDir = path.join(__dirname, 'marcas', id, 'highlights', 'output');
+  let files = [];
+  try {
+    files = (await readdir(outDir)).filter(f => f.endsWith('.png')).sort();
+  } catch {
+    return res.json([]);
+  }
+  res.json(files.map(f => `/marcas/${id}/highlights/output/${f}`));
+});
+
 app.post('/api/lote', async (req, res) => {
   if (jobRunning) return res.status(409).json({ error: 'Ya hay una generación en curso' });
   const minutos = Number(req.body.minutos) || 45;

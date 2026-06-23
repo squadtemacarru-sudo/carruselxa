@@ -26,7 +26,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tabId = btn.dataset.tab;
     switchTab(tabId);
-    if (tabId === 'tab-galeria') cargarGaleria();
+    if (tabId === 'tab-galeria') { cargarGaleria(); if (typeof cargarStoriesGaleria === 'function') cargarStoriesGaleria(); }
     if (tabId === 'tab-fotos')   cargarFotosGrid();
   });
 });
@@ -1956,3 +1956,121 @@ function renderFontPairGrid() {
   const savedTema = localStorage.getItem(DRAFT_KEY);
   if (savedTema) $('#temaInput').value = savedTema;
 })();
+
+// ── GENERAR STORY ─────────────────────────────────────
+$('#btnGenerarStory').addEventListener('click', async () => {
+  const tema = $('#temaInput').value.trim();
+  if (!tema || !marcaActual) return;
+  if (jobRunning) { alert('Ya hay una generación en curso'); return; }
+  setRunning(true);
+  const res = await fetch('/api/generar-story', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tema, marca: marcaActual, model: $('#modelSelect').value })
+  });
+  if (!res.ok) {
+    appendLog('\n❌ ' + (await res.json()).error + '\n');
+    setRunning(false);
+  }
+});
+
+// ── STORIES GALERÍA ───────────────────────────────────
+async function cargarStoriesGaleria() {
+  const res = await fetch('/api/stories');
+  const stories = res.ok ? await res.json() : [];
+  const galeria = $('#storiesGaleria');
+  const empty = $('#storiesEmpty');
+  if (!galeria) return;
+  if (!stories.length) {
+    galeria.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+  galeria.innerHTML = stories.map(s => `
+    <div class="tanda" data-story-id="${s.id}" style="cursor:pointer">
+      <img src="${s.slides[0]}?t=${s.ts || Date.now()}" alt="${s.tema}" loading="lazy" style="aspect-ratio:9/16;object-fit:cover">
+      <span class="count">${s.slides.length}</span>
+      <div class="label"><span class="tanda-tema">${s.tema}</span></div>
+    </div>
+  `).join('');
+  galeria.querySelectorAll('.tanda').forEach((card, i) => {
+    card.addEventListener('click', () => openLightbox(stories[i].slides, 0, null));
+  });
+}
+
+// ── HIGHLIGHTS COVERS ─────────────────────────────────
+let highlightItems = [];
+
+function renderHighlightsList() {
+  const list = $('#highlightsList');
+  if (!list) return;
+  if (!highlightItems.length) {
+    list.innerHTML = '<p class="hint" style="margin:0 0 10px">No hay covers. Agregá uno.</p>';
+    return;
+  }
+  list.innerHTML = highlightItems.map((item, i) => `
+    <div class="highlight-item" data-idx="${i}">
+      <input class="emoji-input" type="text" placeholder="💪" value="${item.emoji || ''}" data-field="emoji" data-idx="${i}">
+      <input type="text" placeholder="Etiqueta" value="${item.label || ''}" data-field="label" data-idx="${i}">
+      <input type="color" value="${item.color || '#e8ff00'}" data-field="color" data-idx="${i}">
+      <button class="btn-del" data-idx="${i}">✕</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const idx = parseInt(inp.dataset.idx);
+      highlightItems[idx][inp.dataset.field] = inp.value;
+    });
+  });
+  list.querySelectorAll('.btn-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      highlightItems.splice(parseInt(btn.dataset.idx), 1);
+      renderHighlightsList();
+    });
+  });
+}
+
+$('#btnAddHighlight')?.addEventListener('click', () => {
+  highlightItems.push({ label: '', emoji: '⭐', color: '#e8ff00' });
+  renderHighlightsList();
+});
+
+$('#btnGenerarHighlights')?.addEventListener('click', async () => {
+  if (!marcaActual || !highlightItems.length) return;
+  if (jobRunning) { alert('Ya hay una generación en curso'); return; }
+  const valid = highlightItems.filter(h => h.label.trim() || h.emoji.trim());
+  if (!valid.length) { alert('Agregá al menos un cover con etiqueta o emoji'); return; }
+  setRunning(true);
+  const res = await fetch('/api/highlights', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ marca: marcaActual, items: valid })
+  });
+  if (!res.ok) {
+    appendLog('\n❌ ' + (await res.json()).error + '\n');
+    setRunning(false);
+  }
+});
+
+async function cargarHighlightsOutput() {
+  if (!marcaActual) return;
+  const res = await fetch(`/api/marcas/${marcaActual}/highlights`);
+  const urls = res.ok ? await res.json() : [];
+  const out = $('#highlightsOutput');
+  if (!out) return;
+  out.innerHTML = urls.map(url => `
+    <div class="foto-thumb"><img src="${url}?t=${Date.now()}" loading="lazy" alt="highlight"></div>
+  `).join('');
+}
+
+document.querySelectorAll('.config-block-header').forEach(header => {
+  if (header.dataset.toggle === 'bloque-highlights') {
+    header.addEventListener('click', () => {
+      const body = $('#bloque-highlights');
+      if (body && !body.classList.contains('collapsed')) {
+        setTimeout(cargarHighlightsOutput, 50);
+      }
+    });
+  }
+});

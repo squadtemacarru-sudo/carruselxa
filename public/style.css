@@ -1630,3 +1630,30 @@ body.modal-open { overflow: hidden; }
   border-color: var(--acc);
   color: var(--acc);
 }
+
+/* ── STORIES GALERÍA ──────────────────────────────── */
+.stories-galeria .tanda img { aspect-ratio: 9/16; object-fit: cover; }
+
+/* ── HIGHLIGHTS EDITOR ────────────────────────────── */
+.highlight-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.highlight-item .emoji-input {
+  width: 56px;
+  text-align: center;
+  font-size: 22px;
+}
+.highlight-item input[type="text"] { flex: 1; }
+.highlight-item input[type="color"] { width: 40px; height: 36px; padding: 2px; cursor: pointer; }
+.highlight-item .btn-del {
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+}
+.highlight-item .btn-del:hover { color: #ff4444; }
