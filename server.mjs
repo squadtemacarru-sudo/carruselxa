@@ -17,6 +17,7 @@ import { readFile, writeFile, readdir, mkdir, unlink, copyFile } from 'node:fs/p
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWriteStream } from 'node:fs';
+import { deflateRawSync, crc32 } from 'node:zlib';
 
 // Clientes SSE que se desconectan emiten ECONNRESET — no debe crashear el proceso
 process.on('uncaughtException', (err) => {
@@ -218,6 +219,7 @@ app.post('/api/generar', async (req, res) => {
       if (req.body.model) extraEnv.USER_MODEL = req.body.model;
       if (req.body.estiloId) extraEnv.USER_ESTILO_ID = req.body.estiloId;
       if (req.body.fuenteId) extraEnv.USER_FUENTE_ID = req.body.fuenteId;
+      if (req.body.paletaId) extraEnv.USER_PALETA_ID = req.body.paletaId;
 
       // Preferencias de diseño guardadas para la marca (fuente, etc.)
       try {
@@ -286,6 +288,122 @@ app.post('/api/generar', async (req, res) => {
       jobRunning = false;
     }
   })();
+});
+
+app.post('/api/generar-story', async (req, res) => {
+  if (jobRunning) return res.status(409).json({ error: 'Ya hay una generación en curso' });
+  const tema = (req.body.tema || '').trim();
+  const marcaId = req.body.marca || 'squadteam';
+  if (!tema) return res.status(400).json({ error: 'Falta el tema' });
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+
+  jobRunning = true;
+  jobLog = [];
+  res.json({ ok: true });
+
+  (async () => {
+    try {
+      const carpeta = path.join('stories', `${Date.now()}_story_${slugify(tema)}`);
+      broadcast(`\n=== Story: ${tema} (marca: ${marcaId}) ===\n`);
+
+      const extraEnv = {};
+      if (req.body.model) extraEnv.USER_MODEL = req.body.model;
+      if (req.body.estiloId) extraEnv.USER_ESTILO_ID = req.body.estiloId;
+      if (req.body.fuenteId) extraEnv.USER_FUENTE_ID = req.body.fuenteId;
+      if (req.body.paletaId) extraEnv.USER_PALETA_ID = req.body.paletaId;
+      if (req.body.instruccionesLibres) extraEnv.USER_INSTRUCCIONES = req.body.instruccionesLibres;
+
+      try {
+        const mData = JSON.parse(await readFile(path.join(__dirname, 'marcas', marcaId, 'marca.json'), 'utf-8'));
+        if (mData.handle) extraEnv.USER_HANDLE = mData.handle;
+      } catch {}
+
+      await runStep(['crear-story.mjs', tema, carpeta, marcaId], extraEnv);
+      await runStep(['analizar.mjs', `${carpeta}/contenido.json`], extraEnv);
+      await runStep(['generar-story.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
+
+      broadcast(`\n✅ Story lista: ${carpeta}\n`);
+    } catch (e) {
+      broadcast(`\n❌ Error: ${e.message}\n`);
+    } finally {
+      jobRunning = false;
+    }
+  })();
+});
+
+app.get('/api/stories', async (req, res) => {
+  const dir = path.join(__dirname, 'stories');
+  let folders;
+  try { folders = await readdir(dir); } catch { return res.json([]); }
+
+  const items = [];
+  for (const f of folders) {
+    const outDir = path.join(dir, f, 'output');
+    let slides;
+    try {
+      slides = (await readdir(outDir)).filter(x => x.endsWith('.png')).sort();
+    } catch { continue; }
+    if (!slides.length) continue;
+
+    let tema = f;
+    try {
+      const c = JSON.parse(await readFile(path.join(dir, f, 'contenido.json'), 'utf-8'));
+      const cover = c.slides?.find(s => s.type === 'cover');
+      tema = (cover?.headline || tema).replace(/\n/g, ' ');
+    } catch {}
+
+    const ts = Number(f.split('_')[0]) || 0;
+    const slideUrls = slides.map(s => `/stories/${f}/output/${s}`);
+    items.push({ id: f, tema, ts, slides: slideUrls });
+  }
+  items.sort((a, b) => b.ts - a.ts);
+  res.json(items);
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Highlights Covers — generar y listar por marca
+// ─────────────────────────────────────────────────────────────────────
+app.post('/api/highlights', async (req, res) => {
+  if (jobRunning) return res.status(409).json({ error: 'Ya hay una generación en curso' });
+  const marcaId = req.body.marca || 'squadteam';
+  const items = req.body.items;
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Se esperaba un array items con { label, emoji, color }' });
+
+  const highlightsDir = path.join(__dirname, 'marcas', marcaId, 'highlights');
+  await mkdir(highlightsDir, { recursive: true });
+
+  const hlJsonPath = path.join(highlightsDir, 'highlights.json');
+  await writeFile(hlJsonPath, JSON.stringify(items, null, 2), 'utf-8');
+
+  jobRunning = true;
+  jobLog = [];
+  res.json({ ok: true });
+
+  (async () => {
+    try {
+      broadcast(`\n=== Generando Highlight Covers para ${marcaId} ===\n`);
+      await runStep(['generar-highlights.mjs', `marcas/${marcaId}/highlights/highlights.json`, `marcas/${marcaId}/highlights`]);
+      broadcast(`\n✅ Listo\n`);
+    } catch (e) {
+      broadcast(`\n❌ Error: ${e.message}\n`);
+    } finally {
+      jobRunning = false;
+    }
+  })();
+});
+
+app.get('/api/marcas/:id/highlights', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  const outDir = path.join(__dirname, 'marcas', id, 'highlights', 'output');
+  let files = [];
+  try {
+    files = (await readdir(outDir)).filter(f => f.endsWith('.png')).sort();
+  } catch {
+    return res.json([]);
+  }
+  res.json(files.map(f => `/marcas/${id}/highlights/output/${f}`));
 });
 
 app.post('/api/lote', async (req, res) => {
@@ -762,6 +880,94 @@ app.post('/api/tandas/:id/duplicar', async (req, res) => {
   } catch {}
 
   res.json({ id: newId });
+});
+
+// ZIP download — empaqueta todos los PNGs de una tanda
+app.get('/api/tandas/:id/zip', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+
+  const outDir = path.join(__dirname, 'tandas', id, 'output');
+  let files;
+  try {
+    files = (await readdir(outDir)).filter(f => f.endsWith('.png')).sort();
+  } catch {
+    return res.status(404).json({ error: 'Tanda no encontrada' });
+  }
+  if (!files.length) return res.status(404).json({ error: 'Sin slides' });
+
+  // Build ZIP in memory (PKZIP format, deflate)
+  const localHeaders = [];
+  const centralDirs  = [];
+  let offset = 0;
+
+  for (const filename of files) {
+    const raw  = await readFile(path.join(outDir, filename));
+    const comp = deflateRawSync(raw, { level: 6 });
+    const crc  = crc32(raw);
+    const now  = new Date();
+    const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1));
+    const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate());
+    const nameBuf = Buffer.from(filename, 'utf8');
+
+    // Local file header
+    const lh = Buffer.alloc(30 + nameBuf.length);
+    lh.writeUInt32LE(0x04034b50, 0);  // signature
+    lh.writeUInt16LE(20, 4);           // version needed
+    lh.writeUInt16LE(0, 6);            // flags
+    lh.writeUInt16LE(8, 8);            // compression: deflate
+    lh.writeUInt16LE(dosTime, 10);
+    lh.writeUInt16LE(dosDate, 12);
+    lh.writeUInt32LE(crc >>> 0, 14);
+    lh.writeUInt32LE(comp.length, 18);
+    lh.writeUInt32LE(raw.length, 22);
+    lh.writeUInt16LE(nameBuf.length, 26);
+    lh.writeUInt16LE(0, 28);            // extra field length
+    nameBuf.copy(lh, 30);
+
+    localHeaders.push(Buffer.concat([lh, comp]));
+
+    // Central directory entry
+    const cd = Buffer.alloc(46 + nameBuf.length);
+    cd.writeUInt32LE(0x02014b50, 0);
+    cd.writeUInt16LE(20, 4);
+    cd.writeUInt16LE(20, 6);
+    cd.writeUInt16LE(0, 8);
+    cd.writeUInt16LE(8, 10);
+    cd.writeUInt16LE(dosTime, 12);
+    cd.writeUInt16LE(dosDate, 14);
+    cd.writeUInt32LE(crc >>> 0, 16);
+    cd.writeUInt32LE(comp.length, 20);
+    cd.writeUInt32LE(raw.length, 24);
+    cd.writeUInt16LE(nameBuf.length, 28);
+    cd.writeUInt16LE(0, 30);           // extra
+    cd.writeUInt16LE(0, 32);           // comment
+    cd.writeUInt16LE(0, 34);           // disk start
+    cd.writeUInt16LE(0, 36);           // internal attr
+    cd.writeUInt32LE(0, 38);           // external attr
+    cd.writeUInt32LE(offset, 42);      // local header offset
+    nameBuf.copy(cd, 46);
+
+    centralDirs.push(cd);
+    offset += lh.length + comp.length;
+  }
+
+  const cdBuf     = Buffer.concat(centralDirs);
+  const eocd      = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(files.length, 8);
+  eocd.writeUInt16LE(files.length, 10);
+  eocd.writeUInt32LE(cdBuf.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  eocd.writeUInt16LE(0, 20);
+
+  const zip = Buffer.concat([...localHeaders, cdBuf, eocd]);
+  const slug = id.split('_').slice(1).join('-') || id;
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="carrusel-${slug}.zip"`);
+  res.send(zip);
 });
 
 app.post('/api/tandas/:id/caption', async (req, res) => {
@@ -1262,223 +1468,159 @@ app.post('/preview/broadcast', express.json(), (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
-// Consola — comandos directos + chat con IA
-// ─────────────────────────────────────────────────────────────────────
-app.post('/api/consola', async (req, res) => {
-  const input  = (req.body.input || '').trim();
-  const marca  = req.body.marca || 'squadteam';
-  if (!input) return res.json({ lines: [] });
+// Chat conversacional — asistente de IA para gestionar carruseles
+app.post('/api/chat', async (req, res) => {
+  const { message, history = [], marca: marcaId = 'squadteam' } = req.body || {};
+  if (!message || typeof message !== 'string') return res.status(400).json({ error: 'Falta message' });
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
 
-  // Comandos directos (empiezan con /)
-  if (input.startsWith('/')) {
-    const [cmd, ...args] = input.slice(1).trim().split(/\s+/);
+  const dir = path.join(__dirname, 'tandas');
+  let tandas = [];
+  try {
+    const folders = await readdir(dir);
+    for (const f of folders) {
+      const outDir = path.join(dir, f, 'output');
+      let slides;
+      try { slides = (await readdir(outDir)).filter(x => x.endsWith('.png')).sort(); } catch { continue; }
+      if (!slides.length) continue;
 
-    switch (cmd.toLowerCase()) {
+      let tema = f;
+      try {
+        const c = JSON.parse(await readFile(path.join(dir, f, 'contenido.json'), 'utf-8'));
+        const cover = c.slides?.find(s => s.type === 'cover');
+        tema = (cover?.headline || tema).replace(/\n/g, ' ');
+      } catch {}
 
-      case 'help':
-        return res.json({ lines: [
-          '  /listar             — lista las últimas 10 tandas',
-          '  /info <id>          — detalle de una tanda',
-          '  /generar <tema>     — genera un carrusel nuevo',
-          '  /analizar <id>      — re-analiza una tanda existente',
-          '  /guardar <id>       — marca una tanda como guardada',
-          '  /descartar <id>     — marca una tanda como descartada',
-          '  /fotos              — lista las fotos disponibles',
-          '  /help               — muestra este mensaje',
-          '',
-          '  También podés escribir en lenguaje natural y la IA interpreta.',
-        ]});
+      let estado = 'nuevo';
+      try { estado = JSON.parse(await readFile(path.join(dir, f, 'estado.json'), 'utf-8')).estado || 'nuevo'; } catch {}
 
-      case 'listar': {
-        const dir = path.join(__dirname, 'tandas');
-        let folders = [];
-        try { folders = await readdir(dir); } catch {}
-        const items = [];
-        for (const f of folders) {
-          let tema = f;
-          try {
-            const c = JSON.parse(await readFile(path.join(dir, f, 'contenido.json'), 'utf-8'));
-            const cover = c.slides?.find(s => s.type === 'cover');
-            tema = (cover?.headline || tema).replace(/\n/g, ' ').slice(0, 60);
-          } catch {}
-          let estado = 'nuevo';
-          try {
-            const e = JSON.parse(await readFile(path.join(dir, f, 'estado.json'), 'utf-8'));
-            estado = e.estado || 'nuevo';
-          } catch {}
-          const ts = Number(f.split('_')[0]) || 0;
-          items.push({ id: f, tema, estado, ts });
-        }
-        items.sort((a, b) => b.ts - a.ts);
-        const last10 = items.slice(0, 10);
-        if (!last10.length) return res.json({ lines: ['  (no hay tandas todavía)'] });
-        return res.json({ lines: last10.map(t => `  [${t.estado}] ${t.id}  —  ${t.tema}`) });
-      }
-
-      case 'info': {
-        const id = args[0];
-        if (!id || !isValidTandaId(id)) return res.json({ lines: ['  ✗ id inválido. Uso: /info <id>'] });
-        try {
-          const c = JSON.parse(await readFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), 'utf-8'));
-          const estado = JSON.parse(await readFile(path.join(__dirname, 'tandas', id, 'estado.json'), 'utf-8')).estado || 'nuevo';
-          const lines = [
-            `  id:     ${id}`,
-            `  estado: ${estado}`,
-            `  marca:  ${c._marca || '—'}`,
-            `  slides: ${c.slides?.length || 0}`,
-            ...( c.slides || []).map((s, i) => `    slide ${i+1} [${s.type}]: ${(s.headline || s.title || s.stat || '').replace(/\n/g,' ').slice(0,50)}`),
-          ];
-          return res.json({ lines });
-        } catch {
-          return res.json({ lines: [`  ✗ Tanda no encontrada: ${id}`] });
-        }
-      }
-
-      case 'generar': {
-        const tema = args.join(' ');
-        if (!tema) return res.json({ lines: ['  ✗ Uso: /generar <tema del carrusel>'] });
-        if (jobRunning) return res.json({ lines: ['  ✗ Ya hay una generación en curso. Esperá a que termine.'] });
-        // Inicia el job y responde con streaming:true para que el frontend conecte al SSE
-        jobRunning = true;
-        jobLog = [];
-        res.json({ lines: [`  ▶ Generando: "${tema}"...`, '  Conectando al log en vivo...'], streaming: true });
-        (async () => {
-          try {
-            const carpeta = path.join('tandas', `${Date.now()}_${slugify(tema)}`);
-            broadcast(`\n=== Consola: Generando "${tema}" (marca: ${marca}) ===\n`);
-            await runStep(['crear.mjs', tema, carpeta, marca]);
-            await runStep(['analizar.mjs', `${carpeta}/contenido.json`]);
-            await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`]);
-            broadcast(`\n✅ Listo: ${carpeta}\n`);
-          } catch(e) {
-            broadcast(`\n❌ Error: ${e.message}\n`);
-          } finally {
-            jobRunning = false;
-          }
-        })();
-        return;
-      }
-
-      case 'analizar': {
-        const id = args[0];
-        if (!id || !isValidTandaId(id)) return res.json({ lines: ['  ✗ Uso: /analizar <id>'] });
-        if (jobRunning) return res.json({ lines: ['  ✗ Hay una generación en curso.'] });
-        const contenidoPath = `tandas/${id}/contenido.json`;
-        try { await readFile(path.join(__dirname, contenidoPath)); } catch {
-          return res.json({ lines: [`  ✗ Tanda no encontrada: ${id}`] });
-        }
-        jobRunning = true;
-        jobLog = [];
-        res.json({ lines: [`  ▶ Analizando ${id}...`], streaming: true });
-        (async () => {
-          try {
-            broadcast(`\n=== Consola: Analizando ${id} ===\n`);
-            await runStep(['analizar.mjs', contenidoPath]);
-            broadcast(`\n✅ Análisis completo\n`);
-          } catch(e) {
-            broadcast(`\n❌ Error: ${e.message}\n`);
-          } finally {
-            jobRunning = false;
-          }
-        })();
-        return;
-      }
-
-      case 'guardar':
-      case 'descartar': {
-        const id = args[0];
-        if (!id || !isValidTandaId(id)) return res.json({ lines: [`  ✗ Uso: /${cmd} <id>`] });
-        const estado = cmd === 'guardar' ? 'guardado' : 'descartado';
-        try {
-          await writeFile(path.join(__dirname, 'tandas', id, 'estado.json'), JSON.stringify({ estado }, null, 2));
-          return res.json({ lines: [`  ✓ Tanda ${id} marcada como ${estado}.`] });
-        } catch {
-          return res.json({ lines: [`  ✗ No se pudo actualizar: tanda no encontrada`] });
-        }
-      }
-
-      case 'fotos': {
-        const lista = [...fotosCloud.entries()];
-        if (!lista.length) return res.json({ lines: ['  (no hay fotos subidas)'] });
-        return res.json({ lines: lista.map(([nombre]) => `  ${nombre}`) });
-      }
-
-      default:
-        return res.json({ lines: [`  ✗ Comando desconocido: /${cmd}. Escribí /help para ver los comandos.`] });
+      const ts = Number(f.split('_')[0]) || 0;
+      const fecha = ts ? new Date(ts).toLocaleDateString('es-UY') : '?';
+      tandas.push({ id: f, tema, fecha, estado, slides: slides.length });
     }
+    tandas.sort((a, b) => (Number(b.id.split('_')[0]) || 0) - (Number(a.id.split('_')[0]) || 0));
+  } catch {}
+
+  let marca = {};
+  try { marca = JSON.parse(await readFile(path.join(__dirname, 'marcas', marcaId, 'marca.json'), 'utf-8')); } catch {}
+
+  const tandasResumen = tandas.length
+    ? tandas.slice(0, 20).map((t, i) => `${i === 0 ? '[MAS RECIENTE] ' : ''}- ID: ${t.id} | Tema: "${t.tema}" | ${t.slides} slides | ${t.fecha} | Estado: ${t.estado}`).join('\n')
+    : 'No hay carruseles generados todavia.';
+
+  // Detectar carrusel mencionado en la conversacion reciente
+  const allText = history.slice(-8).map(h => h.content).concat([message]).join(' ').toLowerCase();
+  const refersToLast = /ultimo|reciente|ese|eso|ese carrusel|el carrusel/.test(allText);
+
+  // Prioridad: ID explicito -> tema -> "ultimo" -> primero de la lista
+  let contextTandaId = tandas.find(t => allText.includes(t.id.toLowerCase()))?.id
+    || tandas.find(t => t.tema.length > 5 && allText.includes(t.tema.toLowerCase().slice(0, 15)))?.id
+    || (refersToLast && tandas[0]?.id)
+    || null;
+
+  // Mirar si el asistente menciono un ID en mensajes recientes
+  if (!contextTandaId) {
+    const assistantTexts = history.slice(-6).filter(h => h.role === 'assistant').map(h => h.content).join(' ');
+    contextTandaId = tandas.find(t => assistantTexts.includes(t.id))?.id || null;
   }
 
-  // ── Chat con IA (lenguaje natural) ──
-  try {
-    // Contexto: últimas 5 tandas
-    let tandaCtx = '';
+  // Si no se encontro ninguno, usar la mas reciente como contexto por defecto
+  if (!contextTandaId && tandas.length) contextTandaId = tandas[0].id;
+
+  let tandaContexto = '';
+  if (contextTandaId) {
     try {
-      const dir = path.join(__dirname, 'tandas');
-      const folders = await readdir(dir);
-      const sorted = folders
-        .map(f => ({ id: f, ts: Number(f.split('_')[0]) || 0 }))
-        .sort((a,b) => b.ts - a.ts)
-        .slice(0, 5);
-      tandaCtx = sorted.map(t => `- ${t.id}`).join('\n');
+      const tc = JSON.parse(await readFile(path.join(__dirname, 'tandas', contextTandaId, 'contenido.analizado.json'), 'utf-8'));
+      const slidesInfo = tc.slides.map((s, i) => {
+        const titulo = s.headline || s.title || (Array.isArray(s.headline_lines) ? s.headline_lines.join(' ') : '') || s.stat || '';
+        const sub = s.subheadline || s.body || s.caption || '';
+        const handle = s.handle ? ` | handle="${s.handle}"` : '';
+        return `  Slide ${i + 1} (${s.type}): headline="${titulo}"${sub ? ` | sub="${sub}"` : ''}${handle}${s.photo ? ' | [foto]' : ''}`;
+      }).join('\n');
+      tandaContexto = `\n\nCONTENIDO DEL CARRUSEL EN CONTEXTO (ID: ${contextTandaId}):\n${slidesInfo}`;
     } catch {}
+  }
 
-    const systemPrompt = `Sos el asistente de control de Carruselesgen — un generador de carruseles de Instagram.
-El usuario puede pedirte cosas en lenguaje natural y vos respondés con una acción JSON.
+  const systemPrompt = `Sos el asistente de CarruselGen para la marca "${marca.nombre || marcaId}".
+Ayudas al usuario a gestionar sus carruseles de Instagram generados con IA.
+El handle de Instagram de la marca es: ${marca.handle || '@tumarca'}
 
-Tandas recientes disponibles:
-${tandaCtx || '(ninguna)'}
+CARRUSELES DISPONIBLES (mas recientes primero):
+${tandasResumen}${tandaContexto}
 
-Comandos disponibles: /listar, /info <id>, /generar <tema>, /analizar <id>, /guardar <id>, /descartar <id>, /fotos
+ACCIONES QUE PODES TOMAR:
+Cuando el usuario quiera realizar una accion concreta, inclui EXACTAMENTE este bloque al final de tu respuesta:
+<action>{"type":"TIPO","params":{...}}</action>
 
-Respondé SOLO con un JSON así:
-{ "mensaje": "texto para mostrarle al usuario", "comando": "/comando a ejecutar o null si no hay acción" }
+Tipos de accion disponibles:
+- show_tanda: { "id": "tanda_id" } — abre el carrusel en la galeria
+- generate: { "tema": "tema del carrusel" } — genera un nuevo carrusel
+- set_estado: { "id": "tanda_id", "estado": "guardado" } — marca como "guardado" o "descartado"
+- go_tab: { "tab": "tab-galeria" } — navega a una pestana
+- open_editor: { "id": "tanda_id", "slide": 1 } — abre el editor visual
+- edit_slide: { "id": "tanda_id", "slide": 3, "fields": { "headline": "nuevo texto" } } — edita campos de texto de un slide y RE-RENDERIZA automaticamente. Campos: headline, subheadline, body, caption, kicker, eyebrow, stat, label, note, detail, sub, attr, footer_text, handle
 
-Ejemplos:
-Usuario: "mostrá las últimas tandas"
-{ "mensaje": "Listando las últimas tandas:", "comando": "/listar" }
+REGLAS CRITICAS:
+- Usa SIEMPRE el ID exacto de la lista. NUNCA inventes o modifiques IDs.
+- El servidor EJECUTA la accion. No describas si funciono o fallo — solo genera el bloque <action> correcto.
+- NUNCA generes mensajes de error como "Tanda no encontrada" — eso es trabajo del servidor, no tuyo.
+- Si el usuario dice "el ultimo carrusel" o "ese carrusel", usa el ID marcado como [MAS RECIENTE].
+- El carrusel EN CONTEXTO es el que tenes detallado arriba. Refiere a ese por defecto salvo que el usuario pida otro.
+- Si el usuario pide editar multiples slides, edita uno por respuesta y avisa que seguiras con el proximo.
+- Responde en espanol rioplatense, amigable y conciso (maximo 3 oraciones).
+- Usa el historial del chat para mantener contexto.`;
 
-Usuario: "generá un carrusel sobre los errores que cometen los emprendedores"
-{ "mensaje": "Generando carrusel sobre ese tema...", "comando": "/generar los errores que cometen los emprendedores" }
+  const messages = [
+    ...history.slice(-14).map(h => ({ role: h.role, content: h.content })),
+    { role: 'user', content: message }
+  ];
 
-Usuario: "¿cuántas fotos tengo?"
-{ "mensaje": "Revisando las fotos disponibles:", "comando": "/fotos" }
+  try {
+    const raw = await bbFetch({ max_tokens: 700, system: systemPrompt, messages });
 
-Usuario: "hola"
-{ "mensaje": "Hola. Podés escribir /help para ver qué puedo hacer, o pedirme algo en lenguaje natural.", "comando": null }`;
+    const actionMatch = raw.match(/<action>([\s\S]*?)<\/action>/);
+    let action = null;
+    let reply = raw.replace(/<action>[\s\S]*?<\/action>/g, '').trim();
 
-    const raw = await callBlackboxText(`${systemPrompt}\n\nUsuario: "${input}"`, 300);
-    let parsed;
-    try {
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
-    } catch {
-      return res.json({ lines: [`  IA: ${raw.slice(0, 200)}`] });
+    if (actionMatch) {
+      try { action = JSON.parse(actionMatch[1]); } catch {}
     }
 
-    const mensaje = parsed.mensaje || '';
-    const comando = parsed.comando || null;
-
-    if (!comando) {
-      return res.json({ lines: mensaje ? [`  IA: ${mensaje}`] : ['  (sin respuesta)'] });
+    // Ejecutar edit_slide server-side
+    if (action?.type === 'edit_slide') {
+      const { id: tandaId, slide: slideNum, fields } = action.params || {};
+      if (isValidTandaId(tandaId) && slideNum && fields && typeof fields === 'object') {
+        try {
+          const contenidoPath = path.join(__dirname, 'tandas', tandaId, 'contenido.analizado.json');
+          const contenido = JSON.parse(await readFile(contenidoPath, 'utf-8'));
+          const idx = Number(slideNum) - 1;
+          if (contenido.slides[idx]) {
+            Object.assign(contenido.slides[idx], fields);
+            await writeFile(contenidoPath, JSON.stringify(contenido, null, 2), 'utf-8');
+            if (!jobRunning) {
+              jobRunning = true;
+              jobLog = [];
+              const extraEnv = {};
+              if (fotosCloud.size > 0) {
+                const mapObj = {};
+                for (const [n, { url }] of fotosCloud.entries()) mapObj[n] = url;
+                extraEnv.FOTOS_MAP = JSON.stringify(mapObj);
+              }
+              runStep(['generar.mjs', `tandas/${tandaId}/contenido.analizado.json`], extraEnv)
+                .catch(e => broadcast(`\n\u274c ${e.message}\n`))
+                .finally(() => { jobRunning = false; });
+            }
+            action.executed = true;
+          }
+        } catch (e) {
+          reply += `\n(No pude aplicar la edicion: ${e.message})`;
+        }
+      }
     }
 
-    // Ejecutar el comando que sugirió la IA recursivamente
-    const subRes = await fetch(`http://localhost:${process.env.PORT || 3000}/api/consola`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: req.headers.cookie || '' },
-      body: JSON.stringify({ input: comando, marca })
-    });
-    const subData = await subRes.json();
-    return res.json({
-      lines: [
-        ...(mensaje ? [`  IA: ${mensaje}`] : []),
-        ...(subData.lines || [])
-      ],
-      streaming: subData.streaming,
-    });
-
-  } catch(e) {
-    return res.json({ lines: [`  ✗ Error IA: ${e.message}`] });
+    res.json({ reply, action });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

@@ -1,14 +1,32 @@
 const $ = (sel) => document.querySelector(sel);
 
+function openModal(el) {
+  el.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+function closeModal(el) {
+  el.classList.add('hidden');
+  // Only remove modal-open if no other modal is visible
+  if (!document.querySelector('.modal:not(.hidden)')) {
+    document.body.classList.remove('modal-open');
+  }
+}
+
 // ── TABS ──────────────────────────────────────────────
+function switchTab(tabId) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const btn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+  if (btn) btn.classList.add('active');
+  const tab = document.getElementById(tabId);
+  if (tab) tab.classList.add('active');
+}
+
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tabId = btn.dataset.tab;
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active');
-    $('#' + tabId).classList.add('active');
-    if (tabId === 'tab-galeria') cargarGaleria();
+    switchTab(tabId);
+    if (tabId === 'tab-galeria') { cargarGaleria(); if (typeof cargarStoriesGaleria === 'function') cargarStoriesGaleria(); }
     if (tabId === 'tab-fotos')   cargarFotosGrid();
   });
 });
@@ -143,6 +161,12 @@ $('#btnGenerar').addEventListener('click', async () => {
   abrirWizardEstilo(tema);
 });
 
+// ── AUTO-GUARDADO DEL DRAFT ──────────────────────────
+const DRAFT_KEY = 'carruselgen_draft_tema';
+$('#temaInput').addEventListener('input', () => {
+  localStorage.setItem(DRAFT_KEY, $('#temaInput').value);
+});
+
 // ── WIZARD ESTILO ──────────────────────────────────
 const ESTILOS = [
   { id: 'minimal',      nombre: 'Minimal',       desc: 'Limpio, elegante, mucho espacio',     paleta: ['#f8f8f6','#0a0a0a','#e8e8e4','#1a1a2e'] },
@@ -154,27 +178,51 @@ const ESTILOS = [
 ];
 
 const FUENTES = [
-  { id: 'playfair',      display: 'Playfair Display', body: 'Lato',          hint: 'Elegante, clásico',        url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lato:wght@400;700&display=swap' },
-  { id: 'oswald',        display: 'Oswald',           body: 'Open Sans',     hint: 'Bold, moderno',            url: 'https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=Open+Sans:wght@400;600&display=swap' },
-  { id: 'montserrat',    display: 'Montserrat',       body: 'Montserrat',    hint: 'Limpio, versátil',         url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap' },
-  { id: 'bebas',         display: 'Bebas Neue',       body: 'Roboto',        hint: 'Impacto, deportivo',       url: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap' },
-  { id: 'space-grotesk', display: 'Space Grotesk',    body: 'Inter',         hint: 'Tech, startup',            url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap' },
-  { id: 'dm-serif',      display: 'DM Serif Display', body: 'DM Sans',       hint: 'Editorial moderno',        url: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600&display=swap' },
-  { id: 'syne',          display: 'Syne',             body: 'Syne',          hint: 'Contemporáneo, artístico', url: 'https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&display=swap' },
-  { id: 'raleway',       display: 'Raleway',          body: 'Merriweather',  hint: 'Sofisticado, legible',     url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@600;800&family=Merriweather:wght@400;700&display=swap' },
+  { id: 'playfair',        display: 'Playfair Display', body: 'Lato',              hint: 'Luxury · premium · editorial',      url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lato:wght@400;700&display=swap' },
+  { id: 'oswald',          display: 'Oswald',           body: 'DM Sans',           hint: 'Deportivo · directo · masculino',   url: 'https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&family=DM+Sans:wght@400;600&display=swap' },
+  { id: 'montserrat',      display: 'Montserrat',       body: 'Montserrat',        hint: 'Versátil · limpio · corporativo',   url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap' },
+  { id: 'bebas',           display: 'Bebas Neue',       body: 'Inter',             hint: 'Editorial · fitness · impacto',     url: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600&display=swap' },
+  { id: 'space-grotesk',   display: 'Space Grotesk',    body: 'Inter',             hint: 'Tech · datos · startup',            url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap' },
+  { id: 'dm-serif',        display: 'DM Serif Display', body: 'DM Sans',           hint: 'Revista · editorial cálido',        url: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600&display=swap' },
+  { id: 'syne',            display: 'Syne',             body: 'Inter',             hint: 'Diseño de autor · disruptivo',      url: 'https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=Inter:wght@400;600&display=swap' },
+  { id: 'raleway',         display: 'Raleway',          body: 'Outfit',            hint: 'Aspiracional · femenino',           url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@600;800&family=Outfit:wght@400;600&display=swap' },
+  { id: 'barlow-cond',     display: 'Barlow Condensed', body: 'Barlow',            hint: 'Moderno · clean · tech',            url: 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600&display=swap' },
+  { id: 'anton',           display: 'Anton',            body: 'Inter',             hint: 'Street · urbano · agresivo',        url: 'https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600&display=swap' },
+  { id: 'archivo-black',   display: 'Archivo Black',    body: 'Inter',             hint: 'Editorial bold · diseño',           url: 'https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;600&display=swap' },
+  { id: 'unbounded',       display: 'Unbounded',        body: 'Inter',             hint: 'Web3 · tech extremo · bold',        url: 'https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;600&display=swap' },
+  { id: 'instrument',      display: 'Instrument Serif', body: 'DM Sans',           hint: 'Ultra premium · luxury',            url: 'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;600&display=swap' },
+  { id: 'poppins',         display: 'Poppins',          body: 'Poppins',           hint: 'Amigable · popular · accesible',    url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap' },
+  { id: 'cormorant',       display: 'Cormorant Garamond', body: 'Lato',            hint: 'Moda · lujo · fashion',             url: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@400;600&display=swap' },
+  { id: 'plus-jakarta',    display: 'Plus Jakarta Sans', body: 'Plus Jakarta Sans', hint: 'Moderno · profesional · SaaS',     url: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap' },
+  { id: 'fraunces',        display: 'Fraunces',         body: 'Jost',              hint: 'Orgánico · artesanal · editorial',  url: 'https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Jost:wght@400;500&display=swap' },
+  { id: 'clash',           display: 'Clash Display',    body: 'Satoshi',           hint: 'Youth · streetwear · moderno',      url: 'https://fonts.googleapis.com/css2?family=Clash+Display:wght@600;700&family=Satoshi:wght@400;500&display=swap' },
+];
+
+const PALETAS = [
+  { id: 'negro-lima',       nombre: 'Negro Lima',        desc: 'Energético · fitness · alto impacto',       preview: ['#040404','#e8ff00','#ffffff'] },
+  { id: 'blanco-negro',     nombre: 'Minimal Blanco',    desc: 'Limpio · premium · tipográfico',            preview: ['#fafafa','#0a0a0a','#555'] },
+  { id: 'negro-rojo',       nombre: 'Rojo Oscuro',       desc: 'Urgencia · agresivo · impacto',             preview: ['#0d0d0d','#e83030','#ffffff'] },
+  { id: 'crema-marron',     nombre: 'Editorial Crema',   desc: 'Sofisticado · editorial · café',            preview: ['#faf7f2','#8c6a4f','#1c1c1c'] },
+  { id: 'azul-cyan',        nombre: 'Tech Azul',         desc: 'Digital · startup · datos',                 preview: ['#020b18','#00cfff','#e8f4ff'] },
+  { id: 'violeta-amarillo', nombre: 'Vibrant Pop',       desc: 'Llamativo · creativo · joven',              preview: ['#1a0533','#f7e94b','#ff6b8a'] },
+  { id: 'verde-crema',      nombre: 'Nature Orgánico',   desc: 'Wellness · bienestar · natural',            preview: ['#1e3a2f','#a8d5b5','#f0f4ed'] },
+  { id: 'dorado-negro',     nombre: 'Dark Luxury',       desc: 'Oscuro · premium · lujo',                   preview: ['#0d0d0d','#c9a84c','#e8d5b0'] },
+  { id: 'blanco-naranja',   nombre: 'Energía Blanca',    desc: 'Limpio con punch · dinámico',               preview: ['#ffffff','#ff5722','#222'] },
+  { id: 'rosa-negro',       nombre: 'Fashion Dark',      desc: 'Moda · femenino · lifestyle oscuro',        preview: ['#0d0d0d','#e8658a','#f5e6ee'] },
 ];
 
 let wizardTema        = '';
 let wizardEstiloId    = null;
 let wizardFuenteId    = null;
+let wizardPaletaId    = null;
 let fontLinksLoaded   = false;
 
 function abrirWizardEstilo(tema) {
   wizardTema     = tema;
   wizardEstiloId = null;
   wizardFuenteId = null;
+  wizardPaletaId = null;
 
-  // Render step 1
   const grid = $('#estiloGrid');
   grid.innerHTML = ESTILOS.map(e => `
     <div class="estilo-card" data-id="${e.id}">
@@ -195,11 +243,11 @@ function abrirWizardEstilo(tema) {
 
   $('#estiloStep1').classList.remove('hidden');
   $('#estiloStep2').classList.add('hidden');
-  $('#modalEstilo').classList.remove('hidden');
+  $('#estiloStep3').classList.add('hidden');
+  openModal($('#modalEstilo'));
 }
 
 function renderFuenteGrid() {
-  // Load all font links once
   if (!fontLinksLoaded) {
     FUENTES.forEach(f => {
       if (!document.querySelector(`link[data-font="${f.id}"]`)) {
@@ -227,13 +275,33 @@ function renderFuenteGrid() {
       grid.querySelectorAll('.fuente-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
       wizardFuenteId = card.dataset.id;
-      $('#fuenteBtnConfirmar').disabled = false;
+      $('#fuenteBtnNext2').disabled = false;
+    });
+  });
+}
+
+function renderPaletaGrid() {
+  const grid = $('#paletaGrid');
+  grid.innerHTML = PALETAS.map(p => `
+    <div class="paleta-card" data-id="${p.id}">
+      <div class="paleta-swatches">${p.preview.map(c => `<span class="paleta-swatch" style="background:${c}"></span>`).join('')}</div>
+      <p class="paleta-nombre">${p.nombre}</p>
+      <p class="paleta-desc">${p.desc}</p>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.paleta-card').forEach(card => {
+    card.addEventListener('click', () => {
+      grid.querySelectorAll('.paleta-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      wizardPaletaId = card.dataset.id;
+      $('#paletaBtnConfirmar').disabled = false;
     });
   });
 }
 
 function cerrarWizard() {
-  $('#modalEstilo').classList.add('hidden');
+  closeModal($('#modalEstilo'));
 }
 
 function confirmarWizardYGenerar() {
@@ -246,6 +314,7 @@ $('#estiloClose').addEventListener('click', cerrarWizard);
 $('#estiloBtnSaltear').addEventListener('click', () => {
   wizardEstiloId = null;
   wizardFuenteId = null;
+  wizardPaletaId = null;
   confirmarWizardYGenerar();
 });
 
@@ -262,10 +331,28 @@ $('#estiloBtnPrev').addEventListener('click', () => {
 
 $('#fuenteBtnSaltear').addEventListener('click', () => {
   wizardFuenteId = null;
+  $('#estiloStep2').classList.add('hidden');
+  $('#estiloStep3').classList.remove('hidden');
+  renderPaletaGrid();
+});
+
+$('#fuenteBtnNext2').addEventListener('click', () => {
+  $('#estiloStep2').classList.add('hidden');
+  $('#estiloStep3').classList.remove('hidden');
+  renderPaletaGrid();
+});
+
+$('#paletaBtnPrev').addEventListener('click', () => {
+  $('#estiloStep3').classList.add('hidden');
+  $('#estiloStep2').classList.remove('hidden');
+});
+
+$('#paletaBtnSaltear').addEventListener('click', () => {
+  wizardPaletaId = null;
   confirmarWizardYGenerar();
 });
 
-$('#fuenteBtnConfirmar').addEventListener('click', confirmarWizardYGenerar);
+$('#paletaBtnConfirmar').addEventListener('click', confirmarWizardYGenerar);
 
 // ── MODAL PREGUNTAR ───────────────────────────────────
 let preguntasActuales = [];
@@ -287,7 +374,7 @@ async function abrirModalPreguntar(tema) {
   loader.classList.remove('hidden');
   content.classList.add('hidden');
   btnConf.classList.add('hidden');
-  modal.classList.remove('hidden');
+  openModal(modal);
 
   // Secciones que solo aparecen cuando hay fotos
   const rotSection = $('#rotacionSection');
@@ -478,6 +565,7 @@ function collectRespuestas() {
 }
 
 async function dispararGenerar(respuestas = {}, instruccionesLibres = '') {
+  localStorage.removeItem(DRAFT_KEY);
   setRunning(true);
   const body = {
     tema: $('#temaInput').value.trim(),
@@ -487,6 +575,7 @@ async function dispararGenerar(respuestas = {}, instruccionesLibres = '') {
     instruccionesLibres,
     estiloId: wizardEstiloId || null,
     fuenteId: wizardFuenteId || null,
+    paletaId: wizardPaletaId || null,
   };
   if (fotosSeleccionadas.length) body.fotos = fotosSeleccionadas;
   const res = await fetch('/api/generar', {
@@ -500,15 +589,15 @@ async function dispararGenerar(respuestas = {}, instruccionesLibres = '') {
   }
 }
 
-$('#modalPreguntarClose').addEventListener('click', () => $('#modalPreguntar').classList.add('hidden'));
+$('#modalPreguntarClose').addEventListener('click', () => closeModal($('#modalPreguntar')));
 
 $('#btnSaltarPreguntas').addEventListener('click', () => {
-  $('#modalPreguntar').classList.add('hidden');
+  closeModal($('#modalPreguntar'));
   dispararGenerar();
 });
 
 $('#btnConfirmarPreguntas').addEventListener('click', () => {
-  $('#modalPreguntar').classList.add('hidden');
+  closeModal($('#modalPreguntar'));
   dispararGenerar(collectRespuestas(), $('#instruccionesLibres').value.trim());
 });
 
@@ -718,15 +807,15 @@ $('#btnAgregarFotos').addEventListener('click', async () => {
   $('#modalFotosGrid').querySelectorAll('.foto-thumb').forEach(el => {
     if (fotosSeleccionadas.includes(el.dataset.nombre)) el.classList.add('selected');
   });
-  $('#modalFotos').classList.remove('hidden');
+  openModal($('#modalFotos'));
 });
 
-$('#modalFotosClose').addEventListener('click', () => $('#modalFotos').classList.add('hidden'));
+$('#modalFotosClose').addEventListener('click', () => closeModal($('#modalFotos')));
 
 $('#btnConfirmarFotos').addEventListener('click', () => {
   fotosSeleccionadas = [...$('#modalFotosGrid').querySelectorAll('.foto-thumb.selected')]
     .map(el => el.dataset.nombre);
-  $('#modalFotos').classList.add('hidden');
+  closeModal($('#modalFotos'));
   renderFotosChips();
 });
 
@@ -765,7 +854,12 @@ function openLightbox(slides, index, tandaId = null) {
   $('#lightboxEdit').classList.toggle('hidden', !hasId);
   $('#lightboxCaption').classList.toggle('hidden', !hasId);
   $('#lightboxDuplicar').classList.toggle('hidden', !hasId);
+  $('#lightboxZip').classList.toggle('hidden', !hasId);
 }
+
+$('#lightboxZip').addEventListener('click', () => {
+  if (currentTandaId) window.location.href = '/api/tandas/' + currentTandaId + '/zip';
+});
 
 function showSlide() {
   const url = currentSlides[currentIndex];
@@ -811,8 +905,8 @@ $('#lightboxDuplicar').addEventListener('click', async () => {
   }
 });
 
-$('#captionClose').addEventListener('click', () => $('#modalCaption').classList.add('hidden'));
-$('#modalCaption').addEventListener('click', e => { if (e.target === $('#modalCaption')) $('#modalCaption').classList.add('hidden'); });
+$('#captionClose').addEventListener('click', () => closeModal($('#modalCaption')));
+$('#modalCaption').addEventListener('click', e => { if (e.target === $('#modalCaption')) closeModal($('#modalCaption')); });
 
 $('#btnCopiarCaption').addEventListener('click', () => {
   navigator.clipboard.writeText($('#captionText').value).then(() => {
@@ -829,7 +923,7 @@ let captionTandaId = null;
 
 function abrirCaption(tandaId) {
   captionTandaId = tandaId;
-  $('#modalCaption').classList.remove('hidden');
+  openModal($('#modalCaption'));
   generarCaption(tandaId);
 }
 
@@ -1114,6 +1208,30 @@ async function editarTanda(tandaId) {
 
   // Load sistema options
   loadSistemaOptions(tandaId);
+  initEditorSwipe();
+}
+
+let editorSwipeTouchX = 0;
+
+function initEditorSwipe() {
+  const wrap = $('.editor-preview-wrap');
+  if (!wrap || wrap._swipeInited) return;
+  wrap._swipeInited = true;
+  wrap.addEventListener('touchstart', e => {
+    editorSwipeTouchX = e.touches[0].clientX;
+  }, { passive: true });
+  wrap.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - editorSwipeTouchX;
+    if (Math.abs(dx) < 50) return;
+    const total = editorContenido?.slides?.length || 1;
+    if (dx < 0) {
+      editorSlideIdx = (editorSlideIdx + 1) % total;
+    } else {
+      editorSlideIdx = (editorSlideIdx - 1 + total) % total;
+    }
+    renderEditorChips();
+    renderEditorSlide(editorSlideIdx);
+  }, { passive: true });
 }
 
 async function loadSistemaOptions(tandaId) {
@@ -1298,6 +1416,7 @@ function renderEditorSlide(idx) {
       document.getElementById('btnSwitchDesign')?.addEventListener('click', async () => {
         const r = await fetch(`/api/tandas/${editorTandaId}/switch-design`, { method: 'POST' });
         if (!r.ok) { alert('Error al cambiar diseño'); return; }
+        // Trigger re-render
         document.getElementById('btnRerenderizar')?.click();
       });
     });
@@ -1426,12 +1545,13 @@ function renderEditorSlide(idx) {
     $('#editorControls').appendChild(section);
   }
 
-    // Bind texto → editorContenido (después de appendChild para que getElementById funcione)
+    // Bind texto → editorContenido
     activeFields.forEach(({ key }) => {
       const el = document.getElementById(`ctrlText_${key}`);
       if (!el) return;
       el.addEventListener('focus', () => {
         saveSnapshot();
+        // En mobile el teclado tapa el modal — scrollear para que el campo quede visible
         setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
       }, { once: true });
       el.addEventListener('input', () => { editorContenido.slides[editorSlideIdx][key] = el.value; sendLiveUpdate(editorSlideIdx); });
@@ -1461,8 +1581,6 @@ function renderEditorSlide(idx) {
         });
       }
     }
-
-    $('#editorControls').appendChild(section);
   }
 
   // Bind controls → editorContenido
@@ -1530,10 +1648,12 @@ async function loadLivePreview(idx) {
       frame.srcdoc = editorTemplateHtml;
       frame.style.display = '';
       img.style.display = 'none';
+      // Wait for frame load then send liveUpdate
       frame.onload = () => sendLiveUpdate(idx);
     } else {
       sendLiveUpdate(idx);
     }
+    // Scale frame to fit container
     const wrap = $('#editorPreviewWrap') || frame.parentElement;
     const containerWidth = wrap.offsetWidth || 400;
     const scale = containerWidth / 1080;
@@ -1541,6 +1661,7 @@ async function loadLivePreview(idx) {
     frame.style.height = `${1350 * scale}px`;
     wrap.style.height = `${1350 * scale}px`;
   } else {
+    // Fallback to img
     img.style.display = '';
     if (frame) frame.style.display = 'none';
     img.src = `/tandas/${editorTandaId}/output/slide-${num}.png?t=${editorTs}`;
@@ -1553,9 +1674,36 @@ function sendLiveUpdate(idx) {
   frame.contentWindow.postMessage({ type: 'liveUpdate', contenido: editorContenido, idx }, '*');
 }
 
-$('#editorClose').addEventListener('click', () => $('#modalEditor').classList.add('hidden'));
+$('#editorClose').addEventListener('click', () => {
+  clearInterval(editorLiveTimer);
+  editorLivePreview = false;
+  const btn = $('#btnLivePreview');
+  if (btn) btn.classList.remove('active');
+  closeModal($('#modalEditor'));
+});
 $('#btnUndo').addEventListener('click', editorUndo);
 $('#btnRedo').addEventListener('click', editorRedo);
+
+let editorLivePreview = false;
+let editorLiveTimer = null;
+
+$('#btnLivePreview').addEventListener('click', () => {
+  editorLivePreview = !editorLivePreview;
+  const btn = $('#btnLivePreview');
+  if (editorLivePreview) {
+    btn.classList.add('active');
+    btn.textContent = '◉ Viva';
+    editorLiveTimer = setInterval(() => {
+      const img = $('#editorSlideImg');
+      if (img) img.src = img.src.replace(/\?t=\d+/, '') + '?t=' + Date.now();
+    }, 3000);
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = '◎ Vista';
+    clearInterval(editorLiveTimer);
+    editorLiveTimer = null;
+  }
+});
 
 $('#btnRerenderizar').addEventListener('click', async () => {
   const btn = $('#btnRerenderizar');
@@ -1758,6 +1906,224 @@ function renderFontPairGrid() {
   });
 }
 
+// ── CHAT / ASISTENTE ──────────────────────────────────
+(function initChat() {
+  const form        = $('#chatForm');
+  const input       = $('#chatInput');
+  const messages    = $('#chatMessages');
+  const sendBtn     = $('#chatSend');
+  const suggestions = $('#chatSuggestions');
+  if (!form) return;
+
+  let chatHistory = []; // { role: 'user'|'assistant', content: string }
+
+  function scrollBottom() {
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function addBubble(role, text, actionCard = null) {
+    const wrap = document.createElement('div');
+    wrap.className = `chat-bubble chat-${role === 'user' ? 'user' : 'ai'}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-avatar';
+    avatar.textContent = role === 'user' ? 'TÚ' : 'AI';
+
+    const textEl = document.createElement('div');
+    textEl.className = 'chat-text';
+    textEl.textContent = text;
+
+    wrap.appendChild(avatar);
+    const right = document.createElement('div');
+    right.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-width:calc(100% - 50px)';
+    right.appendChild(textEl);
+    if (actionCard) right.appendChild(actionCard);
+    wrap.appendChild(right);
+
+    messages.appendChild(wrap);
+    scrollBottom();
+    return wrap;
+  }
+
+  function addTyping() {
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-bubble chat-ai chat-typing';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'chat-avatar';
+    avatar.textContent = 'AI';
+
+    const textEl = document.createElement('div');
+    textEl.className = 'chat-text';
+    for (let i = 0; i < 3; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'chat-dot';
+      textEl.appendChild(dot);
+    }
+
+    wrap.appendChild(avatar);
+    wrap.appendChild(textEl);
+    messages.appendChild(wrap);
+    scrollBottom();
+    return wrap;
+  }
+
+  function buildActionCard(action) {
+    if (!action) return null;
+    const card = document.createElement('div');
+    card.className = 'chat-action-card';
+
+    const label = document.createElement('span');
+    label.className = 'chat-action-label';
+
+    const btn = document.createElement('button');
+    btn.className = 'chat-action-btn';
+
+    if (action.type === 'show_tanda') {
+      label.textContent = `Ver carrusel`;
+      btn.textContent = 'Abrir';
+      btn.addEventListener('click', () => {
+        // Switch to gallery tab and highlight the tanda
+        switchTab('tab-galeria');
+        setTimeout(() => {
+          const el = document.querySelector(`[data-tanda-id="${action.params.id}"]`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      });
+    } else if (action.type === 'generate') {
+      label.textContent = `Generar: "${action.params.tema}"`;
+      btn.textContent = 'Generar';
+      btn.addEventListener('click', () => {
+        switchTab('tab-generar');
+        const temaInput = $('#temaInput');
+        if (temaInput) temaInput.value = action.params.tema;
+        setTimeout(() => $('#btnGenerar')?.click(), 200);
+      });
+    } else if (action.type === 'set_estado') {
+      label.textContent = `Marcar como ${action.params.estado}`;
+      btn.textContent = 'Confirmar';
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+          await fetch(`/api/tandas/${action.params.id}/estado`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: action.params.estado })
+          });
+          btn.textContent = '✓ Listo';
+          setTimeout(() => cargarGaleria(), 500);
+        } catch { btn.textContent = 'Error'; }
+      });
+    } else if (action.type === 'go_tab') {
+      label.textContent = `Ir a ${action.params.tab.replace('tab-', '')}`;
+      btn.textContent = 'Ir';
+      btn.addEventListener('click', () => switchTab(action.params.tab));
+    } else if (action.type === 'open_editor') {
+      label.textContent = `Abrir editor`;
+      btn.textContent = 'Editar';
+      btn.addEventListener('click', () => {
+        // Find the tanda in gallery and trigger its edit button
+        switchTab('tab-galeria');
+        setTimeout(() => {
+          const el = document.querySelector(`[data-tanda-id="${action.params.id}"]`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.querySelector?.('.btn-edit')?.click();
+          }
+        }, 400);
+      });
+    } else if (action.type === 'edit_slide') {
+      if (action.executed) {
+        label.textContent = `Slide ${action.params.slide} editado — re-renderizando`;
+        btn.textContent = 'Ver galería';
+        btn.addEventListener('click', () => {
+          switchTab('tab-galeria');
+          setTimeout(() => cargarGaleria(), 1000);
+        });
+      } else {
+        label.textContent = `Editar slide ${action.params.slide}`;
+        btn.textContent = 'Ver galería';
+        btn.addEventListener('click', () => switchTab('tab-galeria'));
+      }
+    } else {
+      return null;
+    }
+
+    card.appendChild(label);
+    card.appendChild(btn);
+    return card;
+  }
+
+  async function sendMessage(text) {
+    if (!text.trim()) return;
+    if (sendBtn.disabled) return;
+
+    suggestions.style.display = 'none';
+    sendBtn.disabled = true;
+    input.value = '';
+    input.style.height = 'auto';
+
+    addBubble('user', text);
+    chatHistory.push({ role: 'user', content: text });
+
+    const typingEl = addTyping();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history: chatHistory.slice(-10), marca: marcaActual })
+      });
+      const data = await res.json();
+      typingEl.remove();
+
+      const actionCard = buildActionCard(data.action);
+      addBubble('assistant', data.reply || 'Lo siento, no pude procesar eso.', actionCard);
+      chatHistory.push({ role: 'assistant', content: data.reply || '' });
+
+      // Auto-execute non-destructive navigation actions
+      if (data.action?.type === 'go_tab') {
+        switchTab(data.action.params.tab);
+      }
+      // If slide was edited server-side, refresh gallery in background
+      if (data.action?.type === 'edit_slide' && data.action.executed) {
+        setTimeout(() => cargarGaleria(), 4000);
+      }
+    } catch (e) {
+      typingEl.remove();
+      addBubble('assistant', 'Hubo un error al conectarme con la IA. Intentá de nuevo.');
+    }
+
+    sendBtn.disabled = false;
+    input.focus();
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    sendMessage(input.value.trim());
+  });
+
+  // Auto-resize textarea
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  });
+
+  // Enter to send (Shift+Enter for newline)
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input.value.trim());
+    }
+  });
+
+  // Suggestion chips
+  suggestions.querySelectorAll('.chat-suggestion').forEach(btn => {
+    btn.addEventListener('click', () => sendMessage(btn.dataset.msg));
+  });
+})();
+
 // ── INIT ──────────────────────────────────────────────
 (async () => {
   await cargarMarcas();
@@ -1767,4 +2133,125 @@ function renderFontPairGrid() {
   cargarGaleria();
   checkStatus();
   connectStream();
+  // Restaurar draft del tema
+  const savedTema = localStorage.getItem(DRAFT_KEY);
+  if (savedTema) $('#temaInput').value = savedTema;
 })();
+
+// ── GENERAR STORY ─────────────────────────────────────
+$('#btnGenerarStory').addEventListener('click', async () => {
+  const tema = $('#temaInput').value.trim();
+  if (!tema || !marcaActual) return;
+  if (jobRunning) { alert('Ya hay una generación en curso'); return; }
+  setRunning(true);
+  const res = await fetch('/api/generar-story', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tema, marca: marcaActual, model: $('#modelSelect').value })
+  });
+  if (!res.ok) {
+    appendLog('\n❌ ' + (await res.json()).error + '\n');
+    setRunning(false);
+  }
+});
+
+// ── STORIES GALERÍA ───────────────────────────────────
+async function cargarStoriesGaleria() {
+  const res = await fetch('/api/stories');
+  const stories = res.ok ? await res.json() : [];
+  const galeria = $('#storiesGaleria');
+  const empty = $('#storiesEmpty');
+  if (!galeria) return;
+  if (!stories.length) {
+    galeria.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+  galeria.innerHTML = stories.map(s => `
+    <div class="tanda" data-story-id="${s.id}" style="cursor:pointer">
+      <img src="${s.slides[0]}?t=${s.ts || Date.now()}" alt="${s.tema}" loading="lazy" style="aspect-ratio:9/16;object-fit:cover">
+      <span class="count">${s.slides.length}</span>
+      <div class="label"><span class="tanda-tema">${s.tema}</span></div>
+    </div>
+  `).join('');
+  galeria.querySelectorAll('.tanda').forEach((card, i) => {
+    card.addEventListener('click', () => openLightbox(stories[i].slides, 0, null));
+  });
+}
+
+// ── HIGHLIGHTS COVERS ─────────────────────────────────
+let highlightItems = [];
+
+function renderHighlightsList() {
+  const list = $('#highlightsList');
+  if (!list) return;
+  if (!highlightItems.length) {
+    list.innerHTML = '<p class="hint" style="margin:0 0 10px">No hay covers. Agregá uno.</p>';
+    return;
+  }
+  list.innerHTML = highlightItems.map((item, i) => `
+    <div class="highlight-item" data-idx="${i}">
+      <input class="emoji-input" type="text" placeholder="💪" value="${item.emoji || ''}" data-field="emoji" data-idx="${i}">
+      <input type="text" placeholder="Etiqueta" value="${item.label || ''}" data-field="label" data-idx="${i}">
+      <input type="color" value="${item.color || '#e8ff00'}" data-field="color" data-idx="${i}">
+      <button class="btn-del" data-idx="${i}">✕</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const idx = parseInt(inp.dataset.idx);
+      highlightItems[idx][inp.dataset.field] = inp.value;
+    });
+  });
+  list.querySelectorAll('.btn-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      highlightItems.splice(parseInt(btn.dataset.idx), 1);
+      renderHighlightsList();
+    });
+  });
+}
+
+$('#btnAddHighlight')?.addEventListener('click', () => {
+  highlightItems.push({ label: '', emoji: '⭐', color: '#e8ff00' });
+  renderHighlightsList();
+});
+
+$('#btnGenerarHighlights')?.addEventListener('click', async () => {
+  if (!marcaActual || !highlightItems.length) return;
+  if (jobRunning) { alert('Ya hay una generación en curso'); return; }
+  const valid = highlightItems.filter(h => h.label.trim() || h.emoji.trim());
+  if (!valid.length) { alert('Agregá al menos un cover con etiqueta o emoji'); return; }
+  setRunning(true);
+  const res = await fetch('/api/highlights', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ marca: marcaActual, items: valid })
+  });
+  if (!res.ok) {
+    appendLog('\n❌ ' + (await res.json()).error + '\n');
+    setRunning(false);
+  }
+});
+
+async function cargarHighlightsOutput() {
+  if (!marcaActual) return;
+  const res = await fetch(`/api/marcas/${marcaActual}/highlights`);
+  const urls = res.ok ? await res.json() : [];
+  const out = $('#highlightsOutput');
+  if (!out) return;
+  out.innerHTML = urls.map(url => `
+    <div class="foto-thumb"><img src="${url}?t=${Date.now()}" loading="lazy" alt="highlight"></div>
+  `).join('');
+}
+
+document.querySelectorAll('.config-block-header').forEach(header => {
+  if (header.dataset.toggle === 'bloque-highlights') {
+    header.addEventListener('click', () => {
+      const body = $('#bloque-highlights');
+      if (body && !body.classList.contains('collapsed')) {
+        setTimeout(cargarHighlightsOutput, 50);
+      }
+    });
+  }
+});

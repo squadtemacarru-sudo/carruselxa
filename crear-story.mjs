@@ -90,7 +90,7 @@ async function callBlackbox(content, attempt = 0) {
   let response;
   try {
     const ac = new AbortController();
-    const abortTimer = setTimeout(() => ac.abort(), 90000);
+    const abortTimer = setTimeout(() => ac.abort(), 20000);
     try {
       response = await fetch('https://api.blackbox.ai/chat/completions', {
         signal: ac.signal,
@@ -113,7 +113,7 @@ async function callBlackbox(content, attempt = 0) {
     }
   } catch (netErr) {
     if (attempt < 3) {
-      const delay = [5000, 12000, 25000][attempt];
+      const delay = [3000, 8000, 15000][attempt];
       console.warn(`⏳ Error de red Blackbox (intento ${attempt + 1}): ${netErr.message} — reintentando en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return callBlackbox(content, attempt + 1);
@@ -131,7 +131,7 @@ async function callBlackbox(content, attempt = 0) {
   } catch {
     const preview = rawText.slice(0, 300).replace(/\n/g, ' ');
     if (attempt < 3) {
-      const delay = [5000, 12000, 25000][attempt];
+      const delay = [3000, 8000, 15000][attempt];
       console.warn(`⏳ Respuesta no-JSON de Blackbox (intento ${attempt + 1}, status ${response.status}) — reintentando en ${delay / 1000}s...`);
       console.warn(`   Preview: ${preview}`);
       await new Promise(r => setTimeout(r, delay));
@@ -144,7 +144,7 @@ async function callBlackbox(content, attempt = 0) {
     const body = JSON.stringify(data);
     const is429 = response.status === 429 || body.includes('RESOURCE_EXHAUSTED') || body.includes('429');
     if (is429 && attempt < 3) {
-      const delay = [5000, 12000, 25000][attempt];
+      const delay = [3000, 8000, 15000][attempt];
       console.warn(`⏳ Rate limit (intento ${attempt + 1}) — reintentando en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return callBlackbox(content, attempt + 1);
@@ -395,32 +395,38 @@ El resto de las slides seguí el formato clásico de abajo, sin campo "photo".`;
 }
 
 async function generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria) {
-  const promptText = `Generá el contenido completo de un carrusel de Instagram de 6 slides sobre el siguiente tema.
+  const promptText = `Generá el contenido de una STORY de Instagram de 4 slides sobre el siguiente tema.
+
+FORMATO: Story de Instagram (9:16, vertical). Cada slide se ve ~2-3 segundos. Texto MÍNIMO.
+REGLAS DE STORY:
+- Máximo 4 slides (cover + 2 contenido + CTA)
+- Cada slide: UN headline corto (máximo 5 palabras) + opcionalmente UNA línea de cuerpo (máximo 8 palabras)
+- Sin listas largas. Sin items. Sin párrafos.
+- Visual primero: el tipo “statement” y “cover” son los mejores para stories
+- El slide 1 es el hook — tiene que detener el scroll en 0.5 segundos
+- El último slide siempre termina con CTA directo y el handle de la marca
 
 TEMA: ${tema}
 ${marcaContext(marca)}
-${memoriaContext(memoria)}GUÍAS DE COPY (aplicá lo que tenga sentido para este tema, no todo a la fuerza):
-${skillsDocs}
-${referenciasIG ? `\nESTILO DE REFERENCIA (notas sobre perfiles de IG que le gustan al cliente):\n${referenciasIG}\n` : ''}
-${USER_ESTILO_ID && ESTILOS_HINTS[USER_ESTILO_ID] ? `\nESTILO VISUAL ELEGIDO POR EL USUARIO — aplicá esto al sistema de diseño:\n${ESTILOS_HINTS[USER_ESTILO_ID]}\n` : ''}
-${USER_FUENTE_ID && FUENTES_HINTS[USER_FUENTE_ID] ? `\nTIPOGRAFÍA ELEGIDA POR EL USUARIO — usá EXACTAMENTE estas fuentes en _sistema.tipografia:\n- Display/Titular: "${FUENTES_HINTS[USER_FUENTE_ID].display}"\n- Cuerpo: "${FUENTES_HINTS[USER_FUENTE_ID].body}"\n- URL de import: "${FUENTES_HINTS[USER_FUENTE_ID].url}"\n` : ''}${USER_PALETA_ID && PALETAS_HINTS[USER_PALETA_ID] ? `\nPALETA ELEGIDA POR EL USUARIO — usá EXACTAMENTE estos colores en _sistema.paleta:\n- Fondo: "${PALETAS_HINTS[USER_PALETA_ID].fondo}"\n- Acento: "${PALETAS_HINTS[USER_PALETA_ID].acento}"\n- Texto: "${PALETAS_HINTS[USER_PALETA_ID].texto}"\n` : ''}
-${USER_INSTRUCCIONES ? `\nINSTRUCCIONES ESPECÍFICAS DEL USUARIO — PRIORIDAD MÁXIMA, seguí estas al pie de la letra:\n${USER_INSTRUCCIONES}\n` : ''}
+${referenciasIG ? `\nESTILO DE REFERENCIA:\n${referenciasIG}\n` : ''}
+${USER_ESTILO_ID && ESTILOS_HINTS[USER_ESTILO_ID] ? `\nESTILO VISUAL: ${ESTILOS_HINTS[USER_ESTILO_ID]}\n` : ''}
+${USER_FUENTE_ID && FUENTES_HINTS[USER_FUENTE_ID] ? `\nTIPOGRAFÍA — usá EXACTAMENTE en _sistema.tipografia:\n- Display/Titular: “${FUENTES_HINTS[USER_FUENTE_ID].display}”\n- Cuerpo: “${FUENTES_HINTS[USER_FUENTE_ID].body}”\n- URL: “${FUENTES_HINTS[USER_FUENTE_ID].url}”\n` : ''}${USER_PALETA_ID && PALETAS_HINTS[USER_PALETA_ID] ? `\nPALETA — usá EXACTAMENTE en _sistema.paleta:\n- Fondo: “${PALETAS_HINTS[USER_PALETA_ID].fondo}”\n- Acento: “${PALETAS_HINTS[USER_PALETA_ID].acento}”\n- Texto: “${PALETAS_HINTS[USER_PALETA_ID].texto}”\n` : ''}
+${USER_INSTRUCCIONES ? `\nINSTRUCCIONES DEL USUARIO — PRIORIDAD MÁXIMA:\n${USER_INSTRUCCIONES}\n` : ''}
 ${fotosContext(fotos)}
-Devolvé SOLO JSON (sin markdown) con esta estructura:
+Devolvé SOLO JSON (sin markdown):
 {
-  “overlay”: 0.45,
-  “slides”: [ /* 6 slides, elegí los tipos que mejor sirvan al tema */ ]
+  “overlay”: 0.55,
+  “slides”: [ /* EXACTAMENTE 4 slides */ ]
 }
 
 TIPOS DE SLIDE disponibles — elegí el más adecuado para cada posición:
 
 Tipos base (siempre disponibles):
 - cover: portada. Dos formatos posibles:
-  a) Formato clásico (solo si no encaja el hero): { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto”, “kicker”: “frase corta” }
-  b) Formato hero multi-línea (**USÁ ESTE SIEMPRE QUE PUEDAS** — es el estilo visual más impactante e Instagram-viral): { “type”: “cover”, “_layout”: “cover-impact”, “headline_lines”: [{“text”:”TEXTO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”EL DATO O CONCEPTO CLAVE”,”size”:”hero”,”color”:”#e8000d”,”stroke”:true},{“text”:”OTRO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”IMPACTO”,”size”:”hero”,”color”:”#e8000d”}] }
-     Tamaños de línea: “hero” = enorme (el hook principal), “md” = mediano, “connector” = pequeño conector entre líneas grandes
+  a) Formato clásico: { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto”, “kicker”: “frase corta” }
+  b) Formato hero multi-línea (PREFERIDO para temas con dato o número fuerte): { “type”: “cover”, “_layout”: “cover-impact”, “headline_lines”: [{“text”:”TEXTO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”EL DATO”,”size”:”hero”,”color”:”#e8000d”,”stroke”:true},{“text”:”OTRO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”IMPACTO”,”size”:”hero”,”color”:”#e8000d”}] }
+     Tamaños de línea: “hero” = enorme (el dato/número), “md” = mediano, “connector” = pequeño conector
      stroke:true agrega subrayado decorativo debajo de esa línea
-     REGLA: el cover-impact funciona para CUALQUIER tema — usá “connector” para preguntas/frases y “hero” para la respuesta/concepto clave
 - list: lista de ítems. { “type”: “list”, “eyebrow”: “frase de contexto en mayúsculas”, “items”: [“ítem 1”, “ítem 2”, “ítem 3”, “ítem 4”, “ítem 5”] }
 - statement: afirmación desarrollada. { “type”: “statement”, “headline”: “afirmación\\ncorta y rotunda”, “body”: “desarrollo breve\\n\\ncon párrafos cortos” }
 - split: dos columnas comparativas. { “type”: “split”, “left”: {“label”: “ETIQUETA A”, “items”: [“ítem”, “ítem”, “ítem”]}, “right”: {“label”: “ETIQUETA B”, “items”: [“ítem”, “ítem”, “ítem”]} }
@@ -432,27 +438,6 @@ Tipos de alto impacto visual — USÁ AL MENOS UNO cuando el tema lo permita:
 - timeline: cuando el tema explica un proceso, método o secuencia de pasos. { “type”: “timeline”, “eyebrow”: “EL PROCESO”, “headline”: “CÓMO\\nFUNCIONA”, “steps”: [{“num”:”01”,”text”:”primer paso”,”detail”:”detalle opcional”},{“num”:”02”,”text”:”segundo paso”},{“num”:”03”,”text”:”tercer paso”}] }
 - grid: cuando el tema presenta 4 beneficios, pilares o conceptos paralelos. { “type”: “grid”, “headline”: “LO QUE\\nGANÁS”, “cells”: [{“icon”:”fitness_center”,”label”:”FUERZA”,”text”:”texto corto”},{“icon”:”psychology”,”label”:”ENFOQUE”,”text”:”texto corto”},{“icon”:”bolt”,”label”:”ENERGÍA”,”text”:”texto corto”},{“icon”:”trending_up”,”label”:”RESULTADO”,”text”:”texto corto”}] }
   IMPORTANTE: el campo “icon” del grid debe ser un nombre de Material Symbols (Google). Opciones: fitness_center, psychology, bolt, trending_up, restaurant, timer, water_drop, monitor_heart, nightlight, local_fire_department, sports, self_improvement, emoji_events, star, check_circle, rocket_launch, favorite, directions_run, speed, schedule, school, workspace_premium, shield, flag, groups, eco, nutrition, bedtime, mood, flash_on, whatshot
-- grid_stats: grilla 2×2 de métricas/KPIs con icono Material Symbol + valor grande + etiqueta
-  → fields: title, items[]{icon(material symbol name), value, label}
-  Ejemplo: { “type”: “grid_stats”, “title”: “LOS NÚMEROS\\nHABLAN”, “items”: [{“icon”:”trending_up”,”value”:”87%”,”label”:”Tasa de retención”},{“icon”:”timer”,”value”:”21 días”,”label”:”Para crear un hábito”},{“icon”:”groups”,”value”:”10K+”,”label”:”Atletas entrenados”},{“icon”:”emoji_events”,”value”:”3×”,”label”:”Más resultados”}] }
-- comparison: tabla comparativa A vs B
-  → fields: title, col_a(header), col_b(header), rows[]{label, a, b}
-  Ejemplo: { “type”: “comparison”, “title”: “SIN VS CON\\nMÉTODO”, “col_a”: “Sin método”, “col_b”: “Con método”, “rows”: [{“label”:”Progreso”,”a”:”Lento”,”b”:”Constante”},{“label”:”Lesiones”,”a”:”Frecuentes”,”b”:”Mínimas”},{“label”:”Motivación”,”a”:”Variable”,”b”:”Sostenida”}] }
-- steps: pasos numerados con icono
-  → fields: title, items[]{icon(material symbol name), step(número), title, desc}
-  Ejemplo: { “type”: “steps”, “title”: “EL PROCESO\\nEN 4 PASOS”, “items”: [{“step”:”01”,”icon”:”search”,”title”:”Diagnóstico”,”desc”:”Analizamos tu punto de partida”},{“step”:”02”,”icon”:”flag”,”title”:”Plan”,”desc”:”Diseñamos tu protocolo personalizado”}] }
-- icon_list: lista visual con íconos
-  → fields: title, items[]{icon(material symbol name), text}
-  Ejemplo: { “type”: “icon_list”, “title”: “QUÉ INCLUYE\\nEL PROGRAMA”, “items”: [{“icon”:”fitness_center”,”text”:”Rutinas de fuerza progresiva”},{“icon”:”restaurant”,”text”:”Protocolo nutricional adaptado”},{“icon”:”monitor_heart”,”text”:”Seguimiento semanal de métricas”}] }
-
-Para carruseles de tipo 'infografía', usá preferentemente grid_stats, steps, comparison e icon_list. Los iconos deben ser nombres válidos de Material Symbols (snake_case).
-
-Tipos de infografía (usá cuando el tema pide datos, comparaciones o pasos visuales):
-- grid_stats: grilla 2×2 de métricas/KPIs con ícono grande + valor numérico + etiqueta. Ideal para “datos clave”, “en números”, estadísticas impactantes. { “type”: “grid_stats”, “title”: “EN NÚMEROS”, “items”: [{“icon”:”bolt”,”value”:”87%”,”label”:”Satisfacción”},{“icon”:”trending_up”,”value”:”3x”,”label”:”Crecimiento”},{“icon”:”groups”,”value”:”1.2K”,”label”:”Clientes”},{“icon”:”star”,”value”:”4.9”,”label”:”Rating”}] }
-- comparison: tabla comparativa A vs B. Ideal para “antes vs ahora”, “con vs sin”, “nosotros vs competencia”. { “type”: “comparison”, “title”: “ANTES VS AHORA”, “col_a”: “❌ Antes”, “col_b”: “✅ Con nosotros”, “rows”: [{“label”:”Tiempo”,”a”:”3 horas”,”b”:”20 min”},{“label”:”Costo”,”a”:”$5000”,”b”:”$1200”},{“label”:”Resultado”,”a”:”Incierto”,”b”:”Garantizado”}] }
-- steps: pasos numerados con ícono. Ideal para procesos, métodos, “cómo funciona”. { “type”: “steps”, “title”: “CÓMO FUNCIONA”, “items”: [{“icon”:”person_add”,”step”:”1”,”title”:”Registrate”,”desc”:”Gratis en 2 minutos”},{“icon”:”search”,”step”:”2”,”title”:”Explorá”,”desc”:”Más de 500 opciones”},{“icon”:”rocket_launch”,”step”:”3”,”title”:”Empezá”,”desc”:”Resultados inmediatos”}] }
-- icon_list: lista visual de beneficios/razones con ícono grande. Ideal para “por qué elegirnos”, “lo que incluye”, features destacados. { “type”: “icon_list”, “title”: “¿POR QUÉ ELEGIRNOS?”, “items”: [{“icon”:”verified”,”text”:”Certificados y con experiencia”},{“icon”:”support_agent”,”text”:”Atención 24/7 personalizada”},{“icon”:”payments”,”text”:”Precios transparentes sin letra chica”}] }
-  ICONOS VÁLIDOS para tipos de infografía (Material Symbols snake_case): verified, support_agent, payments, rocket_launch, person_add, search, bolt, trending_up, groups, star, check_circle, schedule, timer, local_fire_department, fitness_center, psychology, school, workspace_premium, shield, flag, eco, favorite, speed, flash_on, emoji_events, monitor_heart, nutrition, self_improvement, celebration, lightbulb, key, lock, thumb_up, leaderboard, bar_chart, pie_chart, insights, public, handshake, savings, credit_card, inventory_2, storefront, delivery_dining, medical_services, spa, sports, directions_run
 
 Regla de estructura: el slide 1 siempre es “cover”, el slide 6 siempre es “cta”. Los 4 del medio son libres — combiná tipos base y de alto impacto según lo que mejor cuente el tema.
 ${fotos?.length ? '' : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
@@ -461,8 +446,7 @@ Reglas generales:
 - Evitá totalmente las palabras/clichés listados como “Avoid”.
 - Usá “\\n” dentro de los textos para cortar líneas como en un carrusel real (nunca un solo párrafo largo en headlines).
 - Nunca uses comillas dobles rectas (“) dentro de un valor de texto — para citas o términos entre comillas usá comillas tipográficas “ “ curvas.
-- Podés usar [palabra]{#hex} para colorear UNA palabra en body/detail (ej: “Tenés [2 opciones]{#e8000d}”). Máximo 1 por slide. NUNCA en el campo headline ni en más de una palabra seguida.
-- [palabra]{bg:#hex} pone caja de color detrás de una sola palabra corta (ej: “[nada,]{bg:#00cc00}”). Máximo 1 por carrusel entero. NUNCA en headline, NUNCA en más de 2 palabras seguidas.
+- En cualquier campo de texto podés usar [texto]{#hex} para colorear palabras clave en el color de acento, y [texto]{bg:#hex} para poner una caja de fondo de color detrás de una palabra (ej: “Nadie me regaló [nada,]{bg:#00cc00} tú tampoco.”). Usalo con criterio — máximo 1-2 palabras destacadas por slide.
 `;
 
   const parse = (raw) => JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));
@@ -472,7 +456,7 @@ Reglas generales:
   contenido = parse(text);
 
   // Si la IA devolvió menos slides de lo pedido, reintentamos una vez
-  if (!contenido.slides || contenido.slides.length < 5) {
+  if (!contenido.slides || contenido.slides.length < 3) {
     console.warn(`⚠ Solo ${contenido.slides?.length ?? 0} slides — reintentando...`);
     const text2 = await callBlackbox(promptText);
     const retry  = parse(text2);
@@ -584,7 +568,7 @@ async function main() {
   if (skillsDocs) console.log('📚 Skills de copy cargadas.');
   if (memoria.length) console.log(`🧠 Memoria: ${memoria.length} carrusel(es) previos cargados.`);
   let contenido = await generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria);
-  contenido = await withTimeout(90000, scoreYCorregir(contenido, marca, tema), contenido);
+  contenido = await withTimeout(20000, scoreYCorregir(contenido, marca, tema), contenido);
   contenido._marca = marcaId;
 
   const carpeta = process.argv[3]
