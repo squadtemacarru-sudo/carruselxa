@@ -289,6 +289,76 @@ app.post('/api/generar', async (req, res) => {
   })();
 });
 
+app.post('/api/generar-story', async (req, res) => {
+  if (jobRunning) return res.status(409).json({ error: 'Ya hay una generación en curso' });
+  const tema = (req.body.tema || '').trim();
+  const marcaId = req.body.marca || 'squadteam';
+  if (!tema) return res.status(400).json({ error: 'Falta el tema' });
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+
+  jobRunning = true;
+  jobLog = [];
+  res.json({ ok: true });
+
+  (async () => {
+    try {
+      const carpeta = path.join('stories', `${Date.now()}_story_${slugify(tema)}`);
+      broadcast(`\n=== Story: ${tema} (marca: ${marcaId}) ===\n`);
+
+      const extraEnv = {};
+      if (req.body.model) extraEnv.USER_MODEL = req.body.model;
+      if (req.body.estiloId) extraEnv.USER_ESTILO_ID = req.body.estiloId;
+      if (req.body.fuenteId) extraEnv.USER_FUENTE_ID = req.body.fuenteId;
+      if (req.body.paletaId) extraEnv.USER_PALETA_ID = req.body.paletaId;
+      if (req.body.instruccionesLibres) extraEnv.USER_INSTRUCCIONES = req.body.instruccionesLibres;
+
+      try {
+        const mData = JSON.parse(await readFile(path.join(__dirname, 'marcas', marcaId, 'marca.json'), 'utf-8'));
+        if (mData.handle) extraEnv.USER_HANDLE = mData.handle;
+      } catch {}
+
+      await runStep(['crear-story.mjs', tema, carpeta, marcaId], extraEnv);
+      await runStep(['analizar.mjs', `${carpeta}/contenido.json`], extraEnv);
+      await runStep(['generar-story.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
+
+      broadcast(`\n✅ Story lista: ${carpeta}\n`);
+    } catch (e) {
+      broadcast(`\n❌ Error: ${e.message}\n`);
+    } finally {
+      jobRunning = false;
+    }
+  })();
+});
+
+app.get('/api/stories', async (req, res) => {
+  const dir = path.join(__dirname, 'stories');
+  let folders;
+  try { folders = await readdir(dir); } catch { return res.json([]); }
+
+  const items = [];
+  for (const f of folders) {
+    const outDir = path.join(dir, f, 'output');
+    let slides;
+    try {
+      slides = (await readdir(outDir)).filter(x => x.endsWith('.png')).sort();
+    } catch { continue; }
+    if (!slides.length) continue;
+
+    let tema = f;
+    try {
+      const c = JSON.parse(await readFile(path.join(dir, f, 'contenido.json'), 'utf-8'));
+      const cover = c.slides?.find(s => s.type === 'cover');
+      tema = (cover?.headline || tema).replace(/\n/g, ' ');
+    } catch {}
+
+    const ts = Number(f.split('_')[0]) || 0;
+    const slideUrls = slides.map(s => `/stories/${f}/output/${s}`);
+    items.push({ id: f, tema, ts, slides: slideUrls });
+  }
+  items.sort((a, b) => b.ts - a.ts);
+  res.json(items);
+});
+
 app.post('/api/lote', async (req, res) => {
   if (jobRunning) return res.status(409).json({ error: 'Ya hay una generación en curso' });
   const minutos = Number(req.body.minutos) || 45;

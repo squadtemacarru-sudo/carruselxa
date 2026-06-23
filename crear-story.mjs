@@ -395,21 +395,28 @@ El resto de las slides seguí el formato clásico de abajo, sin campo "photo".`;
 }
 
 async function generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria) {
-  const promptText = `Generá el contenido completo de un carrusel de Instagram de 6 slides sobre el siguiente tema.
+  const promptText = `Generá el contenido de una STORY de Instagram de 4 slides sobre el siguiente tema.
+
+FORMATO: Story de Instagram (9:16, vertical). Cada slide se ve ~2-3 segundos. Texto MÍNIMO.
+REGLAS DE STORY:
+- Máximo 4 slides (cover + 2 contenido + CTA)
+- Cada slide: UN headline corto (máximo 5 palabras) + opcionalmente UNA línea de cuerpo (máximo 8 palabras)
+- Sin listas largas. Sin items. Sin párrafos.
+- Visual primero: el tipo “statement” y “cover” son los mejores para stories
+- El slide 1 es el hook — tiene que detener el scroll en 0.5 segundos
+- El último slide siempre termina con CTA directo y el handle de la marca
 
 TEMA: ${tema}
 ${marcaContext(marca)}
-${memoriaContext(memoria)}GUÍAS DE COPY (aplicá lo que tenga sentido para este tema, no todo a la fuerza):
-${skillsDocs}
-${referenciasIG ? `\nESTILO DE REFERENCIA (notas sobre perfiles de IG que le gustan al cliente):\n${referenciasIG}\n` : ''}
-${USER_ESTILO_ID && ESTILOS_HINTS[USER_ESTILO_ID] ? `\nESTILO VISUAL ELEGIDO POR EL USUARIO — aplicá esto al sistema de diseño:\n${ESTILOS_HINTS[USER_ESTILO_ID]}\n` : ''}
-${USER_FUENTE_ID && FUENTES_HINTS[USER_FUENTE_ID] ? `\nTIPOGRAFÍA ELEGIDA POR EL USUARIO — usá EXACTAMENTE estas fuentes en _sistema.tipografia:\n- Display/Titular: "${FUENTES_HINTS[USER_FUENTE_ID].display}"\n- Cuerpo: "${FUENTES_HINTS[USER_FUENTE_ID].body}"\n- URL de import: "${FUENTES_HINTS[USER_FUENTE_ID].url}"\n` : ''}${USER_PALETA_ID && PALETAS_HINTS[USER_PALETA_ID] ? `\nPALETA ELEGIDA POR EL USUARIO — usá EXACTAMENTE estos colores en _sistema.paleta:\n- Fondo: "${PALETAS_HINTS[USER_PALETA_ID].fondo}"\n- Acento: "${PALETAS_HINTS[USER_PALETA_ID].acento}"\n- Texto: "${PALETAS_HINTS[USER_PALETA_ID].texto}"\n` : ''}
-${USER_INSTRUCCIONES ? `\nINSTRUCCIONES ESPECÍFICAS DEL USUARIO — PRIORIDAD MÁXIMA, seguí estas al pie de la letra:\n${USER_INSTRUCCIONES}\n` : ''}
+${referenciasIG ? `\nESTILO DE REFERENCIA:\n${referenciasIG}\n` : ''}
+${USER_ESTILO_ID && ESTILOS_HINTS[USER_ESTILO_ID] ? `\nESTILO VISUAL: ${ESTILOS_HINTS[USER_ESTILO_ID]}\n` : ''}
+${USER_FUENTE_ID && FUENTES_HINTS[USER_FUENTE_ID] ? `\nTIPOGRAFÍA — usá EXACTAMENTE en _sistema.tipografia:\n- Display/Titular: “${FUENTES_HINTS[USER_FUENTE_ID].display}”\n- Cuerpo: “${FUENTES_HINTS[USER_FUENTE_ID].body}”\n- URL: “${FUENTES_HINTS[USER_FUENTE_ID].url}”\n` : ''}${USER_PALETA_ID && PALETAS_HINTS[USER_PALETA_ID] ? `\nPALETA — usá EXACTAMENTE en _sistema.paleta:\n- Fondo: “${PALETAS_HINTS[USER_PALETA_ID].fondo}”\n- Acento: “${PALETAS_HINTS[USER_PALETA_ID].acento}”\n- Texto: “${PALETAS_HINTS[USER_PALETA_ID].texto}”\n` : ''}
+${USER_INSTRUCCIONES ? `\nINSTRUCCIONES DEL USUARIO — PRIORIDAD MÁXIMA:\n${USER_INSTRUCCIONES}\n` : ''}
 ${fotosContext(fotos)}
-Devolvé SOLO JSON (sin markdown) con esta estructura:
+Devolvé SOLO JSON (sin markdown):
 {
-  “overlay”: 0.45,
-  “slides”: [ /* 6 slides, elegí los tipos que mejor sirvan al tema */ ]
+  “overlay”: 0.55,
+  “slides”: [ /* EXACTAMENTE 4 slides */ ]
 }
 
 TIPOS DE SLIDE disponibles — elegí el más adecuado para cada posición:
@@ -449,7 +456,7 @@ Reglas generales:
   contenido = parse(text);
 
   // Si la IA devolvió menos slides de lo pedido, reintentamos una vez
-  if (!contenido.slides || contenido.slides.length < 5) {
+  if (!contenido.slides || contenido.slides.length < 3) {
     console.warn(`⚠ Solo ${contenido.slides?.length ?? 0} slides — reintentando...`);
     const text2 = await callBlackbox(promptText);
     const retry  = parse(text2);

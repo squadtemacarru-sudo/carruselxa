@@ -193,7 +193,7 @@ async function main() {
 
   raw._logo = await loadLogo(raw._marca || 'squadteam');
 
-  const template = await readFile(path.join(__dirname, 'template.html'), 'utf-8');
+  const template = await readFile(path.join(__dirname, 'template-story.html'), 'utf-8');
   const renderCore = await readFile(path.join(__dirname, 'render-core.js'), 'utf-8');
   const html = template
     .replace('<script src="render-core.js"></script>', `<script>${renderCore}</script>`)
@@ -209,7 +209,7 @@ async function main() {
 
   const page = await browser.newPage();
   await enableFontCache(page);
-  await page.setViewport({ width: 1080, height: 1350, deviceScaleFactor: 2 });
+  await page.setViewport({ width: 1080, height: 1920, deviceScaleFactor: 2 });
   await page.goto(`file://${tmpHtml}`, { waitUntil: 'networkidle0' });
   // Esperar a que todas las fuentes (incluyendo las cargadas dinámicamente) estén listas
   await page.evaluate(() => document.fonts.ready);
@@ -220,7 +220,7 @@ async function main() {
     await page.evaluate((idx) => window.__showSlide(idx), i);
     await new Promise((r) => setTimeout(r, 150));
     const wrapper = await page.$('#slideWrapper');
-    const file = path.join(outDir, `slide-0${i + 1}.png`);
+    const file = path.join(outDir, `story-0${i + 1}.png`);
     await wrapper.screenshot({ path: file });
     console.log(`✓ ${file}`);
   }
@@ -234,10 +234,10 @@ async function main() {
   if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_UPLOAD_PRESET) {
     console.log('\n☁️  Subiendo a Cloudinary...');
     for (let i = 0; i < total; i++) {
-      const file = path.join(outDir, `slide-0${i + 1}.png`);
+      const file = path.join(outDir, `story-0${i + 1}.png`);
       const url  = await uploadToCloudinary(file, cloudFolder);
       cloudUrls.push(url);
-      console.log(`  ↑ slide-0${i + 1} → ${url}`);
+      console.log(`  ↑ story-0${i + 1} → ${url}`);
     }
     await writeFile(path.join(outDir, 'cloudinary.json'), JSON.stringify(cloudUrls, null, 2), 'utf-8');
   }
