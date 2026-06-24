@@ -1041,7 +1041,7 @@ async function cargarGaleria() {
   aplicarFiltroGaleria();
 }
 
-$('#btnRefrescar').addEventListener('click', cargarGaleria);
+$('#btnRefrescar').addEventListener('click', () => { cargarGaleria(); cargarStoriesGaleria(); });
 
 // ── ESTUDIAR CARRUSELES ───────────────────────────────
 let estudiarFiles = [];
@@ -2165,6 +2165,7 @@ function renderFontPairGrid() {
   renderTemplatesList();
   cargarClonarGrid();
   cargarGaleria();
+  cargarStoriesGaleria();
   checkStatus();
   connectStream();
   // Restaurar draft del tema

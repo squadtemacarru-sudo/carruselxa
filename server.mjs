@@ -124,6 +124,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/tandas', express.static(path.join(__dirname, 'tandas')));
 app.use('/marcas', express.static(path.join(__dirname, 'marcas')));
 app.use('/fotos',  express.static(FOTOS_DIR));
+app.use('/stories', express.static(path.join(__dirname, 'stories')));
 
 function isValidMarcaId(id) {
   return typeof id === 'string' && /^[a-z0-9_-]+$/i.test(id);
