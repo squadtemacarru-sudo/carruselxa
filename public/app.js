@@ -2175,13 +2175,13 @@ function renderFontPairGrid() {
 // ── GENERAR STORY ─────────────────────────────────────
 $('#btnGenerarStory').addEventListener('click', async () => {
   const tema = $('#temaInput').value.trim();
-  if (!tema || !marcaActual) return;
-  if (jobRunning) { alert('Ya hay una generación en curso'); return; }
+  if (!tema) { alert('Escribí un tema primero'); return; }
+  if ($('#btnGenerar').disabled) { alert('Ya hay una generación en curso'); return; }
   setRunning(true);
   const res = await fetch('/api/generar-story', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tema, marca: marcaActual, model: $('#modelSelect').value })
+    body: JSON.stringify({ tema, marca: marcaActual || 'squadteam', model: $('#modelSelect').value })
   });
   if (!res.ok) {
     appendLog('\n❌ ' + (await res.json()).error + '\n');
