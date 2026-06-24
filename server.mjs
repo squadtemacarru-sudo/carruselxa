@@ -1859,7 +1859,7 @@ REGLAS CRITICAS:
         if (plan.length) extraEnv.USER_PLAN = JSON.stringify(plan);
         const carpeta = path.join(format === 'story' ? 'stories' : 'tandas', `${Date.now()}_${slugify(tema)}`);
         const scripts = format === 'story'
-          ? [['crear-story.mjs', tema, carpeta, marcaId], ['generar-story.mjs', `${carpeta}/contenido.json`]]
+          ? [['crear-story.mjs', tema, carpeta, marcaId], ['analizar.mjs', `${carpeta}/contenido.json`], ['generar-story.mjs', `${carpeta}/contenido.analizado.json`]]
           : [['crear.mjs', tema, carpeta, marcaId], ['analizar.mjs', `${carpeta}/contenido.json`], ['generar.mjs', `${carpeta}/contenido.analizado.json`]];
         (async () => {
           try {
