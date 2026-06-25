@@ -392,6 +392,7 @@ function defaultLayout(type, slide) {
 
 // ── Dispatcher — maneja todos los tipos incluidos los 5 nuevos ──
 function buildAny(slide, i, total) {
+  if (slide.type === 'fallback')     return buildFallback(slide, i, total);
   if (slide.type === 'split_v')      return buildSplitV(slide, i, total);
   if (slide.type === 'full_impact')  return buildFullImpact(slide, i, total);
   if (slide.type === 'before_after') return buildBeforeAfter(slide, i, total);
@@ -404,6 +405,22 @@ function buildAny(slide, i, total) {
   if (slide.type === 'steps')        return buildSteps(slide, i, total);
   if (slide.type === 'icon_list')    return buildIconList(slide, i, total);
   return buildSlide(slide, i, total);
+}
+
+// ── FALLBACK: slide tipográfico minimalista ───────────────────────────
+// Se usa cuando un slide vino roto/incompleto y no pudo regenerarse, o cuando
+// Puppeteer falla al screenshot un slide. Render simple: fondo del sistema,
+// headline centrado + body opcional. Nunca rompe el render completo.
+function buildFallback(slide, i, total) {
+  const sec = el('div', 'slide-fallback' + (i === 0 ? ' active' : ''));
+  sec.id = `slide-${i+1}`;
+  sec.appendChild(el('span', 'slide-tag', `0${i+1} — 0${total}`));
+  const main = el('div', 'fb-main');
+  main.appendChild(el('h2', 'fb-headline', richText(slide.headline || '—', false)));
+  if (slide.body) main.appendChild(el('p', 'fb-body', richText(slide.body)));
+  sec.appendChild(main);
+  if (RC.logo) { const logo = el('img', 'brand-logo'); logo.src = RC.logo; sec.appendChild(logo); }
+  return sec;
 }
 
 // ── INFOGRAFÍA: Grid Stats ────────────────────────────────────────────

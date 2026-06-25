@@ -12,6 +12,7 @@
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validarYCorregir } from './validar-contenido.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -588,6 +589,28 @@ async function main() {
   if (skillsDocs) console.log('📚 Skills de copy cargadas.');
   if (memoria.length) console.log(`🧠 Memoria: ${memoria.length} carrusel(es) previos cargados.`);
   let contenido = await generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria);
+
+  // Validación de esquema post-generación (campos obligatorios + íconos +
+  // reintento individual de slides rotos con fallback). No bloquea el pipeline.
+  if (Array.isArray(contenido.slides)) {
+    const parse = (raw) => JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));
+    try {
+      const res = await withTimeout(
+        90000,
+        validarYCorregir(contenido.slides, { tema, marca }, callBlackbox, parse),
+        { slides: contenido.slides, corregidos: 0, fallbacks: 0 }
+      );
+      contenido.slides = res.slides;
+      if (res.corregidos || res.fallbacks) {
+        console.log(`🛠  Validación de esquema: ${res.corregidos} regenerado(s), ${res.fallbacks} fallback(s).`);
+      } else {
+        console.log('✅ Validación de esquema: todos los slides OK.');
+      }
+    } catch (err) {
+      console.warn(`⚠ Validación de esquema omitida: ${err.message}`);
+    }
+  }
+
   contenido = await withTimeout(90000, scoreYCorregir(contenido, marca, tema), contenido);
   contenido._marca = marcaId;
 

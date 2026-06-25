@@ -217,12 +217,49 @@ async function main() {
 
   const total = raw.slides.length;
   for (let i = 0; i < total; i++) {
-    await page.evaluate((idx) => window.__showSlide(idx), i);
-    await new Promise((r) => setTimeout(r, 150));
-    const wrapper = await page.$('#slideWrapper');
     const file = path.join(outDir, `story-0${i + 1}.png`);
-    await wrapper.screenshot({ path: file });
-    console.log(`✓ ${file}`);
+    try {
+      await page.evaluate((idx) => window.__showSlide(idx), i);
+      await new Promise((r) => setTimeout(r, 150));
+      const wrapper = await page.$('#slideWrapper');
+      await wrapper.screenshot({ path: file });
+      console.log(`✓ ${file}`);
+    } catch (err) {
+      // Render de este slide falló — reemplazarlo por el fallback tipográfico
+      // en vivo y reintentar el screenshot. Nunca rompemos toda la tanda.
+      console.warn(`⚠ Story ${i + 1} falló al renderizar (${err.message}) — usando fallback...`);
+      try {
+        await page.evaluate((idx, srcData) => {
+          const slide = srcData.slides[idx] || {};
+          let headline = '';
+          if (Array.isArray(slide.headline_lines) && slide.headline_lines.length) {
+            headline = slide.headline_lines.map(l => l && l.text).filter(Boolean).join('\n');
+          }
+          for (const c of ['headline', 'title', 'quote', 'stat', 'line2', 'line1']) {
+            if (!headline && typeof slide[c] === 'string' && slide[c].trim()) headline = slide[c].trim();
+          }
+          if (!headline && Array.isArray(slide.items) && slide.items.length) {
+            const f = slide.items[0];
+            headline = typeof f === 'string' ? f : (f && (f.text || f.title)) || '';
+          }
+          let body = '';
+          for (const c of ['body', 'sub', 'detail', 'label', 'note', 'eyebrow']) {
+            if (!body && typeof slide[c] === 'string' && slide[c].trim()) body = slide[c].trim();
+          }
+          const fb = { type: 'fallback', headline: headline || '—', ...(body ? { body } : {}) };
+          const oldEl = document.getElementById(`slide-${idx + 1}`);
+          const newEl = buildFallback(fb, idx, srcData.slides.length);
+          if (oldEl) oldEl.replaceWith(newEl); else document.getElementById('slideWrapper').appendChild(newEl);
+          window.__showSlide(idx);
+        }, i, raw);
+        await new Promise((r) => setTimeout(r, 150));
+        const wrapper = await page.$('#slideWrapper');
+        await wrapper.screenshot({ path: file });
+        console.log(`✓ ${file} (fallback)`);
+      } catch (err2) {
+        console.error(`✗ Story ${i + 1}: fallback también falló (${err2.message})`);
+      }
+    }
   }
 
   await browser.close();
