@@ -96,6 +96,16 @@
         </div>
       </div>
 
+      <!-- Preview del plan (wireframe de slides antes de renderizar) -->
+      <div id="planWrap" class="pw-wrap hidden">
+        <div class="pw-header">
+          <span class="pw-title">Plan del carrusel <span id="planCount" class="pw-count"></span></span>
+          <button id="btnCancelarRender" class="pw-cancel" type="button">Cancelar render</button>
+        </div>
+        <p class="pw-sub">Vista previa mientras se renderiza. Las imágenes reales reemplazan este panel al terminar.</p>
+        <div id="planGrid" class="pw-grid"></div>
+      </div>
+
       <!-- Log -->
       <div id="logWrap" class="log-wrap hidden">
         <div class="log-header">

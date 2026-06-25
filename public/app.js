@@ -85,6 +85,7 @@ const logWrap   = $('#logWrap');
 const log       = $('#log');
 const logStatus = $('#logStatus');
 let logVisible  = true;
+let jobStream   = null;
 let editorRerenderizing = false;
 let editorTemplateHtml = null;
 let editorTemplateLoading = false;
@@ -103,6 +104,7 @@ function setRunning(running) {
   $('#btnGenerar').disabled = running;
   $('#btnLote').disabled    = running;
   if (running) {
+    hidePlanPreview();
     logWrap.classList.remove('hidden');
     log.textContent = '';
     logStatus.textContent = 'Generando...';
@@ -123,11 +125,20 @@ async function checkStatus() {
 
 function connectStream() {
   const es = new EventSource('/api/job/stream');
+  jobStream = es;
   es.onmessage = e => {
     const line = JSON.parse(e.data);
+
+    // Evento especial: preview del plan (wireframe antes de renderizar)
+    if (typeof line === 'string' && line.startsWith('__PLAN__:')) {
+      try { renderPlanPreview(JSON.parse(line.slice('__PLAN__:'.length))); } catch {}
+      return;
+    }
+
     appendLog(line);
     const isDone  = line.includes('✅') || line.includes('Listo');
     const isError = line.includes('❌');
+    if (isDone || isError) hidePlanPreview();
     if (editorRerenderizing && (isDone || isError)) {
       editorRerenderizing = false;
       const btn = $('#btnRerenderizar');
@@ -148,6 +159,89 @@ function connectStream() {
     if (isError) { setRunning(false); logStatus.style.color = 'var(--red)'; logStatus.textContent = 'Error'; }
   };
 }
+
+// ── PREVIEW DEL PLAN (wireframe de slides) ─────────────
+// Diferenciación visual por tipo de slide
+const PLAN_TIPOS = {
+  cover:       { label: 'Cover',     glyph: '◆',  color: '#e8ff00' },
+  list:        { label: 'Lista',     glyph: '☰',  color: '#5ec8ff' },
+  statement:   { label: 'Frase',     glyph: '“',  color: '#ff8ad1' },
+  split:       { label: 'Split',     glyph: '◫',  color: '#9b8cff' },
+  quote:       { label: 'Cita',      glyph: '❝',  color: '#ffb86b' },
+  cta:         { label: 'CTA',       glyph: '→',  color: '#00cf7a' },
+  big_number:  { label: 'Dato',      glyph: '#',  color: '#ff5e5e' },
+  timeline:    { label: 'Timeline',  glyph: '⋯',  color: '#7ee0c0' },
+  grid:        { label: 'Grid',      glyph: '▦',  color: '#c0a0ff' },
+  grid_stats:  { label: 'Métricas',  glyph: '▦',  color: '#5ec8ff' },
+  comparison:  { label: 'Comparar',  glyph: '⇄',  color: '#ffb86b' },
+  steps:       { label: 'Pasos',     glyph: '№',  color: '#7ee0c0' },
+  icon_list:   { label: 'Íconos',    glyph: '✦',  color: '#9b8cff' },
+  full_impact: { label: 'Foto',      glyph: '▣',  color: '#ff8ad1' },
+  before_after:{ label: 'Antes/Desp',glyph: '◧',  color: '#5ec8ff' },
+  split_v:     { label: 'Split V',   glyph: '⬓',  color: '#9b8cff' },
+  triple_v:    { label: 'Triple',    glyph: '☰',  color: '#7ee0c0' },
+};
+
+function planTextoPrincipal(s) {
+  // Devuelve el texto más representativo del slide, según su tipo
+  const limpiar = (t) => String(t || '').replace(/\\n|\n/g, ' ').trim();
+  if (Array.isArray(s.headline_lines) && s.headline_lines.length) {
+    return s.headline_lines.map(l => typeof l === 'object' ? l.text : l).join(' ').replace(/\\n|\n/g, ' ').trim();
+  }
+  const directos = [s.headline, s.stat, s.quote, s.title, s.eyebrow];
+  for (const d of directos) { const v = limpiar(d); if (v) return v; }
+  if (Array.isArray(s.items) && s.items.length) {
+    return s.items.map(it => typeof it === 'object' ? (it.text || it.label || it.value || '') : it).filter(Boolean).slice(0, 3).join(' · ');
+  }
+  if (Array.isArray(s.steps) && s.steps.length) return s.steps.map(st => st.text || st.title).filter(Boolean).slice(0, 3).join(' · ');
+  if (Array.isArray(s.cells) && s.cells.length) return s.cells.map(c => c.label).filter(Boolean).join(' · ');
+  if (s.left && s.right) return `${s.left.label || ''} vs ${s.right.label || ''}`;
+  return limpiar(s.body || s.detail || s.sub || s.label || '');
+}
+
+function renderPlanPreview(contenido) {
+  const wrap = document.getElementById('planWrap');
+  const grid = document.getElementById('planGrid');
+  const count = document.getElementById('planCount');
+  if (!wrap || !grid) return;
+  const slides = Array.isArray(contenido?.slides) ? contenido.slides : [];
+  if (!slides.length) return;
+
+  if (count) count.textContent = `· ${slides.length} slides`;
+  grid.innerHTML = slides.map((s, i) => {
+    const meta  = PLAN_TIPOS[s.type] || { label: s.type || '?', glyph: '▢', color: '#8a8aa0' };
+    const num   = String(i + 1).padStart(2, '0');
+    const texto = planTextoPrincipal(s) || '—';
+    const esc   = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `
+      <div class="pw-card" style="--pw-accent:${meta.color}">
+        <div class="pw-card-top">
+          <span class="pw-card-num">${num}</span>
+          <span class="pw-card-badge">${esc(meta.label)}</span>
+        </div>
+        <div class="pw-card-glyph">${meta.glyph}</div>
+        <p class="pw-card-text">${esc(texto)}</p>
+      </div>`;
+  }).join('');
+
+  wrap.classList.remove('hidden');
+}
+
+function hidePlanPreview() {
+  const wrap = document.getElementById('planWrap');
+  if (wrap) wrap.classList.add('hidden');
+}
+
+document.getElementById('btnCancelarRender')?.addEventListener('click', () => {
+  // Cierra el stream del lado del cliente y detiene la carga en curso.
+  if (jobStream) { try { jobStream.close(); } catch {} jobStream = null; }
+  try { window.stop(); } catch {}
+  hidePlanPreview();
+  setRunning(false);
+  logStatus.style.color = 'var(--sub)';
+  logStatus.textContent = 'Render cancelado (seguirá en el servidor)';
+  appendLog('\n⏹ Render cancelado por el usuario.\n');
+});
 
 $('#logToggle').addEventListener('click', () => {
   logVisible = !logVisible;

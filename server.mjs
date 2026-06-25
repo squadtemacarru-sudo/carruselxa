@@ -268,6 +268,14 @@ app.post('/api/generar', async (req, res) => {
         await writeFile(contenidoPath, JSON.stringify(contenido, null, 2), 'utf-8');
       }
 
+      // Preview del plan: emitir el contenido recién generado ANTES de
+      // arrancar Puppeteer (analizar + generar), para que el usuario vea un
+      // wireframe de los slides mientras se renderiza (o pueda cancelar).
+      try {
+        const contenidoPlan = JSON.parse(await readFile(path.join(__dirname, carpeta, 'contenido.json'), 'utf-8'));
+        broadcast(`__PLAN__:${JSON.stringify(contenidoPlan)}`);
+      } catch { /* preview es opcional — no bloquea el pipeline */ }
+
       await runStep(['analizar.mjs', `${carpeta}/contenido.json`], extraEnv);
       await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
 
