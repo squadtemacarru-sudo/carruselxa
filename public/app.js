@@ -936,23 +936,29 @@ $('#btnClearFotos').addEventListener('click', () => {
 let currentSlides = [];
 let currentIndex  = 0;
 let currentTandaId = null;
+let currentKind   = 'tanda'; // 'tanda' (carrusel) | 'story'
 let tandas = [];
 
-function openLightbox(slides, index, tandaId = null) {
+function openLightbox(slides, index, tandaId = null, kind = 'tanda') {
   currentSlides  = slides;
   currentIndex   = index;
   currentTandaId = tandaId;
+  currentKind    = kind;
   showSlide();
   $('#lightbox').classList.remove('hidden');
-  const hasId = !!tandaId;
+  const hasId    = !!tandaId;
+  const isStory  = kind === 'story';
+  // Editar y ZIP funcionan para ambos; caption/duplicar son solo de carruseles
   $('#lightboxEdit').classList.toggle('hidden', !hasId);
-  $('#lightboxCaption').classList.toggle('hidden', !hasId);
-  $('#lightboxDuplicar').classList.toggle('hidden', !hasId);
+  $('#lightboxCaption').classList.toggle('hidden', !hasId || isStory);
+  $('#lightboxDuplicar').classList.toggle('hidden', !hasId || isStory);
   $('#lightboxZip').classList.toggle('hidden', !hasId);
 }
 
 $('#lightboxZip').addEventListener('click', () => {
-  if (currentTandaId) window.location.href = '/api/tandas/' + currentTandaId + '/zip';
+  if (!currentTandaId) return;
+  const base = currentKind === 'story' ? '/api/stories/' : '/api/tandas/';
+  window.location.href = base + currentTandaId + '/zip';
 });
 
 function showSlide() {
@@ -971,7 +977,11 @@ $('#lightboxNext').addEventListener('click',  () => { currentIndex = (currentInd
 $('#lightbox').addEventListener('click',      e  => { if (e.target === $('#lightbox')) $('#lightbox').classList.add('hidden'); });
 $('#lightboxEdit').addEventListener('click',  () => {
   $('#lightbox').classList.add('hidden');
-  editarTanda(currentTandaId);
+  if (currentKind === 'story') {
+    window.open(`/editor.html?story=${currentTandaId}`, '_blank');
+  } else {
+    editarTanda(currentTandaId);
+  }
 });
 
 $('#lightboxCaption').addEventListener('click', () => {
@@ -2301,11 +2311,29 @@ async function cargarStoriesGaleria() {
     <div class="tanda" data-story-id="${s.id}" style="cursor:pointer">
       <img src="${s.slides[0]}?t=${s.ts || Date.now()}" alt="${s.tema}" loading="lazy" style="aspect-ratio:9/16;object-fit:cover">
       <span class="count">${s.slides.length}</span>
-      <div class="label"><span class="tanda-tema">${s.tema}</span></div>
+      <div class="label">
+        <span class="tanda-tema">${s.tema}</span>
+        <div class="tanda-acts">
+          <button class="tanda-edit" data-action="editar" title="Editar">✏</button>
+          <button class="tanda-zip" data-action="zip" title="Descargar ZIP">⬇</button>
+        </div>
+      </div>
     </div>
   `).join('');
   galeria.querySelectorAll('.tanda').forEach((card, i) => {
-    card.addEventListener('click', () => openLightbox(stories[i].slides, 0, null));
+    const s = stories[i];
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.tanda-acts')) return;
+      openLightbox(s.slides, 0, s.id, 'story');
+    });
+    card.querySelector('.tanda-edit').addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.open(`/editor.html?story=${s.id}`, '_blank');
+    });
+    card.querySelector('.tanda-zip').addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.location.href = `/api/stories/${s.id}/zip`;
+    });
   });
 }
 

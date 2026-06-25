@@ -334,7 +334,7 @@ app.post('/api/generar-story', async (req, res) => {
       } catch {}
 
       await runStep(['crear-story.mjs', tema, carpeta, marcaId, extraEnv.USER_FOTOS || ''], extraEnv);
-      await runStep(['analizar.mjs', `${carpeta}/contenido.json`], extraEnv);
+      await runStep(['analizar.mjs', `${carpeta}/contenido.json`], { ...extraEnv, STORY_FORMAT: '1' });
       await runStep(['generar-story.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
 
       broadcast(`\n✅ Story lista: ${carpeta}\n`);
@@ -373,6 +373,215 @@ app.get('/api/stories', async (req, res) => {
   }
   items.sort((a, b) => b.ts - a.ts);
   res.json(items);
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Stories — paridad con carruseles: ZIP, editor de slides, re-render
+// El id de una story tiene la forma <timestamp>_story_<slug>
+// ─────────────────────────────────────────────────────────────────────
+function isValidStoryId(id) {
+  return typeof id === 'string' && /^\d+_story_[a-z0-9-]+$/.test(id);
+}
+
+// ZIP download — empaqueta todos los PNGs de una story
+app.get('/api/stories/:id/zip', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidStoryId(id)) return res.status(400).json({ error: 'id inválido' });
+
+  const outDir = path.join(__dirname, 'stories', id, 'output');
+  let files;
+  try {
+    files = (await readdir(outDir)).filter(f => f.endsWith('.png')).sort();
+  } catch {
+    return res.status(404).json({ error: 'Story no encontrada' });
+  }
+  if (!files.length) return res.status(404).json({ error: 'Sin slides' });
+
+  const localHeaders = [];
+  const centralDirs  = [];
+  let offset = 0;
+
+  for (const filename of files) {
+    const raw  = await readFile(path.join(outDir, filename));
+    const comp = deflateRawSync(raw, { level: 6 });
+    const crc  = crc32(raw);
+    const now  = new Date();
+    const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1));
+    const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate());
+    const nameBuf = Buffer.from(filename, 'utf8');
+
+    const lh = Buffer.alloc(30 + nameBuf.length);
+    lh.writeUInt32LE(0x04034b50, 0);
+    lh.writeUInt16LE(20, 4);
+    lh.writeUInt16LE(0, 6);
+    lh.writeUInt16LE(8, 8);
+    lh.writeUInt16LE(dosTime, 10);
+    lh.writeUInt16LE(dosDate, 12);
+    lh.writeUInt32LE(crc >>> 0, 14);
+    lh.writeUInt32LE(comp.length, 18);
+    lh.writeUInt32LE(raw.length, 22);
+    lh.writeUInt16LE(nameBuf.length, 26);
+    lh.writeUInt16LE(0, 28);
+    nameBuf.copy(lh, 30);
+
+    localHeaders.push(Buffer.concat([lh, comp]));
+
+    const cd = Buffer.alloc(46 + nameBuf.length);
+    cd.writeUInt32LE(0x02014b50, 0);
+    cd.writeUInt16LE(20, 4);
+    cd.writeUInt16LE(20, 6);
+    cd.writeUInt16LE(0, 8);
+    cd.writeUInt16LE(8, 10);
+    cd.writeUInt16LE(dosTime, 12);
+    cd.writeUInt16LE(dosDate, 14);
+    cd.writeUInt32LE(crc >>> 0, 16);
+    cd.writeUInt32LE(comp.length, 20);
+    cd.writeUInt32LE(raw.length, 24);
+    cd.writeUInt16LE(nameBuf.length, 28);
+    cd.writeUInt16LE(0, 30);
+    cd.writeUInt16LE(0, 32);
+    cd.writeUInt16LE(0, 34);
+    cd.writeUInt16LE(0, 36);
+    cd.writeUInt32LE(0, 38);
+    cd.writeUInt32LE(offset, 42);
+    nameBuf.copy(cd, 46);
+
+    centralDirs.push(cd);
+    offset += lh.length + comp.length;
+  }
+
+  const cdBuf     = Buffer.concat(centralDirs);
+  const eocd      = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(files.length, 8);
+  eocd.writeUInt16LE(files.length, 10);
+  eocd.writeUInt32LE(cdBuf.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  eocd.writeUInt16LE(0, 20);
+
+  const zip = Buffer.concat([...localHeaders, cdBuf, eocd]);
+  const slug = id.split('_').slice(2).join('-') || id;
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="story-${slug}.zip"`);
+  res.send(zip);
+});
+
+// Leer / guardar el contenido analizado de una story (editor)
+app.get('/api/stories/:id/contenido', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidStoryId(id)) return res.status(400).json({ error: 'id inválido' });
+  try {
+    res.json(JSON.parse(await readFile(path.join(__dirname, 'stories', id, 'contenido.analizado.json'), 'utf-8')));
+  } catch {
+    res.status(404).json({ error: 'Contenido no encontrado' });
+  }
+});
+
+app.put('/api/stories/:id/contenido', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidStoryId(id)) return res.status(400).json({ error: 'id inválido' });
+  try {
+    await mkdir(path.join(__dirname, 'stories', id), { recursive: true });
+    await writeFile(path.join(__dirname, 'stories', id, 'contenido.analizado.json'), JSON.stringify(req.body, null, 2), 'utf-8');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Editor visual — sirve template-story.html ensamblado con _editMode:true
+app.get('/api/stories/:id/template-html', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidStoryId(id)) return res.status(400).send('id inválido');
+
+  const dir = path.join(__dirname, 'stories', id);
+  let raw;
+  try {
+    raw = JSON.parse(await readFile(path.join(dir, 'contenido.analizado.json'), 'utf-8'));
+  } catch {
+    return res.status(404).send('Story no encontrada o sin analizar');
+  }
+
+  const PHOTO_FIELDS = ['photo','photo_top','photo_bottom','photo_before','photo_after'];
+  const resolve = (ref) => {
+    if (!ref) return ref;
+    if (ref.startsWith('http://') || ref.startsWith('https://')) return ref;
+    const base = path.basename(ref);
+    return fotosCloud.get(base)?.url || `/fotos/${encodeURIComponent(base)}`;
+  };
+  for (const s of raw.slides) {
+    PHOTO_FIELDS.forEach(f => { if (s[f]) s[f] = resolve(s[f]); });
+    if (Array.isArray(s.rows)) s.rows.forEach(r => { if (r.photo) r.photo = resolve(r.photo); });
+  }
+
+  try {
+    const buf = await readFile(path.join(__dirname, 'marcas', raw._marca || 'squadteam', 'logo.png'));
+    raw._logo = `data:image/png;base64,${buf.toString('base64')}`;
+  } catch {}
+
+  try {
+    const ov = JSON.parse(await readFile(path.join(dir, 'overrides.json'), 'utf-8'));
+    raw._userOverrides = ov;
+  } catch {}
+
+  raw._editMode = true;
+
+  const template   = await readFile(path.join(__dirname, 'template-story.html'), 'utf-8');
+  const renderCore = await readFile(path.join(__dirname, 'render-core.js'), 'utf-8');
+  const html = template
+    .replace('<script src="render-core.js"></script>', `<script>${renderCore}</script>`)
+    .replace('__DATA__', JSON.stringify(raw));
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
+// Guarda overrides del editor y dispara re-render de la story
+app.post('/api/stories/:id/save-overrides', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidStoryId(id)) return res.status(400).json({ error: 'id inválido' });
+  if (jobRunning) return res.status(409).json({ error: 'Hay una generación en curso' });
+
+  const { overrides, rerender } = req.body || {};
+  if (!overrides) return res.status(400).json({ error: 'Faltan overrides' });
+
+  const dir = path.join(__dirname, 'stories', id);
+  await writeFile(path.join(dir, 'overrides.json'), JSON.stringify(overrides, null, 2), 'utf-8');
+
+  if (!rerender) return res.json({ ok: true });
+
+  let raw;
+  try {
+    raw = JSON.parse(await readFile(path.join(dir, 'contenido.analizado.json'), 'utf-8'));
+  } catch {
+    return res.status(404).json({ error: 'contenido.analizado.json no encontrado' });
+  }
+
+  raw._userOverrides = overrides;
+  await writeFile(path.join(dir, 'contenido.analizado.json'), JSON.stringify(raw, null, 2), 'utf-8');
+
+  jobRunning = true;
+  jobLog = [];
+  res.json({ ok: true, rerendering: true });
+
+  (async () => {
+    try {
+      const extraEnv = {};
+      if (fotosCloud.size > 0) {
+        const mapObj = {};
+        for (const [n, { url }] of fotosCloud.entries()) mapObj[n] = url;
+        extraEnv.FOTOS_MAP = JSON.stringify(mapObj);
+      }
+      await runStep(['generar-story.mjs', `${path.join('stories', id)}/contenido.analizado.json`], extraEnv);
+      broadcast(`\n✅ Re-render con ediciones listo\n`);
+    } catch (e) {
+      broadcast(`\n❌ Error re-render: ${e.message}\n`);
+    } finally {
+      jobRunning = false;
+    }
+  })();
 });
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1873,7 +2082,13 @@ REGLAS CRITICAS:
         (async () => {
           try {
             broadcast(`\n=== Chat: Generando "${tema}" (${format}) ===\n`);
-            for (const step of scripts) await runStep(step, extraEnv);
+            for (const step of scripts) {
+              // analizar.mjs necesita saber si es story (9:16) para adaptar el análisis de composición
+              const stepEnv = (format === 'story' && step[0] === 'analizar.mjs')
+                ? { ...extraEnv, STORY_FORMAT: '1' }
+                : extraEnv;
+              await runStep(step, stepEnv);
+            }
             broadcast(`\n✅ Listo: ${carpeta}\n`);
           } catch (e) {
             broadcast(`\n❌ ${e.message}\n`);

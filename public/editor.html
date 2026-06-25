@@ -88,7 +88,7 @@ html, body { height: 100%; background: var(--bg); color: var(--txt); font-family
 .ed-frame-wrap iframe {
   border: none;
   width: 1080px;
-  height: 1350px;
+  height: 1350px; /* override en JS para stories (1920px) */
   transform-origin: top left;
   display: block;
 }
@@ -250,19 +250,27 @@ input[type="range"] {
 <script>
 const $ = id => document.getElementById(id);
 const params  = new URLSearchParams(location.search);
-const tandaId = params.get('tanda');
+// Soporta ?tanda=<id> (carrusel 4:5) y ?story=<id> (story 9:16).
+const storyId = params.get('story');
+const tandaId = params.get('tanda') || storyId;
+const IS_STORY = !!storyId;
+// Colección REST: /api/tandas/... o /api/stories/...
+const API_BASE  = IS_STORY ? '/api/stories' : '/api/tandas';
+const LIST_API  = IS_STORY ? '/api/stories' : '/api/tandas';
 
 if (!tandaId) {
-  document.body.innerHTML = '<p style="padding:40px;color:#ff3f3f">Falta ?tanda= en la URL</p>';
+  document.body.innerHTML = '<p style="padding:40px;color:#ff3f3f">Falta ?tanda= o ?story= en la URL</p>';
   throw new Error('No tanda');
 }
 
 // ── Escala del iframe ───────────────────────────────────────────────────
 const SLIDE_W = 1080;
-const SLIDE_H = 1350;
+const SLIDE_H = IS_STORY ? 1920 : 1350;
 const frame   = $('slideFrame');
 const wrap    = $('frameWrap');
 const canvas  = $('edCanvas');
+
+frame.style.height = SLIDE_H + 'px';
 
 function applyScale() {
   const avW = canvas.clientWidth  - 40;
@@ -289,7 +297,7 @@ function setStatus(msg, cls = '') {
 }
 
 // ── Cargar iframe ────────────────────────────────────────────────────────
-frame.src = `/api/tandas/${tandaId}/template-html`;
+frame.src = `${API_BASE}/${tandaId}/template-html`;
 frame.addEventListener('load', () => {
   // Esperar a que el iframe esté listo y le mandamos activar
   setTimeout(() => {
@@ -394,7 +402,7 @@ $('btnNext').addEventListener('click', () => goSlide(curSlide + 1));
 // ── Thumbnails ────────────────────────────────────────────────────────────
 async function buildThumbs() {
   try {
-    const res  = await fetch('/api/tandas');
+    const res  = await fetch(LIST_API);
     const list = await res.json();
     const t    = list.find(x => x.id === tandaId);
     if (!t) return;
@@ -416,7 +424,7 @@ $('btnReset').addEventListener('click', () => {
   if (!confirm(`¿Resetear el slide ${curSlide + 1} a su estado original?`)) return;
   delete overrides[`slide-${curSlide + 1}`];
   // Recargar el iframe
-  frame.src = `/api/tandas/${tandaId}/template-html`;
+  frame.src = `${API_BASE}/${tandaId}/template-html`;
   frame.addEventListener('load', () => {
     setTimeout(() => {
       frame.contentWindow.postMessage({ type: 'activate', idx: curSlide }, '*');
@@ -433,7 +441,7 @@ $('btnExport').addEventListener('click', async () => {
   setStatus('Guardando y re-renderizando...', '');
 
   try {
-    const res = await fetch(`/api/tandas/${tandaId}/save-overrides`, {
+    const res = await fetch(`${API_BASE}/${tandaId}/save-overrides`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ overrides, rerender: true }),

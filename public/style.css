@@ -748,7 +748,8 @@ body {
 
 .tanda-edit,
 .tanda-save,
-.tanda-disc {
+.tanda-disc,
+.tanda-zip {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -775,7 +776,8 @@ body {
   transform: scale(1.12);
 }
 
-.tanda-save:hover {
+.tanda-save:hover,
+.tanda-zip:hover {
   background: var(--acc-lo);
   color: var(--acc);
   transform: scale(1.12);

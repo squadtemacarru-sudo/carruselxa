@@ -31,6 +31,12 @@ const PREVIEW = process.argv.includes('--preview');
 const PREVIEW_PORT = process.env.PORT || process.env.PREVIEW_PORT || 3000;
 const USER_FONT_PAIR = process.env.USER_FONT_PAIR || '';
 
+// Formato del contenido: story (9:16 vertical, 1080×1920) vs carrusel (4:5, 1080×1350).
+// server.mjs setea STORY_FORMAT=1 al analizar una story. También lo deducimos del
+// path del contenido (stories/...) como respaldo, por si se invoca a mano.
+const IS_STORY = process.env.STORY_FORMAT === '1'
+  || /(^|[\\/])stories[\\/]/.test(process.argv[2] || '');
+
 function broadcast(type, payload) {
   if (!PREVIEW) return;
   fetch(`http://localhost:${PREVIEW_PORT}/preview/broadcast`, {
@@ -920,8 +926,12 @@ ${contenido}
 
 Analizá la imagen con precisión y devolvé SOLO JSON (sin markdown) con ajustes ESPECÍFICOS para esta foto dentro del sistema:
 
-REGLA CRÍTICA para text_y_percent: es el % vertical donde va el TOPE del bloque de texto (0=tope del slide, 100=base). Tu trabajo es encontrar la zona de la foto que tiene MÁS ESPACIO VACÍO — cielo, pared, suelo, fondo neutro — y poner el texto AHÍ.
-Proceso: 1) Identificá dónde está la cara/cuerpo principal. 2) Identificá la zona más despejada y oscura/contrastante. 3) Si esa zona está arriba (sujeto en mitad/abajo del frame) → elegí entre 8 y 18. Si está abajo (sujeto en mitad/arriba del frame) → elegí entre 72 y 85. Si hay espacio en ambos extremos y el sujeto está al centro → elegí 8-15 (arriba). NUNCA pongas text_y_percent en el rango 30-65 a menos que la foto sea de un objeto sin persona.
+${IS_STORY ? `FORMATO: STORY de Instagram 9:16 VERTICAL (1080×1920). Es un frame ALTO y angosto, NO cuadrado.
+SAFE ZONES de Instagram (zonas que la UI de Stories tapa con avatar/CTA/barra de respuesta): los 252px de arriba y los 200px de abajo de 1920px quedan ocultos por la interfaz. En porcentaje: NO pongas texto importante arriba de ~14% ni debajo de ~89%. El área útil es ~14% a ~89%.
+
+REGLA CRÍTICA para text_y_percent: es el % vertical donde va el TOPE del bloque de texto (0=tope del frame, 100=base). En 9:16 hay MUCHO alto vertical disponible: el texto entra cómodo en una franja de ~30% arriba o abajo sin tapar al sujeto.
+Proceso: 1) Identificá dónde está la cara/cuerpo principal. En stories el sujeto suele estar CENTRADO verticalmente (la foto vertical lo encuadra al medio). 2) Si el sujeto está centrado o en el tercio medio → tenés franja libre arriba Y abajo: elegí 16-26 (tercio superior, debajo del safe zone) o 66-82 (tercio inferior, arriba del safe zone). 3) Si el sujeto ocupa la mitad superior → texto en el tercio inferior: elegí 68-84. 4) Si el sujeto ocupa la mitad inferior → texto en el tercio superior: elegí 16-26. NUNCA pongas text_y_percent abajo de 14 ni arriba de 88 (lo taparía la UI de Stories). Evitá 40-60 salvo que la foto sea un objeto sin persona.` : `REGLA CRÍTICA para text_y_percent: es el % vertical donde va el TOPE del bloque de texto (0=tope del slide, 100=base). Tu trabajo es encontrar la zona de la foto que tiene MÁS ESPACIO VACÍO — cielo, pared, suelo, fondo neutro — y poner el texto AHÍ.
+Proceso: 1) Identificá dónde está la cara/cuerpo principal. 2) Identificá la zona más despejada y oscura/contrastante. 3) Si esa zona está arriba (sujeto en mitad/abajo del frame) → elegí entre 8 y 18. Si está abajo (sujeto en mitad/arriba del frame) → elegí entre 72 y 85. Si hay espacio en ambos extremos y el sujeto está al centro → elegí 8-15 (arriba). NUNCA pongas text_y_percent en el rango 30-65 a menos que la foto sea de un objeto sin persona.`}
 
 {
   "zonas": {
@@ -974,9 +984,10 @@ Proceso: 1) Identificá dónde está la cara/cuerpo principal. 2) Identificá la
 // en qué esquina va el bloque de texto sin tapar al sujeto.
 // ─────────────────────────────────────────────────────────────────────
 async function analizarComposicionFoto(base64, mime) {
-  const prompt = `Vas a superponer un bloque de texto (label corto + headline grande, en una esquina) sobre esta foto de un carrusel de Instagram.
+  const prompt = `Vas a superponer un bloque de texto (label corto + headline grande, en una esquina) sobre esta foto de ${IS_STORY ? 'una STORY de Instagram (9:16 vertical, 1080×1920)' : 'un carrusel de Instagram'}.
 
 Analizá la composición y elegí la esquina donde el texto NO tape a la persona, su cara, ni el elemento principal de la imagen.
+${IS_STORY ? `IMPORTANTE (story 9:16): la UI de Instagram tapa los 252px de arriba y los 200px de abajo (~14% y ~11% del frame). Preferí "bottom" solo si el bloque queda por encima de ese margen inferior, y "top" solo si queda por debajo del margen superior. En vertical el sujeto suele estar centrado, así que normalmente hay esquina libre arriba o abajo.` : ''}
 
 Devolvé SOLO JSON (sin markdown):
 {
@@ -1100,23 +1111,30 @@ function aplicarDecisiones(slide, analisis, sistema) {
     };
     s._fotoSugerida = analisis.foto_sugerida || null;
 
-    // Posición Y precisa del texto para evitar tapar al sujeto
+    // Posición Y precisa del texto para evitar tapar al sujeto.
+    // En story (9:16) las safe zones de Instagram (top 252px / bottom 200px de
+    // 1920px ≈ 14% / 89%) acotan el área útil; en carrusel (4:5) el frame entero
+    // es visible, así que el texto puede ir más cerca de los bordes.
+    const TY_MIN  = IS_STORY ? 14 : 5;   // tope: bajo el safe zone superior
+    const TY_MAX  = IS_STORY ? 88 : 88;  // base: sobre el safe zone inferior
+    const TY_TOP  = IS_STORY ? 20 : 15;  // banda superior (sujeto abajo)
+    const TY_BOT  = IS_STORY ? 76 : 78;  // banda inferior (sujeto arriba)
     const rawTextY = analisis.ajustes_texto?.text_y_percent;
     const ocupaZona = analisis.sujeto?.ocupa_zona;
     if (rawTextY != null && !isNaN(Number(rawTextY))) {
-      s._textY = Math.round(Math.max(5, Math.min(88, Number(rawTextY))));
+      s._textY = Math.round(Math.max(TY_MIN, Math.min(TY_MAX, Number(rawTextY))));
     } else if (analisis.sujeto?.posicion !== 'sin_sujeto') {
       // Fallback heurístico: si la IA no dio porcentaje, deducirlo de la zona del sujeto
-      if (ocupaZona === 'top')                                      s._textY = 78;
-      else if (['middle', 'bottom', 'full'].includes(ocupaZona))   s._textY = 15;
+      if (ocupaZona === 'top')                                      s._textY = TY_BOT;
+      else if (['middle', 'bottom', 'full'].includes(ocupaZona))   s._textY = TY_TOP;
     }
     // Sanity check: el AI a veces contradice su análisis de sujeto al dar text_y_percent.
     // Si el texto va en la misma zona que el sujeto, lo movemos al lado opuesto.
     if (s._textY != null) {
       if (s._textY < 42 && (ocupaZona === 'top' || ocupaZona === 'full')) {
-        s._textY = 74; // sujeto arriba → texto al tercio inferior
+        s._textY = TY_BOT; // sujeto arriba → texto al tercio inferior
       } else if (s._textY > 58 && ocupaZona === 'bottom') {
-        s._textY = 10; // sujeto abajo → texto al tercio superior
+        s._textY = TY_TOP; // sujeto abajo → texto al tercio superior
       }
     }
 
