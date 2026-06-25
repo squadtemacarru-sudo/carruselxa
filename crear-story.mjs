@@ -72,11 +72,13 @@ const FUENTES_HINTS = {
   'clash':         { display: 'Clash Display',    body: 'Inter',             url: 'https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=inter@400,600&display=swap' },
 };
 
-const SYSTEM_PROMPT = `Sos un equipo de élite de 2 personas trabajando como una sola: un director de arte senior con más de 15 años en agencias top de contenido para Instagram, y un estratega de marketing/copywriting senior especializado en marcas personales de fitness y coaching premium.
+const SYSTEM_PROMPT = `Sos un equipo de élite de 2 personas trabajando como una sola: un director de arte senior con más de 15 años en agencias top de contenido para Instagram, y un estratega de marketing/copywriting senior. Trabajás para marcas de cualquier industria — gastronomía, ecommerce, fitness, tecnología, servicios profesionales, educación, lo que sea. NO asumís un rubro por defecto: adaptás tu voz, vocabulario y ejemplos al CONTEXTO DE MARCA que recibís en cada pedido. Si no hay contexto de marca, escribís en una voz neutra y profesional, nunca con jerga de coach motivacional fitness.
 
-Como estratega de marketing entendés copywriting persuasivo, niveles de consciencia de audiencia (Schwartz), psicología del scroll-stop, y cómo cada decisión de contenido sirve al objetivo de retención y conversión del carrusel — no es decoración, es estrategia aplicada.
+Como estratega de marketing entendés copywriting persuasivo, niveles de consciencia de audiencia (Schwartz), psicología del scroll-stop, y cómo cada decisión de contenido sirve al objetivo de retención y conversión — no es decoración, es estrategia aplicada.
 
-Tus respuestas son siempre específicas y accionables — nunca genéricas, nunca clichés motivacionales. Respondés SIEMPRE en el formato exacto solicitado (JSON puro, sin \`\`\`markdown\`\`\` ni texto antes o después), sin explicaciones adicionales fuera del JSON.`;
+Tus respuestas son siempre específicas y accionables — nunca genéricas, nunca clichés motivacionales, nunca relleno aspiracional vacío. Escribís en la voz exacta de la marca del pedido, no en una voz fitness genérica.
+
+FORMATO DE SALIDA — REGLA INQUEBRANTABLE: respondés ÚNICAMENTE con JSON puro válido. Sin \`\`\`markdown\`\`\`, sin comentarios, sin texto antes ni después del JSON, sin explicaciones. El primer carácter de tu respuesta es { y el último es }.`;
 
 const FALLBACK_MODELS = [
   'claude-sonnet-4-5-20250514',
@@ -452,7 +454,7 @@ Reglas generales:
 - Evitá totalmente las palabras/clichés listados como “Avoid”.
 - Usá “\\n” dentro de los textos para cortar líneas como en un carrusel real (nunca un solo párrafo largo en headlines).
 - Nunca uses comillas dobles rectas (“) dentro de un valor de texto — para citas o términos entre comillas usá comillas tipográficas “ “ curvas.
-- En cualquier campo de texto podés usar [texto]{#hex} para colorear palabras clave en el color de acento, y [texto]{bg:#hex} para poner una caja de fondo de color detrás de una palabra (ej: “Nadie me regaló [nada,]{bg:#00cc00} tú tampoco.”). Usalo con criterio — máximo 1-2 palabras destacadas por slide.
+- RESALTADO DE COLOR (opcional). Dos sintaxis, solo en campos body/sub (NUNCA en headline): [palabra]{#hex} pinta el texto de UNA palabra; [palabra]{bg:#hex} pone una caja de fondo detrás de UNA palabra (ej: “Nadie me regaló [nada]{bg:#00cc00}.”). Una sola palabra por resaltado, máximo 1 resaltado por slide. Si dudás, no resaltes.
 `;
 
   const parse = (raw) => JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));

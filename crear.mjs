@@ -72,11 +72,13 @@ const FUENTES_HINTS = {
   'clash':         { display: 'Clash Display',    body: 'Inter',             url: 'https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=inter@400,600&display=swap' },
 };
 
-const SYSTEM_PROMPT = `Sos un equipo de élite de 2 personas trabajando como una sola: un director de arte senior con más de 15 años en agencias top de contenido para Instagram, y un estratega de marketing/copywriting senior especializado en marcas personales de fitness y coaching premium.
+const SYSTEM_PROMPT = `Sos un equipo de élite de 2 personas trabajando como una sola: un director de arte senior con más de 15 años en agencias top de contenido para Instagram, y un estratega de marketing/copywriting senior. Trabajás para marcas de cualquier industria — gastronomía, ecommerce, fitness, tecnología, servicios profesionales, educación, lo que sea. NO asumís un rubro por defecto: adaptás tu voz, vocabulario y ejemplos al CONTEXTO DE MARCA que recibís en cada pedido. Si no hay contexto de marca, escribís en una voz neutra y profesional, nunca con jerga de coach motivacional fitness.
 
 Como estratega de marketing entendés copywriting persuasivo, niveles de consciencia de audiencia (Schwartz), psicología del scroll-stop, y cómo cada decisión de contenido sirve al objetivo de retención y conversión del carrusel — no es decoración, es estrategia aplicada.
 
-Tus respuestas son siempre específicas y accionables — nunca genéricas, nunca clichés motivacionales. Respondés SIEMPRE en el formato exacto solicitado (JSON puro, sin \`\`\`markdown\`\`\` ni texto antes o después), sin explicaciones adicionales fuera del JSON.`;
+Tus respuestas son siempre específicas y accionables — nunca genéricas, nunca clichés motivacionales, nunca relleno aspiracional vacío. Escribís en la voz exacta de la marca del pedido, no en una voz fitness genérica.
+
+FORMATO DE SALIDA — REGLA INQUEBRANTABLE: respondés ÚNICAMENTE con JSON puro válido. Sin \`\`\`markdown\`\`\`, sin comentarios, sin texto antes ni después del JSON, sin explicaciones. El primer carácter de tu respuesta es { y el último es }.`;
 
 const FALLBACK_MODELS = [
   'claude-sonnet-4-5-20250514',
@@ -415,59 +417,49 @@ Devolvé SOLO JSON (sin markdown) con esta estructura:
   “slides”: [ /* 6 slides, elegí los tipos que mejor sirvan al tema */ ]
 }
 
-TIPOS DE SLIDE disponibles — elegí el más adecuado para cada posición:
+TIPOS DE SLIDE disponibles — cada uno aparece UNA sola vez. Elegí el más adecuado para cada posición.
+Todos los campos “icon” usan nombres de Material Symbols de Google en snake_case. ICONOS VÁLIDOS (elegí los que correspondan al rubro de la marca, no fuerces íconos de fitness en otros temas): verified, support_agent, payments, rocket_launch, person_add, search, bolt, trending_up, groups, star, check_circle, schedule, timer, local_fire_department, fitness_center, psychology, school, workspace_premium, shield, flag, eco, favorite, speed, flash_on, emoji_events, monitor_heart, nutrition, self_improvement, celebration, lightbulb, key, lock, thumb_up, leaderboard, bar_chart, pie_chart, insights, public, handshake, savings, credit_card, inventory_2, storefront, delivery_dining, medical_services, spa, sports, directions_run, restaurant, water_drop, nightlight, bedtime, mood, whatshot
 
-Tipos base (siempre disponibles):
-- cover: portada. Dos formatos posibles:
-  a) Formato clásico (solo si no encaja el hero): { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto”, “kicker”: “frase corta” }
-  b) Formato hero multi-línea (**USÁ ESTE SIEMPRE QUE PUEDAS** — es el estilo visual más impactante e Instagram-viral): { “type”: “cover”, “_layout”: “cover-impact”, “headline_lines”: [{“text”:”TEXTO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”EL DATO O CONCEPTO CLAVE”,”size”:”hero”,”color”:”#e8000d”,”stroke”:true},{“text”:”OTRO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”IMPACTO”,”size”:”hero”,”color”:”#e8000d”}] }
-     Tamaños de línea: “hero” = enorme (el hook principal), “md” = mediano, “connector” = pequeño conector entre líneas grandes
-     stroke:true agrega subrayado decorativo debajo de esa línea
-     REGLA: el cover-impact funciona para CUALQUIER tema — usá “connector” para preguntas/frases y “hero” para la respuesta/concepto clave
-- list: lista de ítems. { “type”: “list”, “eyebrow”: “frase de contexto en mayúsculas”, “items”: [“ítem 1”, “ítem 2”, “ítem 3”, “ítem 4”, “ítem 5”] }
+TIPOS BASE (la columna vertebral de la mayoría de los carruseles):
+- cover: portada (slide 1). Tiene dos formatos:
+  a) Formato clásico — para hooks que son una frase corrida, una pregunta o una afirmación: { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto”, “kicker”: “frase corta” }
+  b) Formato hero multi-línea (“_layout”: “cover-impact”) — para hooks construidos sobre un dato/número/palabra clave que merece tamaño gigante: { “type”: “cover”, “_layout”: “cover-impact”, “headline_lines”: [{“text”:”TEXTO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”EL DATO O CONCEPTO CLAVE”,”size”:”hero”,”color”:”#e8000d”,”stroke”:true},{“text”:”OTRO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”IMPACTO”,”size”:”hero”,”color”:”#e8000d”}] }
+     Tamaños: “hero” = enorme (la palabra/dato que para el scroll), “md” = mediano, “connector” = pequeño conector entre líneas grandes. stroke:true agrega subrayado decorativo.
+     CUÁNDO USAR cover-impact: cuando el hook tiene un número, una cifra, una palabra-concepto o un contraste fuerte que gana siendo enorme (ej: “EL 90% FALLA”, “NADIE TE LO DIJO”). CUÁNDO NO: cuando el hook es una pregunta larga, una frase reflexiva o narrativa — ahí el cover clásico lee mejor. No lo uses por defecto; elegí según el hook real.
 - statement: afirmación desarrollada. { “type”: “statement”, “headline”: “afirmación\\ncorta y rotunda”, “body”: “desarrollo breve\\n\\ncon párrafos cortos” }
-- split: dos columnas comparativas. { “type”: “split”, “left”: {“label”: “ETIQUETA A”, “items”: [“ítem”, “ítem”, “ítem”]}, “right”: {“label”: “ETIQUETA B”, “items”: [“ítem”, “ítem”, “ítem”]} }
+- list: lista de ítems (3 a 5). { “type”: “list”, “eyebrow”: “frase de contexto en mayúsculas”, “items”: [“ítem 1”, “ítem 2”, “ítem 3”, “ítem 4”, “ítem 5”] }
 - quote: cita o frase de autoridad. { “type”: “quote”, “quote”: “”cita corta y potente””, “attr”: “remate de la cita”, “note”: “nota breve que la conecta con la marca” }
-- cta: llamado a la acción final. { “type”: “cta”, “headline”: “llamado\\na la acción”, “sub”: “una línea que invita\\na escribir por DM”, “handle”: “${USER_HANDLE || '@tumarca'}” }
+- cta: llamado a la acción final (slide 6). { “type”: “cta”, “headline”: “llamado\\na la acción”, “sub”: “una línea que invita\\na escribir por DM”, “handle”: “${USER_HANDLE || '@tumarca'}” }
 
-Tipos de alto impacto visual — USÁ AL MENOS UNO cuando el tema lo permita:
-- big_number: cuando el tema tiene un dato o estadística fuerte que habla por sí solo. { “type”: “big_number”, “stat”: “87%”, “label”: “DE LOS ATLETAS”, “body”: “una línea de contexto que explica el dato”, “handle”: “@marca” }
-- timeline: cuando el tema explica un proceso, método o secuencia de pasos. { “type”: “timeline”, “eyebrow”: “EL PROCESO”, “headline”: “CÓMO\\nFUNCIONA”, “steps”: [{“num”:”01”,”text”:”primer paso”,”detail”:”detalle opcional”},{“num”:”02”,”text”:”segundo paso”},{“num”:”03”,”text”:”tercer paso”}] }
-- grid: cuando el tema presenta 4 beneficios, pilares o conceptos paralelos. { “type”: “grid”, “headline”: “LO QUE\\nGANÁS”, “cells”: [{“icon”:”fitness_center”,”label”:”FUERZA”,”text”:”texto corto”},{“icon”:”psychology”,”label”:”ENFOQUE”,”text”:”texto corto”},{“icon”:”bolt”,”label”:”ENERGÍA”,”text”:”texto corto”},{“icon”:”trending_up”,”label”:”RESULTADO”,”text”:”texto corto”}] }
-  IMPORTANTE: el campo “icon” del grid debe ser un nombre de Material Symbols (Google). Opciones: fitness_center, psychology, bolt, trending_up, restaurant, timer, water_drop, monitor_heart, nightlight, local_fire_department, sports, self_improvement, emoji_events, star, check_circle, rocket_launch, favorite, directions_run, speed, schedule, school, workspace_premium, shield, flag, groups, eco, nutrition, bedtime, mood, flash_on, whatshot
-- grid_stats: grilla 2×2 de métricas/KPIs con icono Material Symbol + valor grande + etiqueta
-  → fields: title, items[]{icon(material symbol name), value, label}
-  Ejemplo: { “type”: “grid_stats”, “title”: “LOS NÚMEROS\\nHABLAN”, “items”: [{“icon”:”trending_up”,”value”:”87%”,”label”:”Tasa de retención”},{“icon”:”timer”,”value”:”21 días”,”label”:”Para crear un hábito”},{“icon”:”groups”,”value”:”10K+”,”label”:”Atletas entrenados”},{“icon”:”emoji_events”,”value”:”3×”,”label”:”Más resultados”}] }
-- comparison: tabla comparativa A vs B
-  → fields: title, col_a(header), col_b(header), rows[]{label, a, b}
-  Ejemplo: { “type”: “comparison”, “title”: “SIN VS CON\\nMÉTODO”, “col_a”: “Sin método”, “col_b”: “Con método”, “rows”: [{“label”:”Progreso”,”a”:”Lento”,”b”:”Constante”},{“label”:”Lesiones”,”a”:”Frecuentes”,”b”:”Mínimas”},{“label”:”Motivación”,”a”:”Variable”,”b”:”Sostenida”}] }
-- steps: pasos numerados con icono
-  → fields: title, items[]{icon(material symbol name), step(número), title, desc}
-  Ejemplo: { “type”: “steps”, “title”: “EL PROCESO\\nEN 4 PASOS”, “items”: [{“step”:”01”,”icon”:”search”,”title”:”Diagnóstico”,”desc”:”Analizamos tu punto de partida”},{“step”:”02”,”icon”:”flag”,”title”:”Plan”,”desc”:”Diseñamos tu protocolo personalizado”}] }
-- icon_list: lista visual con íconos
-  → fields: title, items[]{icon(material symbol name), text}
-  Ejemplo: { “type”: “icon_list”, “title”: “QUÉ INCLUYE\\nEL PROGRAMA”, “items”: [{“icon”:”fitness_center”,”text”:”Rutinas de fuerza progresiva”},{“icon”:”restaurant”,”text”:”Protocolo nutricional adaptado”},{“icon”:”monitor_heart”,”text”:”Seguimiento semanal de métricas”}] }
-
-Para carruseles de tipo 'infografía', usá preferentemente grid_stats, steps, comparison e icon_list. Los iconos deben ser nombres válidos de Material Symbols (snake_case).
-
-Tipos de infografía (usá cuando el tema pide datos, comparaciones o pasos visuales):
-- grid_stats: grilla 2×2 de métricas/KPIs con ícono grande + valor numérico + etiqueta. Ideal para “datos clave”, “en números”, estadísticas impactantes. { “type”: “grid_stats”, “title”: “EN NÚMEROS”, “items”: [{“icon”:”bolt”,”value”:”87%”,”label”:”Satisfacción”},{“icon”:”trending_up”,”value”:”3x”,”label”:”Crecimiento”},{“icon”:”groups”,”value”:”1.2K”,”label”:”Clientes”},{“icon”:”star”,”value”:”4.9”,”label”:”Rating”}] }
-- comparison: tabla comparativa A vs B. Ideal para “antes vs ahora”, “con vs sin”, “nosotros vs competencia”. { “type”: “comparison”, “title”: “ANTES VS AHORA”, “col_a”: “❌ Antes”, “col_b”: “✅ Con nosotros”, “rows”: [{“label”:”Tiempo”,”a”:”3 horas”,”b”:”20 min”},{“label”:”Costo”,”a”:”$5000”,”b”:”$1200”},{“label”:”Resultado”,”a”:”Incierto”,”b”:”Garantizado”}] }
-- steps: pasos numerados con ícono. Ideal para procesos, métodos, “cómo funciona”. { “type”: “steps”, “title”: “CÓMO FUNCIONA”, “items”: [{“icon”:”person_add”,”step”:”1”,”title”:”Registrate”,”desc”:”Gratis en 2 minutos”},{“icon”:”search”,”step”:”2”,”title”:”Explorá”,”desc”:”Más de 500 opciones”},{“icon”:”rocket_launch”,”step”:”3”,”title”:”Empezá”,”desc”:”Resultados inmediatos”}] }
-- icon_list: lista visual de beneficios/razones con ícono grande. Ideal para “por qué elegirnos”, “lo que incluye”, features destacados. { “type”: “icon_list”, “title”: “¿POR QUÉ ELEGIRNOS?”, “items”: [{“icon”:”verified”,”text”:”Certificados y con experiencia”},{“icon”:”support_agent”,”text”:”Atención 24/7 personalizada”},{“icon”:”payments”,”text”:”Precios transparentes sin letra chica”}] }
-  ICONOS VÁLIDOS para tipos de infografía (Material Symbols snake_case): verified, support_agent, payments, rocket_launch, person_add, search, bolt, trending_up, groups, star, check_circle, schedule, timer, local_fire_department, fitness_center, psychology, school, workspace_premium, shield, flag, eco, favorite, speed, flash_on, emoji_events, monitor_heart, nutrition, self_improvement, celebration, lightbulb, key, lock, thumb_up, leaderboard, bar_chart, pie_chart, insights, public, handshake, savings, credit_card, inventory_2, storefront, delivery_dining, medical_services, spa, sports, directions_run
+TIPOS DE ALTO IMPACTO (usá al menos uno cuando el tema lo permita — dan variedad visual):
+- big_number: el tema tiene UN dato/estadística fuerte que habla solo. { “type”: “big_number”, “stat”: “87%”, “label”: “ETIQUETA EN MAYÚSCULAS”, “body”: “una línea de contexto que explica el dato”, “handle”: “@marca” }
+- grid_stats: grilla 2×2 de métricas/KPIs (4 datos paralelos). { “type”: “grid_stats”, “title”: “EN\\nNÚMEROS”, “items”: [{“icon”:”trending_up”,”value”:”87%”,”label”:”Satisfacción”},{“icon”:”timer”,”value”:”20 min”,”label”:”Tiempo de respuesta”},{“icon”:”groups”,”value”:”1.2K”,”label”:”Clientes”},{“icon”:”star”,”value”:”4.9”,”label”:”Rating”}] }
+- timeline: proceso/secuencia narrativa de pasos (sin íconos, foco en el orden). { “type”: “timeline”, “eyebrow”: “EL PROCESO”, “headline”: “CÓMO\\nFUNCIONA”, “steps”: [{“num”:”01”,”text”:”primer paso”,”detail”:”detalle opcional”},{“num”:”02”,”text”:”segundo paso”},{“num”:”03”,”text”:”tercer paso”}] }
+- steps: pasos numerados CON ícono y descripción (proceso visual tipo “cómo funciona”). { “type”: “steps”, “title”: “EN 3\\nPASOS”, “items”: [{“step”:”1”,”icon”:”person_add”,”title”:”Registrate”,”desc”:”Gratis en 2 minutos”},{“step”:”2”,”icon”:”search”,”title”:”Explorá”,”desc”:”Más de 500 opciones”},{“step”:”3”,”icon”:”rocket_launch”,”title”:”Empezá”,”desc”:”Resultados inmediatos”}] }
+- comparison: tabla comparativa A vs B (antes/ahora, con/sin, vos/competencia). { “type”: “comparison”, “title”: “ANTES VS\\nAHORA”, “col_a”: “Antes”, “col_b”: “Con nosotros”, “rows”: [{“label”:”Tiempo”,”a”:”3 horas”,”b”:”20 min”},{“label”:”Costo”,”a”:”$5000”,”b”:”$1200”},{“label”:”Resultado”,”a”:”Incierto”,”b”:”Garantizado”}] }
+- grid: 4 beneficios, pilares o conceptos paralelos con ícono + etiqueta. { “type”: “grid”, “headline”: “LO QUE\\nGANÁS”, “cells”: [{“icon”:”bolt”,”label”:”RAPIDEZ”,”text”:”texto corto”},{“icon”:”shield”,”label”:”SEGURIDAD”,”text”:”texto corto”},{“icon”:”favorite”,”label”:”CONFIANZA”,”text”:”texto corto”},{“icon”:”trending_up”,”label”:”RESULTADO”,”text”:”texto corto”}] }
+- icon_list: lista visual de beneficios/razones con ícono grande (3-4 ítems). { “type”: “icon_list”, “title”: “POR QUÉ\\nELEGIRNOS”, “items”: [{“icon”:”verified”,”text”:”Certificados y con experiencia”},{“icon”:”support_agent”,”text”:”Atención personalizada”},{“icon”:”payments”,”text”:”Precios transparentes”}] }
+- split: dos columnas comparativas de ítems. { “type”: “split”, “left”: {“label”: “ETIQUETA A”, “items”: [“ítem”, “ítem”, “ítem”]}, “right”: {“label”: “ETIQUETA B”, “items”: [“ítem”, “ítem”, “ítem”]} }
 
 ${USER_PLAN.length ? `PLAN ACORDADO CON EL USUARIO — seguí EXACTAMENTE esta estructura de slides (respetá tipos y orden, ajustá el copy):
 ${USER_PLAN.map(s => `  Slide ${s.position}: [${s.type}] ${s.title}${s.notes ? ` — ${s.notes}` : ''}`).join('\n')}
-El JSON debe tener EXACTAMENTE ${USER_PLAN.length} slides en ese orden.` : `Regla de estructura: el slide 1 siempre es “cover”, el slide 6 siempre es “cta”. Los 4 del medio son libres — combiná tipos base y de alto impacto según lo que mejor cuente el tema.`}
+El JSON debe tener EXACTAMENTE ${USER_PLAN.length} slides en ese orden.` : `ESTRUCTURA Y VARIEDAD: el slide 1 siempre es “cover”, el slide 6 siempre es “cta”. Los 4 del medio (2-5) los elegís vos siguiendo esta guía según la NATURALEZA del tema:
+- Tema con datos/estadísticas → usá big_number o grid_stats en slide 2 o 3.
+- Tema de proceso/método/“cómo se hace” → usá timeline o steps en slide 3 o 4.
+- Tema reflexivo/emocional/de mentalidad → usá statement + quote; EVITÁ grids y tablas (rompen el tono).
+- Tema comparativo (esto vs aquello, mito vs realidad) → usá comparison o split en slide 3.
+- Tema que presenta múltiples ítems/beneficios → usá list O icon_list, NUNCA ambos en el mismo carrusel.
+Reglas de variedad inquebrantables: NO repitas el mismo type en dos slides consecutivos. NO uses más de dos slides del mismo type en todo el carrusel. El arco debe leerse: cover (hook) → desarrollo variado → remate → cta.`}
 ${fotos?.length ? '' : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
 Reglas generales:
 - El tema debe tratarse con un ángulo específico, no genérico.
 - Evitá totalmente las palabras/clichés listados como “Avoid”.
 - Usá “\\n” dentro de los textos para cortar líneas como en un carrusel real (nunca un solo párrafo largo en headlines).
 - Nunca uses comillas dobles rectas (“) dentro de un valor de texto — para citas o términos entre comillas usá comillas tipográficas “ “ curvas.
-- Podés usar [palabra]{#hex} para colorear UNA palabra en body/detail (ej: “Tenés [2 opciones]{#e8000d}”). Máximo 1 por slide. NUNCA en el campo headline ni en más de una palabra seguida.
-- [palabra]{bg:#hex} pone caja de color detrás de una sola palabra corta (ej: “[nada,]{bg:#00cc00}”). Máximo 1 por carrusel entero. NUNCA en headline, NUNCA en más de 2 palabras seguidas.
+- RESALTADO DE COLOR (opcional, usalo con criterio — no es obligatorio). Hay exactamente dos sintaxis y se aplican SOLO en campos body, detail o sub (NUNCA en headline ni title):
+    1) [palabra]{#hex} → pinta el texto de UNA palabra del color indicado. Ej: “Tenés [2 opciones]{#e8000d}.” Máximo 1 vez por slide.
+    2) [palabra]{bg:#hex} → pone una caja de color de fondo detrás de UNA palabra corta. Ej: “Nadie me regaló [nada]{bg:#00cc00}.” Máximo 1 vez en TODO el carrusel.
+  En ambas: una sola palabra (dos como mucho), nunca una frase entera. Si dudás, no resaltes nada — el carrusel funciona perfecto sin resaltados.
 `;
 
   const parse = (raw) => JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));
@@ -520,46 +512,68 @@ async function scoreYCorregir(contenido, marca, tema) {
     return `Slide ${i + 1} (${s.type}): ${textos.slice(0, 200)}`;
   }).join('\n');
 
-  const prompt = `Sos un editor de copy senior. Evaluá este carrusel de Instagram y corregí los slides que fallen.
+  const tiposSecuencia = contenido.slides.map((s, i) => `${i + 1}:${s.type}`).join(' → ');
+
+  const prompt = `Sos un editor de copy senior. Evaluá este carrusel de Instagram en DOS planos —copy slide por slide, y arco narrativo del conjunto— y corregí lo que falle.
 
 TEMA: ${tema}
 VOZ DE MARCA: ${marca.voz}
 POSICIONAMIENTO: ${marca.posicionamiento}
 ${evitar ? `PALABRAS PROHIBIDAS (no deben aparecer en ningún slide): ${evitar}` : ''}
 
+SECUENCIA DE TIPOS: ${tiposSecuencia}
 SLIDES GENERADOS:
 ${slidesResumen}
 
-Para cada slide, asigná:
+PLANO 1 — COPY POR SLIDE. Para cada slide asigná:
 - "ok": true si el copy es específico, respeta la voz y no usa palabras prohibidas. false si falla en algo.
 - "problema": (solo si ok=false) qué falla en una línea: genérico / cliché / voz incorrecta / otro.
-- "fix": (solo si ok=false) reescribí SOLO el campo o campos que fallan, en el mismo formato JSON del slide original. Mantenés el type y todos los campos que no cambian.
+- "fix": (solo si ok=false) reescribí SOLO el campo o campos que fallan, en el mismo formato JSON del slide original. Mantenés el type y los campos que no cambian.
+
+PLANO 2 — ARCO NARRATIVO. Evaluá el carrusel como una historia con principio, medio y fin:
+- Slide 1 (cover): ¿el hook PARA el scroll? Debe ser una pregunta, una tensión, un dato impactante o una afirmación contraintuitiva. Si es tibio o genérico, falla.
+- Slides intermedios (desarrollo): ¿hay variedad real? Si dos slides seguidos son del mismo type, o el desarrollo es monótono, falla. ¿Cada slide aporta algo nuevo, o repiten la misma idea?
+- Slide anteúltimo (remate/resolución): ¿deja algo claro que el lector se lleva, una conclusión o payoff? Si el carrusel se desinfla antes del CTA, falla.
+- Slide final (cta): ¿fluye naturalmente de lo anterior, o aparece abrupto y desconectado? El CTA debe ser la consecuencia lógica del remate, no un salto.
 
 Devolvé SOLO JSON (sin markdown):
 {
   "slides": [
     { "idx": 0, "ok": true },
-    { "idx": 1, "ok": false, "problema": "usa 'transformación' (prohibida) y ángulo genérico", "fix": { "headline": "nuevo headline\\nen dos líneas" } },
-    ...
-  ]
+    { "idx": 1, "ok": false, "problema": "usa 'transformación' (prohibida) y ángulo genérico", "fix": { "headline": "nuevo headline\\nen dos líneas" } }
+  ],
+  "arco": {
+    "ok": true,
+    "problema": "(solo si ok=false) qué falla en el arco: hook tibio / desarrollo monótono o repetido / remate ausente / cta abrupto",
+    "fixes": [ { "idx": 0, "fix": { "headline": "hook reescrito que sí para el scroll" } } ]
+  }
 }`;
 
   try {
     const raw = await callBlackbox(prompt);
     const result = JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));
     const fixes = (result.slides || []).filter(s => !s.ok && s.fix);
+    const arcoOk = result.arco?.ok !== false;
+    const arcoFixes = (!arcoOk && Array.isArray(result.arco?.fixes)) ? result.arco.fixes.filter(f => f && f.fix) : [];
 
-    if (!fixes.length) {
-      console.log('✅ Validación: copy OK en todos los slides.');
+    if (!fixes.length && !arcoFixes.length) {
+      console.log('✅ Validación: copy y arco narrativo OK en todos los slides.');
       return contenido;
     }
 
-    console.log(`⚡ Validación: corrigiendo ${fixes.length} slide(s)...`);
+    if (fixes.length) console.log(`⚡ Validación: corrigiendo ${fixes.length} slide(s) de copy...`);
     const slidesCorregidos = [...contenido.slides];
     for (const { idx, problema, fix } of fixes) {
       if (idx < 0 || idx >= slidesCorregidos.length) continue;
       console.log(`   Slide ${idx + 1}: ${problema}`);
       slidesCorregidos[idx] = { ...slidesCorregidos[idx], ...fix };
+    }
+    if (arcoFixes.length) {
+      console.log(`⚡ Validación: arco narrativo (${result.arco?.problema || 'corrección'}) — ajustando ${arcoFixes.length} slide(s)...`);
+      for (const { idx, fix } of arcoFixes) {
+        if (idx == null || idx < 0 || idx >= slidesCorregidos.length) continue;
+        slidesCorregidos[idx] = { ...slidesCorregidos[idx], ...fix };
+      }
     }
     return { ...contenido, slides: slidesCorregidos };
   } catch (err) {

@@ -133,15 +133,27 @@ async function loadReferencias(marcaId) {
 
 // Persona aplicada a todas las llamadas — fija el nivel de criterio esperado
 // para que las 3 fases respondan con la misma vara de "experto", no genérica
-const SYSTEM_PROMPT = `Sos un equipo de élite de 2 personas trabajando como una sola: un director de arte senior con más de 15 años en agencias top de contenido para Instagram, y un estratega de marketing/copywriting senior especializado en marcas personales de fitness y coaching premium.
+const SYSTEM_PROMPT = `Sos un director de arte senior con más de 15 años en agencias top de contenido para Instagram. Diseñás para marcas de CUALQUIER industria —gastronomía, ecommerce, fitness, tecnología, servicios, educación— y adaptás el sistema visual al rubro y a la voz de la marca que recibís; no imponés una estética fitness por defecto.
 
-Como director de arte conocés a fondo: tipografía editorial (qué combinaciones de Google Fonts realmente funcionan juntas y por qué), paletas de alto contraste que generan guardados/shares, tendencias visuales actuales de carruseles que performan (no las de hace 3 años), y cómo traducir un sistema de diseño en decisiones de CSS concretas y aplicables.
+Tu objetivo no es que el carrusel se vea lindo ni que junte likes: es que se GUARDE y se COMPARTA. Esos dos comportamientos se ganan con criterio visual específico, no con decoración:
 
-Como estratega de marketing entendés copywriting persuasivo, niveles de consciencia de audiencia (Schwartz), psicología del scroll-stop, y cómo cada decisión visual (jerarquía, contraste, posición del texto) sirve al objetivo de retención y conversión del carrusel — no es decoración, es estrategia aplicada.
+CONTRASTE Y PALETA (lo que genera guardados en 2024-2025):
+- Alto contraste real. Fondo oscuro casi-negro (#0a0a0a-#111) con texto blanco y UN acento saturado, o fondo claro casi-blanco con texto casi-negro y un acento. Los pasteles, los degradés lavados y las paletas de bajo contraste NO se guardan: se pierden en el feed.
+- Un solo acento por carrusel, usado con disciplina (kicker, divisor, número, una palabra clave) — nunca acento en todo el texto.
+- Máximo 2-3 colores en el sistema. Más colores = se ve "de Canva".
+
+LECTURA DE FOTO Y POSICIÓN DEL TEXTO:
+- Primero identificás dónde está el sujeto (cara/cuerpo/producto). El texto NUNCA lo tapa.
+- Buscás la zona más despejada y de luminancia uniforme (cielo, pared, suelo, fondo desenfocado) y ahí va el bloque de texto, reforzado con el overlay/gradiente justo para que sea legible sin oscurecer la foto entera.
+- Si la zona de texto es clara o mixta, subís overlay y sombra; si es oscura, los mantenés mínimos para no "embarrar" la imagen.
+
+"DE AGENCIA" VS "DE CANVA":
+- De agencia: una sola idea jerárquica por slide, espacio negativo intencional, tipografía con peso y tracking decididos a propósito, alineación consistente, acento quirúrgico.
+- De Canva: stickers/emojis decorativos, sombras genéricas, 4+ colores, glassmorphism porque sí, centrado por default, tipografías "seguras" sin carácter. Evitás todo esto.
 
 Tus respuestas son siempre específicas y accionables — nunca genéricas, nunca "depende". Si te piden un valor (hex, font-family, line-height), das el valor exacto, no un rango ni una sugerencia vaga.
 
-Respondés SIEMPRE en el formato exacto solicitado (JSON puro, sin \`\`\`markdown\`\`\` ni texto antes o después), sin explicaciones adicionales fuera del JSON.`;
+FORMATO DE SALIDA — REGLA INQUEBRANTABLE: respondés ÚNICAMENTE con JSON puro válido. Sin \`\`\`markdown\`\`\` ni texto antes o después del JSON, sin explicaciones. El primer carácter de tu respuesta es { y el último es }.`;
 
 const FALLBACK_MODELS = [
   'claude-sonnet-4-5-20250514',
@@ -403,14 +415,14 @@ async function detectarTemaTono(slides, marca) {
     return partes;
   }).join('\n');
 
-  const text = await callBlackbox(`Analizá este contenido de carrusel de Instagram de marca personal fitness/coaching y detectá su esencia.
+  const text = await callBlackbox(`Analizá este contenido de carrusel de Instagram y detectá su esencia. La marca puede ser de cualquier industria (mirá el CONTEXTO DE MARCA si está presente) — no asumas que es fitness.
 ${marcaContext(marca)}
 CONTENIDO:
 ${resumen}
 
 Devolvé SOLO JSON (sin markdown):
 {
-  "tema": "una palabra: entorno|disciplina|nutricion|entrenamiento|mentalidad|lifestyle|negocio|otro",
+  "tema": "una palabra que describe el contenido: producto|servicio|proceso|datos|educativo|mentalidad|lifestyle|negocio|otro",
   "tono": "una palabra: motivacional|educativo|reflexivo|agresivo|aspiracional|intimo",
   "estilo_visual_ideal": "editorial_brutal|photo_lifestyle|infografico_premium|luxury_minimal|street_urban|tech_modern|editorial_magazine|coaching_premium",
   "razon": "por qué ese estilo para este contenido específico",
@@ -433,7 +445,7 @@ async function definirSistemaDiseño(temaInfo, marca, referencias) {
   console.log(`\n🔍 Definiendo sistema de diseño para estilo "${estilo_visual_ideal}" (${tema}/${tono})...`);
   if (referencias?.length) console.log(`  🖼  Usando ${referencias.length} carrusel(es) de referencia como inspiración`);
 
-  const promptText = `Sos director de arte de una agencia top especializada en contenido viral de Instagram para marca personal fitness.
+  const promptText = `Sos director de arte de una agencia top especializada en contenido viral de Instagram, para marcas de cualquier industria. Diseñás según el rubro y la voz de la marca (ver CONTEXTO DE MARCA), no según una estética fitness por defecto.
 ${marcaContext(marca)}
 El carrusel que tenés que diseñar es:
 - Tema: ${tema}
@@ -448,7 +460,11 @@ ${referencias?.length ? 'Te paso además imágenes de carruseles que le gustaron
 TIPOGRAFÍA — elegí EXACTAMENTE UNO de estos pares validados (devolvé solo el id):
 ${FONT_PAIRS_INDEX}
 
-REGLA DE TIPOGRAFÍA PARA FITNESS/COACHING: Si el estilo_visual_ideal es editorial_brutal, street_urban, coaching_premium, o photo_lifestyle con tono agresivo/directo/motivacional, SIEMPRE elegí uno de estos: barlow-condensed-black, oswald-dm, anton-inter, bebas-inter, barlow-barlow. Nunca elijas space-space, syne-inter, dm-serif-dm, ni playfair-dm para contenido fitness activo — esos son para coaching premium femenino o lifestyle suave.
+REGLA DE TIPOGRAFÍA SEGÚN ESTILO (independiente de la industria): La elección del par debe responder al estilo_visual_ideal y al tono, no al rubro.
+- Estilos de impacto crudo (editorial_brutal, street_urban) o tono agresivo/directo/motivacional → condensadas y pesadas: barlow-condensed-black, oswald-dm, anton-inter, bebas-inter, barlow-barlow. NO uses serifs ni display suaves acá.
+- Estilos premium/editorial/aspiracional (luxury_minimal, editorial_magazine, photo_lifestyle con tono reflexivo o íntimo) → serif o display refinada: playfair-dm, dm-serif-dm, instrument-dm, raleway-outfit.
+- Estilos de datos/tech (infografico_premium, tech_modern) → geométricas/mono: space-space, syne-inter, montserrat-montserrat.
+Lo que importa es la coherencia estilo↔tipografía, no el sector de la marca.
 
 VARIEDAD VISUAL — el carrusel NO debe verse uniforme. Cada tipo de slide tiene un tratamiento distinto:
 - Cover (portada): headline enorme, foto con overlay suave, impacto máximo
@@ -517,7 +533,7 @@ Devolvé SOLO JSON (sin markdown):
   // Prompt alternativo — más arriesgado/experimental para forzar variedad
   const promptVariante = promptText.replace(
     'Definí el sistema de diseño COMPLETO y ESPECÍFICO. Sé milimétrico, no genérico.',
-    'Definí el sistema de diseño COMPLETO. Tomá el camino MÁS ARRIESGADO y visualmente DISRUPTIVO — paleta inesperada, contraste extremo, tipografía que nadie elegiría por defecto. El objetivo: que este carrusel se vea totalmente diferente al 95% del contenido de fitness en Instagram.'
+    'Definí el sistema de diseño COMPLETO. Tomá el camino MÁS ARRIESGADO y visualmente DISRUPTIVO — paleta inesperada, contraste extremo, tipografía que nadie elegiría por defecto. El objetivo: que este carrusel se vea totalmente diferente al 95% del contenido del rubro de esta marca en Instagram.'
   );
   const contentVariante = referencias?.length
     ? [...referencias.map(r => ({ type: 'image_url', image_url: { url: `data:${r.mime};base64,${r.base64}` } })), { type: 'text', text: promptVariante }]
@@ -958,7 +974,7 @@ Proceso: 1) Identificá dónde está la cara/cuerpo principal. 2) Identificá la
 // en qué esquina va el bloque de texto sin tapar al sujeto.
 // ─────────────────────────────────────────────────────────────────────
 async function analizarComposicionFoto(base64, mime) {
-  const prompt = `Vas a superponer un bloque de texto (label corto + headline grande, en una esquina) sobre esta foto de un carrusel de fitness/coaching.
+  const prompt = `Vas a superponer un bloque de texto (label corto + headline grande, en una esquina) sobre esta foto de un carrusel de Instagram.
 
 Analizá la composición y elegí la esquina donde el texto NO tape a la persona, su cara, ni el elemento principal de la imagen.
 
