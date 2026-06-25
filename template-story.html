@@ -21,6 +21,8 @@
     --color-acento:   #e8ff00;
     --color-sec:      rgba(255,255,255,0.25);
     --pad:            108px;
+    --safe-top:       252px;
+    --safe-bottom:    200px;
     --gap:            64px;
     --lh-headline:    0.88;
     --lh-body:        1.75;
@@ -41,7 +43,7 @@
     width: 100%; height: 100%;
     display: none;
     position: relative;
-    padding: var(--pad);
+    padding: var(--safe-top) var(--pad) var(--safe-bottom);
   }
   .slide.active { display: flex; }
 
@@ -71,7 +73,7 @@
   /* ── Tag ── */
   .slide-tag {
     position: absolute;
-    top: var(--pad); left: var(--pad);
+    top: var(--safe-top); left: var(--pad);
     font-family: var(--font-mono);
     font-size: 26px; letter-spacing: 0.22em;
     color: var(--color-sec);
@@ -80,7 +82,7 @@
   /* ── Logo de marca (watermark) ── */
   .brand-logo {
     position: absolute;
-    bottom: var(--pad);
+    bottom: var(--safe-bottom);
     right: var(--pad);
     width: 56px;
     height: 56px;
@@ -209,7 +211,7 @@
   }
   .layout-cover-top.tp-middle .c-swipe,
   .layout-cover-top.tp-bottom .c-swipe {
-    position: absolute; bottom: var(--pad); left: var(--pad);
+    position: absolute; bottom: var(--safe-bottom); left: var(--pad);
   }
 
   /* cover-center: todo centrado verticalmente */
@@ -224,7 +226,7 @@
   .layout-cover-center .c-swipe {
     margin-top: auto;
     position: absolute;
-    bottom: var(--pad); left: var(--pad);
+    bottom: var(--safe-bottom); left: var(--pad);
   }
 
   /* cover-split: headline izquierda grande, detail derecha */
@@ -362,7 +364,7 @@
     display: flex; flex-direction: column; gap: 32px;
   }
   .layout-statement-top .stmt-photo-body {
-    position: absolute; bottom: var(--pad); left: var(--pad); right: var(--pad);
+    position: absolute; bottom: var(--safe-bottom); left: var(--pad); right: var(--pad);
     display: flex; flex-direction: column; gap: 20px; z-index: 2;
   }
 
@@ -547,7 +549,7 @@
   }
   .layout-cta-center .cta-footer {
     position: absolute;
-    bottom: var(--pad); left: var(--pad); right: var(--pad);
+    bottom: var(--safe-bottom); left: var(--pad); right: var(--pad);
     display: flex; align-items: center; justify-content: space-between;
   }
 
@@ -785,7 +787,7 @@
   .slide-big-number {
     width: 100%; height: 100%;
     display: none; flex-direction: column;
-    padding: var(--pad); position: relative; overflow: hidden;
+    padding: var(--safe-top) var(--pad) var(--safe-bottom); position: relative; overflow: hidden;
   }
   .slide-big-number.active { display: flex; }
   .bn-bg {
@@ -824,7 +826,7 @@
   .slide-timeline {
     width: 100%; height: 100%;
     display: none; flex-direction: column;
-    padding: var(--pad); position: relative; overflow: hidden;
+    padding: var(--safe-top) var(--pad) var(--safe-bottom); position: relative; overflow: hidden;
     background: var(--color-fondo);
   }
   .slide-timeline.active { display: flex; }
@@ -862,7 +864,7 @@
   .slide-grid {
     width: 100%; height: 100%;
     display: none; flex-direction: column;
-    padding: var(--pad); position: relative; overflow: hidden;
+    padding: var(--safe-top) var(--pad) var(--safe-bottom); position: relative; overflow: hidden;
     background: var(--color-fondo);
   }
   .slide-grid.active { display: flex; }
