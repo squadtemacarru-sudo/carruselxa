@@ -106,6 +106,45 @@
         <div id="planGrid" class="pw-grid"></div>
       </div>
 
+      <!-- Panel de progreso (modo usuario) -->
+      <div id="progressWrap" class="progress-wrap hidden" aria-live="polite">
+        <div class="progress-head">
+          <span class="progress-title">Generando carrusel</span>
+          <button id="btnAdminToggle" class="progress-admin-btn" type="button" title="Ver logs técnicos" aria-label="Modo avanzado">⚙</button>
+        </div>
+        <div id="progressSteps" class="progress-steps">
+          <div class="progress-step" data-step="crear">
+            <span class="ps-ind"></span>
+            <div class="ps-body">
+              <span class="ps-label">Creando contenido</span>
+              <span class="ps-sub"></span>
+            </div>
+          </div>
+          <div class="progress-step" data-step="analizar">
+            <span class="ps-ind"></span>
+            <div class="ps-body">
+              <span class="ps-label">Diseñando el sistema visual</span>
+              <span class="ps-sub"></span>
+            </div>
+          </div>
+          <div class="progress-step" data-step="generar">
+            <span class="ps-ind"></span>
+            <div class="ps-body">
+              <span class="ps-label">Renderizando slides</span>
+              <span class="ps-sub"></span>
+            </div>
+          </div>
+          <div class="progress-step" data-step="listo">
+            <span class="ps-ind"></span>
+            <div class="ps-body">
+              <span class="ps-label">¡Listo!</span>
+              <span class="ps-sub"></span>
+            </div>
+          </div>
+        </div>
+        <p id="progressError" class="progress-error hidden"></p>
+      </div>
+
       <!-- Log -->
       <div id="logWrap" class="log-wrap hidden">
         <div class="log-header">

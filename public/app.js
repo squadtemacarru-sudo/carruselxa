@@ -100,12 +100,141 @@ function appendLog(line) {
   }
 }
 
+// ── MODO ADMIN (logs técnicos) vs MODO USUARIO (progreso) ──
+let adminMode = false;
+function initAdminMode() {
+  const fromUrl = new URLSearchParams(location.search).get('admin') === '1';
+  const stored  = localStorage.getItem('cgAdminMode') === '1';
+  adminMode = fromUrl || stored;
+  if (fromUrl) localStorage.setItem('cgAdminMode', '1');
+  applyAdminMode();
+}
+function applyAdminMode() {
+  document.body.classList.toggle('admin-mode', adminMode);
+}
+function setAdminMode(on) {
+  adminMode = on;
+  localStorage.setItem('cgAdminMode', on ? '1' : '0');
+  applyAdminMode();
+  // reflejar visibilidad si hay un job corriendo
+  const running = $('#btnGenerar')?.disabled;
+  if (running) updateProgressVisibility(true);
+}
+
+// ── PANEL DE PROGRESO ──────────────────────────────────
+const PROGRESS_ORDER = ['crear', 'analizar', 'generar', 'listo'];
+const PROGRESS_SUBS = {
+  crear:    ['La IA está pensando el ángulo del contenido…', 'Redactando titulares y copy…', 'Estructurando los slides…'],
+  analizar: ['Definiendo el sistema de diseño…', 'Eligiendo tipografía y paleta…', 'Equilibrando jerarquía visual…'],
+  generar:  ['Renderizando con Puppeteer…', 'Componiendo cada slide…', 'Exportando imágenes en alta…'],
+  listo:    ['¡Tu carrusel está listo!'],
+};
+let progressSubTimer = null;
+
+function progressStepEl(step) {
+  return document.querySelector(`.progress-step[data-step="${step}"]`);
+}
+
+function resetProgress() {
+  document.querySelectorAll('.progress-step').forEach(el => {
+    el.classList.remove('active', 'done', 'error');
+    const sub = el.querySelector('.ps-sub');
+    if (sub) sub.textContent = '';
+  });
+  const errEl = $('#progressError');
+  if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
+  if (progressSubTimer) { clearInterval(progressSubTimer); progressSubTimer = null; }
+}
+
+function cycleSub(step) {
+  if (progressSubTimer) { clearInterval(progressSubTimer); progressSubTimer = null; }
+  const el  = progressStepEl(step);
+  const sub = el?.querySelector('.ps-sub');
+  const frases = PROGRESS_SUBS[step] || [];
+  if (!sub || !frases.length) return;
+  let i = 0;
+  sub.textContent = frases[0];
+  if (frases.length < 2) return;
+  progressSubTimer = setInterval(() => {
+    i = (i + 1) % frases.length;
+    sub.style.opacity = '0';
+    setTimeout(() => { sub.textContent = frases[i]; sub.style.opacity = '1'; }, 180);
+  }, 4000);
+}
+
+// Marca un paso como activo; completa todos los anteriores.
+function setProgressStep(step) {
+  const idx = PROGRESS_ORDER.indexOf(step);
+  if (idx === -1) return;
+  PROGRESS_ORDER.forEach((s, i) => {
+    const el = progressStepEl(s);
+    if (!el) return;
+    el.classList.remove('active', 'done', 'error');
+    if (i < idx) el.classList.add('done');
+    else if (i === idx) el.classList.add('active');
+  });
+  if (step === 'listo') {
+    // último paso: marcarlo como done también
+    progressStepEl('listo')?.classList.remove('active');
+    progressStepEl('listo')?.classList.add('done');
+    if (progressSubTimer) { clearInterval(progressSubTimer); progressSubTimer = null; }
+    const sub = progressStepEl('listo')?.querySelector('.ps-sub');
+    if (sub) sub.textContent = PROGRESS_SUBS.listo[0];
+  } else {
+    cycleSub(step);
+  }
+}
+
+function setProgressError(step, mensaje) {
+  if (progressSubTimer) { clearInterval(progressSubTimer); progressSubTimer = null; }
+  // el paso fallido es el último activo, o el indicado
+  const target = step || document.querySelector('.progress-step.active')?.dataset.step || 'crear';
+  const el = progressStepEl(target);
+  if (el) { el.classList.remove('active', 'done'); el.classList.add('error'); }
+  const errEl = $('#progressError');
+  if (errEl) {
+    errEl.textContent = simplificarError(mensaje);
+    errEl.classList.remove('hidden');
+  }
+}
+
+function simplificarError(linea) {
+  if (!linea) return 'Ocurrió un error durante la generación. Intentá de nuevo.';
+  let t = String(linea).replace(/^[❌✗\s]+/, '').trim();
+  // recortar stacktraces / rutas largas
+  t = t.split('\n')[0].slice(0, 200);
+  return t || 'Ocurrió un error durante la generación. Intentá de nuevo.';
+}
+
+// Mapea una línea del log SSE a un paso del pipeline.
+function progressStepFromLog(line) {
+  if (/▶\s*crear|crear\.mjs/.test(line))    return 'crear';
+  if (/▶\s*analizar|analizar\.mjs/.test(line)) return 'analizar';
+  if (/▶\s*generar|generar\.mjs/.test(line))   return 'generar';
+  return null;
+}
+
+// Muestra panel de progreso y/o logs según el modo.
+function updateProgressVisibility(running) {
+  const pw = $('#progressWrap');
+  if (running) {
+    if (pw) pw.classList.remove('hidden');
+    // En modo usuario: ocultar logs. En admin: mostrarlos.
+    logWrap.classList.toggle('hidden', !adminMode);
+  } else {
+    logWrap.classList.add('hidden');
+  }
+}
+
+$('#btnAdminToggle')?.addEventListener('click', () => setAdminMode(!adminMode));
+
 function setRunning(running) {
   $('#btnGenerar').disabled = running;
   $('#btnLote').disabled    = running;
   if (running) {
     hidePlanPreview();
-    logWrap.classList.remove('hidden');
+    resetProgress();
+    updateProgressVisibility(true);
     log.textContent = '';
     logStatus.textContent = 'Generando...';
     logStatus.style.color = 'var(--acc)';
@@ -138,6 +267,15 @@ function connectStream() {
     appendLog(line);
     const isDone  = line.includes('✅') || line.includes('Listo');
     const isError = line.includes('❌');
+
+    // Actualizar panel de progreso (modo usuario)
+    if (isError)      setProgressError(null, line);
+    else if (isDone)  setProgressStep('listo');
+    else {
+      const step = progressStepFromLog(line);
+      if (step) setProgressStep(step);
+    }
+
     if (isDone || isError) hidePlanPreview();
     if (editorRerenderizing && (isDone || isError)) {
       editorRerenderizing = false;
@@ -1091,6 +1229,41 @@ async function setEstado(id, card, newEstado) {
   aplicarFiltroGaleria();
 }
 
+// ── SKELETONS de galería ───────────────────────────────
+// Inserta un skeleton shimmer detrás de cada <img.cg-img-loading> de un
+// contenedor y hace crossfade a la imagen cuando carga (o muestra placeholder
+// de error). `ratio` es opcional ('9/16' para stories).
+function aplicarSkeletons(container, ratio) {
+  if (!container) return;
+  container.querySelectorAll('img.cg-img-loading').forEach(img => {
+    const card = img.closest('.tanda');
+    if (!card || card.querySelector('.cg-skel')) return;
+
+    const skel = document.createElement('div');
+    skel.className = 'cg-skel';
+    if (ratio) skel.dataset.ratio = ratio;
+    card.insertBefore(skel, card.firstChild);
+
+    const onReady = () => {
+      img.classList.remove('cg-img-loading');
+      img.classList.add('cg-img-ready');
+      skel.classList.add('cg-skel-hidden');
+      setTimeout(() => skel.remove(), 320);
+    };
+    const onError = () => {
+      img.style.display = 'none';
+      const tema = (img.getAttribute('alt') || '').trim();
+      skel.classList.add('cg-skel-error');
+      skel.innerHTML = `<span class="cg-err-icon">🖼</span><span class="cg-err-text">${tema || 'No se pudo cargar la imagen'}</span>`;
+    };
+
+    if (img.complete && img.naturalWidth > 0) { onReady(); return; }
+    if (img.complete && img.naturalWidth === 0) { onError(); return; }
+    img.addEventListener('load',  onReady,  { once: true });
+    img.addEventListener('error', onError, { once: true });
+  });
+}
+
 async function cargarGaleria() {
   tandas = await (await fetch('/api/tandas')).json();
   const galeria = $('#galeria');
@@ -1106,7 +1279,7 @@ async function cargarGaleria() {
     const estado = t.estado || 'nuevo';
     return `
       <div class="tanda estado-${estado}" data-idx="${i}" data-estado="${estado}" data-id="${t.id}">
-        <img src="${t.slides[0]}?t=${t.ts || Date.now()}" alt="${t.tema}" loading="lazy">
+        <img class="cg-img-loading" src="${t.slides[0]}?t=${t.ts || Date.now()}" alt="${t.tema}" loading="lazy">
         <span class="count">${t.slides.length}</span>
         <div class="label">
           <span class="tanda-tema">${t.tema}</span>
@@ -1142,6 +1315,7 @@ async function cargarGaleria() {
     });
   });
 
+  aplicarSkeletons(galeria);
   aplicarFiltroGaleria();
 }
 
@@ -2264,6 +2438,7 @@ function renderFontPairGrid() {
 
 // ── INIT ──────────────────────────────────────────────
 (async () => {
+  initAdminMode();
   await cargarMarcas();
   await Promise.all([cargarTemas(), cargarIdentidad(), cargarReferencias()]);
   renderTemplatesList();
@@ -2309,7 +2484,7 @@ async function cargarStoriesGaleria() {
   if (empty) empty.classList.add('hidden');
   galeria.innerHTML = stories.map(s => `
     <div class="tanda" data-story-id="${s.id}" style="cursor:pointer">
-      <img src="${s.slides[0]}?t=${s.ts || Date.now()}" alt="${s.tema}" loading="lazy" style="aspect-ratio:9/16;object-fit:cover">
+      <img class="cg-img-loading" src="${s.slides[0]}?t=${s.ts || Date.now()}" alt="${s.tema}" loading="lazy" style="aspect-ratio:9/16;object-fit:cover">
       <span class="count">${s.slides.length}</span>
       <div class="label">
         <span class="tanda-tema">${s.tema}</span>
@@ -2335,6 +2510,8 @@ async function cargarStoriesGaleria() {
       window.location.href = `/api/stories/${s.id}/zip`;
     });
   });
+
+  aplicarSkeletons(galeria, '9/16');
 }
 
 // ── HIGHLIGHTS COVERS ─────────────────────────────────

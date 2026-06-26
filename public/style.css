@@ -456,6 +456,213 @@ body {
   line-height: 1.65;
 }
 
+/* ── PANEL DE PROGRESO (modo usuario) ───────────────── */
+.progress-wrap {
+  margin-top: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--s1);
+  padding: 18px 20px 20px;
+  animation: tabIn var(--normal) var(--ease);
+}
+
+.progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.progress-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--acc);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+}
+
+.progress-admin-btn {
+  background: none;
+  border: none;
+  color: var(--sub);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 6px;
+  border-radius: var(--r-xs);
+  transition: color var(--fast) var(--ease), background var(--fast) var(--ease), transform var(--slow) var(--ease);
+}
+.progress-admin-btn:hover {
+  color: var(--acc);
+  background: var(--acc-lo);
+  transform: rotate(60deg);
+}
+
+.progress-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progress-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 10px 4px;
+  position: relative;
+  opacity: 0.5;
+  transition: opacity var(--normal) var(--ease);
+}
+
+/* línea conectora entre indicadores */
+.progress-step::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 32px;
+  bottom: -10px;
+  width: 2px;
+  background: var(--line);
+}
+.progress-step:last-child::before { display: none; }
+
+.ps-ind {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--dim);
+  background: var(--s2);
+  position: relative;
+  z-index: 1;
+  transition: border-color var(--normal) var(--ease), background var(--normal) var(--ease);
+}
+
+.ps-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 1px;
+  min-height: 24px;
+  justify-content: center;
+}
+
+.ps-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.ps-sub {
+  font-size: 12px;
+  color: var(--sub);
+  line-height: 1.3;
+  min-height: 0;
+  transition: opacity var(--fast) var(--ease);
+}
+
+/* Estado: activo */
+.progress-step.active { opacity: 1; }
+.progress-step.active .ps-ind {
+  border-color: var(--acc);
+  background: var(--acc-lo);
+  animation: psPulse 1.4s ease-in-out infinite;
+}
+.progress-step.active .ps-label { color: var(--acc); }
+
+/* Estado: completado */
+.progress-step.done { opacity: 1; }
+.progress-step.done .ps-ind {
+  border-color: var(--green);
+  background: var(--green);
+  animation: none;
+}
+.progress-step.done .ps-ind::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid #07070a;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.progress-step.done::before { background: var(--green); }
+
+/* Estado: error */
+.progress-step.error { opacity: 1; }
+.progress-step.error .ps-ind {
+  border-color: var(--red);
+  background: var(--red);
+  animation: none;
+}
+.progress-step.error .ps-ind::after {
+  content: '✕';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  color: #fff;
+}
+.progress-step.error .ps-label { color: var(--red); }
+
+.progress-error {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  background: rgba(255,0,68,0.08);
+  border: 1px solid rgba(255,0,68,0.3);
+  border-radius: var(--r-xs);
+  font-size: 12px;
+  color: #ff5c80;
+  line-height: 1.45;
+}
+
+@keyframes psPulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--acc-glow); }
+  50%      { box-shadow: 0 0 0 6px rgba(232,255,0,0); }
+}
+
+/* ── MODO ADMIN: panel de progreso compacto ─────────── */
+body.admin-mode .progress-wrap {
+  padding: 10px 14px;
+  margin-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: none;
+}
+body.admin-mode .progress-head { margin-bottom: 10px; }
+body.admin-mode .progress-steps {
+  flex-direction: row;
+  gap: 0;
+  flex-wrap: wrap;
+}
+body.admin-mode .progress-step {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex: 1 1 0;
+  min-width: 70px;
+  padding: 4px;
+  gap: 6px;
+}
+body.admin-mode .progress-step::before {
+  left: auto;
+  right: -50%;
+  top: 12px;
+  bottom: auto;
+  width: 100%;
+  height: 2px;
+}
+body.admin-mode .ps-body { align-items: center; }
+body.admin-mode .ps-label { font-size: 11px; }
+body.admin-mode .ps-sub { display: none; }
+body.admin-mode .log-wrap { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+
 /* ── SECTION HEADER ─────────────────────────────────── */
 .section-header {
   display: flex;
@@ -695,6 +902,81 @@ body {
 
 .tanda:hover > img,
 .tanda:hover .tanda-img { transform: scale(1.03); }
+
+/* ── SKELETON / SHIMMER (galería + stories) ─────────── */
+/* La imagen arranca invisible y hace crossfade al cargar */
+.tanda > img.cg-img-loading,
+.tanda .tanda-img.cg-img-loading { opacity: 0; }
+.tanda > img.cg-img-ready,
+.tanda .tanda-img.cg-img-ready {
+  opacity: 1;
+  transition: opacity var(--slow) var(--ease);
+}
+
+.cg-skel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--r) var(--r) 0 0;
+  background: var(--s3);
+  overflow: hidden;
+  z-index: 0;
+  transition: opacity var(--normal) var(--ease);
+}
+/* stories son 9/16 */
+.cg-skel[data-ratio="9/16"] { aspect-ratio: 9 / 16; }
+
+.cg-skel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(232,255,0,0.07) 40%,
+    rgba(232,255,0,0.14) 50%,
+    rgba(232,255,0,0.07) 60%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: cgShimmer 1.4s ease-in-out infinite;
+}
+
+.cg-skel.cg-skel-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes cgShimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* Placeholder de imagen rota */
+.cg-skel.cg-skel-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--s2);
+  color: var(--sub);
+  opacity: 1;
+  z-index: 2;
+  padding: 12px;
+  text-align: center;
+}
+.cg-skel.cg-skel-error::after { display: none; }
+.cg-skel-error .cg-err-icon { font-size: 26px; opacity: 0.6; }
+.cg-skel-error .cg-err-text {
+  font-size: 11px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 /* Slide count badge */
 .tanda .count {
