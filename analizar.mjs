@@ -448,6 +448,23 @@ Devolvé SOLO JSON (sin markdown):
 async function definirSistemaDiseño(temaInfo, marca, referencias) {
   const { tema, tono, estilo_visual_ideal, palabras_clave_visuales } = temaInfo;
 
+  // SERIES — coherencia visual compartida. Si server.mjs inyectó USER_SISTEMA
+  // (el _sistema extraído de la primera pieza de una serie), lo reutilizamos tal
+  // cual en vez de generar uno nuevo, para que todas las piezas compartan paleta
+  // y tipografía exactas. Vale tanto para carruseles como para stories.
+  if (process.env.USER_SISTEMA) {
+    try {
+      const sis = JSON.parse(process.env.USER_SISTEMA);
+      if (sis && sis.paleta) {
+        if (!sis.tipografia && sis.font_pair_id) sis.tipografia = resolveFontPair(sis.font_pair_id);
+        console.log(`  🔗 Serie: reutilizando sistema visual compartido "${sis.nombre_sistema || sis.nombre || 'sin nombre'}"`);
+        return sis;
+      }
+    } catch (e) {
+      console.warn(`  ⚠ USER_SISTEMA inválido, generando sistema propio: ${e.message}`);
+    }
+  }
+
   console.log(`\n🔍 Definiendo sistema de diseño para estilo "${estilo_visual_ideal}" (${tema}/${tono})...`);
   if (referencias?.length) console.log(`  🖼  Usando ${referencias.length} carrusel(es) de referencia como inspiración`);
 

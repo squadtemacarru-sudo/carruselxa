@@ -653,6 +653,298 @@ app.post('/api/lote', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
+// SERIES / CALENDARIO — campañas de N piezas (carruseles y/o stories) con
+// narrativa conectada, sistema visual compartido y fechas de publicación.
+//
+// Persistencia: marcas/<id>/series/<serieId>/serie.json. Las piezas generadas
+// viven en tandas/ o stories/ como cualquier otra; la serie solo guarda las
+// referencias (tandaId + tipo + fecha + estado). El sistema visual se genera UNA
+// vez (primera pieza) y se reinyecta como USER_SISTEMA en las siguientes.
+// ─────────────────────────────────────────────────────────────────────
+function isValidSerieId(id) {
+  return typeof id === 'string' && /^\d+_[a-z0-9-]+$/.test(id);
+}
+
+// Arcos narrativos disponibles — cada uno define cómo encuadrar cada pieza.
+const ARCOS = {
+  'intriga-progresiva': {
+    nombre: 'Intriga progresiva',
+    intro: 'Esta es una campaña de INTRIGA: cada pieza revela un poco más sin mostrar todo, generando expectativa hacia un reveal final.',
+    pieza: (i, n) => i < n - 1
+      ? `Pieza ${i + 1} de ${n}: sembrá curiosidad y dejá una pregunta abierta. NO reveles la solución/producto todavía.`
+      : `Pieza ${i + 1} de ${n} (REVEAL FINAL): ahora sí revelá lo que se venía anticipando, con un CTA claro.`,
+  },
+  'educativo-escalonado': {
+    nombre: 'Educativo escalonado',
+    intro: 'Esta es una serie EDUCATIVA escalonada: cada pieza enseña un nivel de profundidad mayor, construyendo sobre la anterior.',
+    pieza: (i, n) => `Pieza ${i + 1} de ${n}: nivel ${i + 1} de profundidad. Asumí que el lector ya vio las piezas anteriores y subí la apuesta sin repetir lo básico.`,
+  },
+  'antes-durante-despues': {
+    nombre: 'Antes / Durante / Después',
+    intro: 'Esta es una serie de transformación con estructura ANTES → DURANTE → DESPUÉS.',
+    pieza: (i, n) => {
+      const fase = i === 0 ? 'ANTES (el problema/punto de partida)'
+        : i === n - 1 ? 'DESPUÉS (el resultado/transformación lograda)'
+        : 'DURANTE (el proceso/cómo se trabaja)';
+      return `Pieza ${i + 1} de ${n}: fase ${fase}. Enfocá el contenido en esa fase del arco.`;
+    },
+  },
+  'lanzamiento-countdown': {
+    nombre: 'Lanzamiento countdown',
+    intro: 'Esta es una campaña de LANZAMIENTO con cuenta regresiva: la tensión y la urgencia crecen pieza a pieza hacia el día del lanzamiento.',
+    pieza: (i, n) => {
+      const faltan = n - 1 - i;
+      return faltan === 0
+        ? `Pieza ${i + 1} de ${n} (DÍA DEL LANZAMIENTO): ¡ya está disponible! Máxima urgencia y CTA directo.`
+        : `Pieza ${i + 1} de ${n}: faltan ${faltan} ${faltan === 1 ? 'día/pieza' : 'piezas'} para el lanzamiento. Construí expectativa y urgencia creciente.`;
+    },
+  },
+};
+
+const FREQ_DIAS = { 'diaria': 1, 'cada-2-dias': 2, 'semanal': 7 };
+
+function seriesDir(marcaId) {
+  return path.join(__dirname, 'marcas', marcaId, 'series');
+}
+
+// Calcula fecha ISO (YYYY-MM-DD) sumando dias a una fecha base
+function addDays(isoDate, dias) {
+  const d = new Date(isoDate + 'T12:00:00');
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
+// Listar series de la marca activa
+app.get('/api/series', async (req, res) => {
+  const marcaId = req.query.marca || 'squadteam';
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+  const dir = seriesDir(marcaId);
+  let folders;
+  try { folders = await readdir(dir); } catch { return res.json([]); }
+  const items = [];
+  for (const f of folders) {
+    try {
+      const serie = JSON.parse(await readFile(path.join(dir, f, 'serie.json'), 'utf-8'));
+      items.push(serie);
+    } catch {}
+  }
+  items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  res.json(items);
+});
+
+// Detalle de una serie + miniaturas/estado real de cada pieza
+app.get('/api/series/:id', async (req, res) => {
+  const { id } = req.params;
+  const marcaId = req.query.marca || 'squadteam';
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+  if (!isValidSerieId(id)) return res.status(400).json({ error: 'id inválido' });
+  try {
+    const serie = JSON.parse(await readFile(path.join(seriesDir(marcaId), id, 'serie.json'), 'utf-8'));
+    // Enriquecer cada pieza con la primer slide (miniatura) si ya se generó
+    for (const pieza of serie.piezas) {
+      pieza.slides = [];
+      if (!pieza.tandaId) continue;
+      const baseDir = pieza.tipo === 'story' ? 'stories' : 'tandas';
+      const outDir = path.join(__dirname, baseDir, pieza.tandaId, 'output');
+      try {
+        const pngs = (await readdir(outDir)).filter(x => x.endsWith('.png')).sort();
+        if (pieza.tipo !== 'story') {
+          try {
+            const cld = JSON.parse(await readFile(path.join(outDir, 'cloudinary.json'), 'utf-8'));
+            pieza.slides = Array.isArray(cld) && cld.length ? cld : pngs.map(s => `/${baseDir}/${pieza.tandaId}/output/${s}`);
+          } catch { pieza.slides = pngs.map(s => `/${baseDir}/${pieza.tandaId}/output/${s}`); }
+        } else {
+          pieza.slides = pngs.map(s => `/${baseDir}/${pieza.tandaId}/output/${s}`);
+        }
+      } catch {}
+    }
+    res.json(serie);
+  } catch {
+    res.status(404).json({ error: 'Serie no encontrada' });
+  }
+});
+
+// Actualizar la fecha de publicación de una pieza
+app.put('/api/series/:id/fecha/:tandaId', async (req, res) => {
+  const { id, tandaId } = req.params;
+  const marcaId = req.body.marca || 'squadteam';
+  const { fecha } = req.body || {};
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+  if (!isValidSerieId(id)) return res.status(400).json({ error: 'id inválido' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha || '')) return res.status(400).json({ error: 'fecha inválida (YYYY-MM-DD)' });
+  const file = path.join(seriesDir(marcaId), id, 'serie.json');
+  try {
+    const serie = JSON.parse(await readFile(file, 'utf-8'));
+    const pieza = serie.piezas.find(p => p.id === tandaId || p.tandaId === tandaId);
+    if (!pieza) return res.status(404).json({ error: 'Pieza no encontrada' });
+    pieza.fecha = fecha;
+    await writeFile(file, JSON.stringify(serie, null, 2), 'utf-8');
+    res.json({ ok: true });
+  } catch {
+    res.status(404).json({ error: 'Serie no encontrada' });
+  }
+});
+
+// Marcar el estado de una pieza (pendiente | generado | publicado)
+app.put('/api/series/:id/estado/:tandaId', async (req, res) => {
+  const { id, tandaId } = req.params;
+  const marcaId = req.body.marca || 'squadteam';
+  const { estado } = req.body || {};
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+  if (!isValidSerieId(id)) return res.status(400).json({ error: 'id inválido' });
+  if (!['pendiente', 'generado', 'publicado'].includes(estado)) return res.status(400).json({ error: 'estado inválido' });
+  const file = path.join(seriesDir(marcaId), id, 'serie.json');
+  try {
+    const serie = JSON.parse(await readFile(file, 'utf-8'));
+    const pieza = serie.piezas.find(p => p.id === tandaId || p.tandaId === tandaId);
+    if (!pieza) return res.status(404).json({ error: 'Pieza no encontrada' });
+    pieza.estado = estado;
+    await writeFile(file, JSON.stringify(serie, null, 2), 'utf-8');
+    res.json({ ok: true });
+  } catch {
+    res.status(404).json({ error: 'Serie no encontrada' });
+  }
+});
+
+// Crear una serie: planifica fechas, genera todas las piezas en secuencia
+// compartiendo el sistema visual. Progreso vía SSE (mismo job stream).
+app.post('/api/series', async (req, res) => {
+  if (jobRunning) return res.status(409).json({ error: 'Ya hay una generación en curso' });
+  const marcaId = req.body.marca || 'squadteam';
+  const nombre  = (req.body.nombre || '').trim();
+  const tipo    = req.body.tipo || 'carruseles';        // carruseles | stories | mix
+  const arcoId  = req.body.arco || 'educativo-escalonado';
+  const n       = Math.max(2, Math.min(10, Number(req.body.piezas) || 3));
+  const fechaInicio = req.body.fechaInicio || new Date().toISOString().slice(0, 10);
+  const frecuencia  = req.body.frecuencia || 'cada-2-dias';
+
+  if (!isValidMarcaId(marcaId)) return res.status(400).json({ error: 'Marca inválida' });
+  if (!nombre) return res.status(400).json({ error: 'Falta el nombre/tema de la campaña' });
+  if (!ARCOS[arcoId]) return res.status(400).json({ error: 'Arco narrativo inválido' });
+  if (!['carruseles', 'stories', 'mix'].includes(tipo)) return res.status(400).json({ error: 'Tipo inválido' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaInicio)) return res.status(400).json({ error: 'fechaInicio inválida' });
+  if (!FREQ_DIAS[frecuencia]) return res.status(400).json({ error: 'Frecuencia inválida' });
+
+  const arco = ARCOS[arcoId];
+  const serieId = `${Date.now()}_${slugify(nombre)}`;
+  const dir = path.join(seriesDir(marcaId), serieId);
+  await mkdir(dir, { recursive: true });
+
+  // Decide el tipo de cada pieza
+  const tipoDe = (i) => tipo === 'mix' ? (i % 2 === 0 ? 'carrusel' : 'story') : (tipo === 'stories' ? 'story' : 'carrusel');
+
+  // Planificar piezas con fechas
+  const step = FREQ_DIAS[frecuencia];
+  const piezas = [];
+  for (let i = 0; i < n; i++) {
+    piezas.push({
+      id: null,            // tandaId, se llena cuando se genera
+      tandaId: null,
+      orden: i + 1,
+      tipo: tipoDe(i),
+      fecha: addDays(fechaInicio, i * step),
+      estado: 'pendiente', // pendiente | generado | publicado
+      titulo: `${nombre} — parte ${i + 1}`,
+    });
+  }
+
+  const serie = {
+    id: serieId, marca: marcaId, nombre, tipo, arco: arcoId, arcoNombre: arco.nombre,
+    totalPiezas: n, fechaInicio, frecuencia, ts: Date.now(), creada: new Date().toISOString(),
+    piezas, // array de referencias { id, tandaId, orden, tipo, fecha, estado, titulo }
+  };
+  await writeFile(path.join(dir, 'serie.json'), JSON.stringify(serie, null, 2), 'utf-8');
+
+  jobRunning = true;
+  jobLog = [];
+  res.json({ ok: true, serieId });
+
+  (async () => {
+    let sistemaCompartido = null;  // _sistema extraído de la primera pieza generada
+    let handle = '';
+    try {
+      const mData = JSON.parse(await readFile(path.join(__dirname, 'marcas', marcaId, 'marca.json'), 'utf-8'));
+      handle = mData.handle || '';
+    } catch {}
+
+    broadcast(`\n=== Serie: "${nombre}" — ${n} piezas (${arco.nombre}) ===\n`);
+
+    for (let i = 0; i < piezas.length; i++) {
+      const pieza = piezas[i];
+      const esStory = pieza.tipo === 'story';
+      broadcast(`\n__SERIE_PIEZA__:${JSON.stringify({ serieId, orden: pieza.orden, total: n, estado: 'generando' })}`);
+      broadcast(`\n--- Pieza ${pieza.orden}/${n} (${pieza.tipo}): ${nombre} ---\n`);
+
+      try {
+        const baseDir = esStory ? 'stories' : 'tandas';
+        const carpeta = path.join(baseDir, `${Date.now()}_${esStory ? 'story_' : ''}${slugify(nombre)}-p${pieza.orden}`);
+        const tandaId = path.basename(carpeta);
+
+        // Instrucciones de arco narrativo para esta pieza
+        const instr = [
+          arco.intro,
+          arco.pieza(i, n),
+          `La campaña completa se llama "${nombre}". Esta pieza es parte de un todo coherente — mantené el hilo narrativo con las demás.`,
+        ].join('\n');
+
+        const extraEnv = { USER_INSTRUCCIONES: instr };
+        if (handle) extraEnv.USER_HANDLE = handle;
+        if (fotosCloud.size > 0) {
+          const mapObj = {};
+          for (const [nm, { url }] of fotosCloud.entries()) mapObj[nm] = url;
+          extraEnv.FOTOS_MAP = JSON.stringify(mapObj);
+        }
+        // Sistema visual compartido: inyectar el de la primera pieza en las siguientes
+        if (sistemaCompartido) extraEnv.USER_SISTEMA = JSON.stringify(sistemaCompartido);
+
+        // 1) Crear contenido
+        if (esStory) {
+          await runStep(['crear-story.mjs', nombre, carpeta, marcaId, ''], extraEnv);
+        } else {
+          await runStep(['crear.mjs', nombre, carpeta, marcaId], extraEnv);
+        }
+
+        // 2) Analizar (sistema de diseño). Si ya hay sistema compartido, analizar.mjs lo reusa.
+        const analizarEnv = esStory ? { ...extraEnv, STORY_FORMAT: '1' } : extraEnv;
+        await runStep(['analizar.mjs', `${carpeta}/contenido.json`], analizarEnv);
+
+        // 3) Extraer el sistema visual de la PRIMERA pieza para reusar en las siguientes
+        if (!sistemaCompartido) {
+          try {
+            const anal = JSON.parse(await readFile(path.join(__dirname, carpeta, 'contenido.analizado.json'), 'utf-8'));
+            if (anal._sistema?.paleta) {
+              sistemaCompartido = anal._sistema;
+              broadcast(`🔗 Sistema visual compartido fijado: "${sistemaCompartido.nombre_sistema || sistemaCompartido.nombre || ''}"\n`);
+            }
+          } catch { broadcast('⚠ No se pudo extraer el sistema visual — las próximas piezas usarán sistema propio.\n'); }
+        }
+
+        // 4) Renderizar
+        await runStep([esStory ? 'generar-story.mjs' : 'generar.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
+
+        pieza.id = tandaId;
+        pieza.tandaId = tandaId;
+        pieza.estado = 'generado';
+        broadcast(`\n✅ Pieza ${pieza.orden}/${n} lista: ${carpeta}\n`);
+        broadcast(`\n__SERIE_PIEZA__:${JSON.stringify({ serieId, orden: pieza.orden, total: n, estado: 'generado', tandaId, tipo: pieza.tipo })}`);
+      } catch (e) {
+        // Resiliencia: una pieza fallida no aborta la serie
+        pieza.estado = 'pendiente';
+        broadcast(`\n❌ Pieza ${pieza.orden}/${n} falló: ${e.message} — sigo con las demás.\n`);
+        broadcast(`\n__SERIE_PIEZA__:${JSON.stringify({ serieId, orden: pieza.orden, total: n, estado: 'error' })}`);
+      }
+
+      // Persistir el progreso después de cada pieza
+      await writeFile(path.join(dir, 'serie.json'), JSON.stringify(serie, null, 2), 'utf-8').catch(() => {});
+    }
+
+    broadcast(`\n✅ Serie "${nombre}" completa.\n`);
+    broadcast(`\n__SERIE_DONE__:${JSON.stringify({ serieId })}`);
+    jobRunning = false;
+  })();
+});
+
+// ─────────────────────────────────────────────────────────────────────
 // Marcas — perfiles de marca, temas y logo por marca
 // ─────────────────────────────────────────────────────────────────────
 app.get('/api/marcas', async (req, res) => {

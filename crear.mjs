@@ -30,6 +30,24 @@ const USER_PALETA_ID = process.env.USER_PALETA_ID || '';
 let USER_PLAN = [];
 try { if (process.env.USER_PLAN) USER_PLAN = JSON.parse(process.env.USER_PLAN); } catch {}
 
+// SERIES — sistema visual compartido. Cuando una pieza pertenece a una serie,
+// server.mjs inyecta el _sistema de la primera pieza como USER_SISTEMA para que
+// crear.mjs respete su paleta y tipografía al generar el contenido (analizar.mjs
+// lo reusa después literalmente). Solo lo usamos como hint hacia la IA.
+let USER_SISTEMA = null;
+try { if (process.env.USER_SISTEMA) USER_SISTEMA = JSON.parse(process.env.USER_SISTEMA); } catch {}
+
+function sistemaSerieContext(sis) {
+  if (!sis || !sis.paleta) return '';
+  const p = sis.paleta;
+  const disp = sis.tipografia?.display?.familia;
+  const body = sis.tipografia?.body?.familia;
+  return `
+SISTEMA VISUAL COMPARTIDO DE LA SERIE — esta pieza es parte de una campaña con identidad visual fija. Respetá EXACTAMENTE estos valores en _sistema (no inventes una paleta ni tipografía nuevas):
+- Paleta: fondo "${p.fondo}", headline "${p.headline || p.texto || ''}", acento "${p.acento}"${disp ? `\n- Tipografía display: "${disp}"` : ''}${body ? `\n- Tipografía body: "${body}"` : ''}
+`;
+}
+
 const ESTILOS_HINTS = {
   'minimal':     'Estilo MINIMAL: fondo muy claro o blanco, texto oscuro, paleta muy reducida (máximo 2-3 colores), mucho espacio en blanco, tipografía ligera. Sin decoraciones recargadas. Paleta sugerida: fondo #f8f8f6, headline #0a0a0a, acento #1a1a2e.',
   'bold':        'Estilo BOLD IMPACT: fondo negro, texto blanco, un acento de color fuerte (naranja, rojo o amarillo eléctrico). Tipografía grande y agresiva. Alto contraste absoluto. Paleta sugerida: fondo #0a0a0a, headline #ffffff, acento #ff3c00.',
@@ -410,6 +428,7 @@ ${skillsDocs}
 ${referenciasIG ? `\nESTILO DE REFERENCIA (notas sobre perfiles de IG que le gustan al cliente):\n${referenciasIG}\n` : ''}
 ${USER_ESTILO_ID && ESTILOS_HINTS[USER_ESTILO_ID] ? `\nESTILO VISUAL ELEGIDO POR EL USUARIO — aplicá esto al sistema de diseño:\n${ESTILOS_HINTS[USER_ESTILO_ID]}\n` : ''}
 ${USER_FUENTE_ID && FUENTES_HINTS[USER_FUENTE_ID] ? `\nTIPOGRAFÍA ELEGIDA POR EL USUARIO — usá EXACTAMENTE estas fuentes en _sistema.tipografia:\n- Display/Titular: "${FUENTES_HINTS[USER_FUENTE_ID].display}"\n- Cuerpo: "${FUENTES_HINTS[USER_FUENTE_ID].body}"\n- URL de import: "${FUENTES_HINTS[USER_FUENTE_ID].url}"\n` : ''}${USER_PALETA_ID && PALETAS_HINTS[USER_PALETA_ID] ? `\nPALETA ELEGIDA POR EL USUARIO — usá EXACTAMENTE estos colores en _sistema.paleta:\n- Fondo: "${PALETAS_HINTS[USER_PALETA_ID].fondo}"\n- Acento: "${PALETAS_HINTS[USER_PALETA_ID].acento}"\n- Texto: "${PALETAS_HINTS[USER_PALETA_ID].texto}"\n` : ''}
+${sistemaSerieContext(USER_SISTEMA)}
 ${USER_INSTRUCCIONES ? `\nINSTRUCCIONES ESPECÍFICAS DEL USUARIO — PRIORIDAD MÁXIMA, seguí estas al pie de la letra:\n${USER_INSTRUCCIONES}\n` : ''}
 ${fotosContext(fotos)}
 Devolvé SOLO JSON (sin markdown) con esta estructura:
@@ -493,6 +512,13 @@ Reglas generales:
     contenido._sistema.paleta.headline   = p.texto;
     contenido._sistema.paleta.body_text  = p.texto;
     contenido._sistema.paleta.acento     = p.acento;
+  }
+  // SERIES — forzar la paleta del sistema compartido sobre el contenido por si la
+  // IA la ignoró. analizar.mjs vuelve a aplicar el _sistema completo después.
+  if (USER_SISTEMA?.paleta) {
+    const p = USER_SISTEMA.paleta;
+    if (!contenido._sistema) contenido._sistema = {};
+    contenido._sistema.paleta = { ...(contenido._sistema.paleta || {}), ...p };
   }
   return contenido;
 }

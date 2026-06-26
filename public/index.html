@@ -28,6 +28,10 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <span>Galería</span>
       </button>
+      <button class="nav-btn" data-tab="tab-series">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Series</span>
+      </button>
       <button class="nav-btn" data-tab="tab-chat">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span>Asistente</span>
@@ -195,6 +199,75 @@
       </div>
       <div id="storiesGaleria" class="galeria stories-galeria"></div>
       <p id="storiesEmpty" class="empty-msg hidden">Todavía no hay stories generadas.</p>
+    </section>
+
+    <!-- ── TAB: SERIES / CALENDARIO ────────────────── -->
+    <section class="tab" id="tab-series">
+      <div class="section-header">
+        <span class="section-title">Series &amp; Calendario</span>
+        <button id="btnNuevaSerie" class="btn-primary btn-sm">+ Nueva serie</button>
+      </div>
+
+      <!-- Formulario de creación (oculto por defecto) -->
+      <div id="serieForm" class="serie-form hidden">
+        <div class="serie-form-grid">
+          <label class="field">
+            <span>Nombre / tema de la campaña</span>
+            <input id="serieNombre" type="text" placeholder="Ej: Lanzamiento del nuevo plan">
+          </label>
+          <label class="field">
+            <span>Tipo de piezas</span>
+            <select id="serieTipo">
+              <option value="carruseles">Carruseles</option>
+              <option value="stories">Stories</option>
+              <option value="mix">Mix (carrusel + story alternados)</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Número de piezas</span>
+            <input id="seriePiezas" type="number" min="2" max="10" value="3">
+          </label>
+          <label class="field">
+            <span>Arco narrativo</span>
+            <select id="serieArco">
+              <option value="intriga-progresiva">Intriga progresiva</option>
+              <option value="educativo-escalonado" selected>Educativo escalonado</option>
+              <option value="antes-durante-despues">Antes / Durante / Después</option>
+              <option value="lanzamiento-countdown">Lanzamiento countdown</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Fecha de inicio</span>
+            <input id="serieFechaInicio" type="date">
+          </label>
+          <label class="field">
+            <span>Frecuencia</span>
+            <select id="serieFrecuencia">
+              <option value="diaria">Diaria</option>
+              <option value="cada-2-dias" selected>Cada 2 días</option>
+              <option value="semanal">Semanal</option>
+            </select>
+          </label>
+        </div>
+        <div class="serie-form-actions">
+          <button id="btnGenerarSerie" class="btn-primary">Generar serie</button>
+          <button id="btnCancelarSerie" class="btn-ghost">Cancelar</button>
+        </div>
+        <p class="serie-form-hint">Se generarán todas las piezas en secuencia compartiendo el mismo sistema visual. Puede tardar varios minutos.</p>
+      </div>
+
+      <!-- Lista de series existentes -->
+      <div id="seriesList" class="series-list"></div>
+      <p id="seriesEmpty" class="empty-msg hidden">Todavía no creaste ninguna serie.</p>
+
+      <!-- Vista de calendario de la serie seleccionada -->
+      <div id="serieCalendario" class="serie-calendario hidden">
+        <div class="section-header" style="margin-top:24px">
+          <button id="btnVolverSeries" class="btn-ghost btn-sm">‹ Volver</button>
+          <span class="section-title" id="serieCalTitulo"></span>
+        </div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+      </div>
     </section>
 
     <!-- ── TAB: ASISTENTE ──────────────────────────── -->
@@ -428,6 +501,9 @@
     </button>
     <button class="nav-btn" data-tab="tab-galeria">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    </button>
+    <button class="nav-btn" data-tab="tab-series">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     </button>
     <button class="nav-btn" data-tab="tab-chat">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>

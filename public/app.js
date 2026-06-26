@@ -28,6 +28,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     switchTab(tabId);
     if (tabId === 'tab-galeria') { cargarGaleria(); if (typeof cargarStoriesGaleria === 'function') cargarStoriesGaleria(); }
     if (tabId === 'tab-fotos')   cargarFotosGrid();
+    if (tabId === 'tab-series' && typeof cargarSeries === 'function') cargarSeries();
   });
 });
 
@@ -63,6 +64,10 @@ marcaSelect.addEventListener('change', async () => {
   renderTemplatesList();
   cargarClonarGrid();
   cargarDiseno();
+  serieActiva = null;
+  $('#serieCalendario')?.classList.add('hidden');
+  $('#seriesList')?.classList.remove('hidden');
+  if ($('#tab-series')?.classList.contains('active')) cargarSeries();
 });
 
 $('#btnNuevaMarca').addEventListener('click', async () => {
@@ -261,6 +266,20 @@ function connectStream() {
     // Evento especial: preview del plan (wireframe antes de renderizar)
     if (typeof line === 'string' && line.startsWith('__PLAN__:')) {
       try { renderPlanPreview(JSON.parse(line.slice('__PLAN__:'.length))); } catch {}
+      return;
+    }
+
+    // Eventos de serie — progreso pieza por pieza
+    if (typeof line === 'string' && line.includes('__SERIE_PIEZA__:')) {
+      const m = line.slice(line.indexOf('__SERIE_PIEZA__:') + '__SERIE_PIEZA__:'.length);
+      try { if (typeof onSeriePieza === 'function') onSeriePieza(JSON.parse(m)); } catch {}
+      appendLog(line.replace(/__SERIE_PIEZA__:.*$/, ''));
+      return;
+    }
+    if (typeof line === 'string' && line.includes('__SERIE_DONE__:')) {
+      const m = line.slice(line.indexOf('__SERIE_DONE__:') + '__SERIE_DONE__:'.length);
+      try { if (typeof onSerieDone === 'function') onSerieDone(JSON.parse(m)); } catch {}
+      setRunning(false);
       return;
     }
 
@@ -2435,6 +2454,219 @@ function renderFontPairGrid() {
     btn.addEventListener('click', () => sendMessage(btn.dataset.msg));
   });
 })();
+
+// ── SERIES / CALENDARIO ───────────────────────────────
+let seriesData = [];
+let serieActiva = null; // serie abierta en vista calendario
+
+const ARCO_LABELS = {
+  'intriga-progresiva': 'Intriga progresiva',
+  'educativo-escalonado': 'Educativo escalonado',
+  'antes-durante-despues': 'Antes / Durante / Después',
+  'lanzamiento-countdown': 'Lanzamiento countdown',
+};
+const ESTADO_PIEZA_LABEL = { pendiente: 'Pendiente', generado: 'Generado', publicado: 'Publicado' };
+
+function toggleSerieForm(show) {
+  const f = $('#serieForm');
+  if (!f) return;
+  f.classList.toggle('hidden', !show);
+  if (show) {
+    // default fecha de inicio = hoy
+    const hoy = new Date().toISOString().slice(0, 10);
+    if (!$('#serieFechaInicio').value) $('#serieFechaInicio').value = hoy;
+  }
+}
+
+$('#btnNuevaSerie')?.addEventListener('click', () => toggleSerieForm(!$('#serieForm')?.classList.contains('hidden') ? false : true));
+$('#btnCancelarSerie')?.addEventListener('click', () => toggleSerieForm(false));
+$('#btnVolverSeries')?.addEventListener('click', () => {
+  serieActiva = null;
+  $('#serieCalendario')?.classList.add('hidden');
+  $('#seriesList')?.classList.remove('hidden');
+  cargarSeries();
+});
+
+async function cargarSeries() {
+  if (!marcaActual) return;
+  const res = await fetch(`/api/series?marca=${encodeURIComponent(marcaActual)}`);
+  seriesData = res.ok ? await res.json() : [];
+  renderSeriesList();
+}
+
+function renderSeriesList() {
+  const list = $('#seriesList');
+  const empty = $('#seriesEmpty');
+  if (!list) return;
+  if (!seriesData.length) {
+    list.innerHTML = '';
+    empty?.classList.remove('hidden');
+    return;
+  }
+  empty?.classList.add('hidden');
+  list.innerHTML = seriesData.map(s => {
+    const generadas = (s.piezas || []).filter(p => p.estado === 'generado' || p.estado === 'publicado').length;
+    const total = s.totalPiezas || (s.piezas || []).length;
+    return `
+      <div class="serie-card" data-id="${s.id}">
+        <div class="serie-card-main">
+          <span class="serie-card-nombre">${s.nombre}</span>
+          <span class="serie-card-meta">${ARCO_LABELS[s.arco] || s.arco} · ${total} piezas · ${s.tipo}</span>
+        </div>
+        <div class="serie-card-side">
+          <span class="serie-card-prog">${generadas}/${total}</span>
+          <button class="btn-ghost btn-sm" data-open="${s.id}">Abrir calendario ›</button>
+        </div>
+      </div>`;
+  }).join('');
+  list.querySelectorAll('[data-open]').forEach(btn => {
+    btn.addEventListener('click', () => abrirCalendario(btn.dataset.open));
+  });
+}
+
+async function abrirCalendario(serieId) {
+  const res = await fetch(`/api/series/${serieId}?marca=${encodeURIComponent(marcaActual)}`);
+  if (!res.ok) { alert('No se pudo cargar la serie'); return; }
+  serieActiva = await res.json();
+  $('#seriesList')?.classList.add('hidden');
+  $('#seriesEmpty')?.classList.add('hidden');
+  $('#serieForm')?.classList.add('hidden');
+  $('#serieCalendario')?.classList.remove('hidden');
+  $('#serieCalTitulo').textContent = serieActiva.nombre;
+  renderCalendario();
+}
+
+// Renderiza una grilla de 4 semanas a partir de la primera fecha de la serie
+function renderCalendario() {
+  const grid = $('#calendarGrid');
+  if (!grid || !serieActiva) return;
+  const piezas = serieActiva.piezas || [];
+
+  // Mapa fecha -> piezas
+  const porFecha = {};
+  for (const p of piezas) { (porFecha[p.fecha] = porFecha[p.fecha] || []).push(p); }
+
+  // Fecha base: lunes de la semana de la primera fecha
+  const fechas = piezas.map(p => p.fecha).sort();
+  const primera = fechas[0] ? new Date(fechas[0] + 'T12:00:00') : new Date();
+  const diaSemana = (primera.getDay() + 6) % 7; // lunes=0
+  const inicio = new Date(primera);
+  inicio.setDate(inicio.getDate() - diaSemana);
+
+  const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  let html = DIAS.map(d => `<div class="cal-head">${d}</div>`).join('');
+
+  for (let i = 0; i < 28; i++) {
+    const d = new Date(inicio);
+    d.setDate(d.getDate() + i);
+    const iso = d.toISOString().slice(0, 10);
+    const piezasDia = porFecha[iso] || [];
+    const cells = piezasDia.map(p => {
+      const thumb = (p.slides && p.slides[0]) ? `<img src="${p.slides[0]}" loading="lazy" alt="">` : `<div class="cal-piece-empty">${p.tipo === 'story' ? '▭' : '◳'}</div>`;
+      return `<div class="cal-piece estado-${p.estado}" data-tanda="${p.tandaId || ''}" data-orden="${p.orden}" draggable="${p.tandaId ? 'true' : 'false'}" title="${p.titulo} (${ESTADO_PIEZA_LABEL[p.estado]})">
+        ${thumb}
+        <span class="cal-piece-tag">P${p.orden}</span>
+      </div>`;
+    }).join('');
+    html += `<div class="cal-cell" data-fecha="${iso}"><span class="cal-date">${d.getDate()}</span>${cells}</div>`;
+  }
+  grid.innerHTML = html;
+  wireCalendario();
+}
+
+function wireCalendario() {
+  const grid = $('#calendarGrid');
+  if (!grid) return;
+
+  // Click pieza -> lightbox
+  grid.querySelectorAll('.cal-piece').forEach(el => {
+    el.addEventListener('click', () => {
+      const tandaId = el.dataset.tanda;
+      if (!tandaId) return;
+      const pieza = (serieActiva.piezas || []).find(p => p.tandaId === tandaId);
+      if (pieza?.slides?.length) openLightbox(pieza.slides, 0, tandaId, pieza.tipo === 'story' ? 'story' : 'tanda');
+    });
+    // Botón derecho / doble click -> marcar publicado/generado
+    el.addEventListener('dblclick', async (e) => {
+      e.preventDefault();
+      const tandaId = el.dataset.tanda;
+      const pieza = (serieActiva.piezas || []).find(p => p.tandaId === tandaId);
+      if (!pieza || !tandaId) return;
+      const nuevo = pieza.estado === 'publicado' ? 'generado' : 'publicado';
+      await fetch(`/api/series/${serieActiva.id}/estado/${tandaId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ marca: marcaActual, estado: nuevo })
+      });
+      pieza.estado = nuevo;
+      renderCalendario();
+    });
+  });
+
+  // Drag & drop para reagendar
+  let dragging = null;
+  grid.querySelectorAll('.cal-piece[draggable="true"]').forEach(el => {
+    el.addEventListener('dragstart', () => { dragging = el.dataset.tanda; });
+  });
+  grid.querySelectorAll('.cal-cell').forEach(cell => {
+    cell.addEventListener('dragover', e => { e.preventDefault(); cell.classList.add('drop-hover'); });
+    cell.addEventListener('dragleave', () => cell.classList.remove('drop-hover'));
+    cell.addEventListener('drop', async e => {
+      e.preventDefault();
+      cell.classList.remove('drop-hover');
+      if (!dragging) return;
+      const fecha = cell.dataset.fecha;
+      const pieza = (serieActiva.piezas || []).find(p => p.tandaId === dragging);
+      if (!pieza) return;
+      await fetch(`/api/series/${serieActiva.id}/fecha/${dragging}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ marca: marcaActual, fecha })
+      });
+      pieza.fecha = fecha;
+      dragging = null;
+      renderCalendario();
+    });
+  });
+}
+
+// Hooks de progreso SSE (llamados desde connectStream)
+function onSeriePieza(ev) {
+  // Cuando una pieza termina de generar, si tenés su serie abierta, refrescala
+  if (ev.estado === 'generado' && serieActiva && serieActiva.id === ev.serieId) {
+    abrirCalendario(ev.serieId);
+  }
+}
+function onSerieDone(ev) {
+  // Recargar series; si tenías abierto el calendario de esa serie, refrescar
+  cargarSeries().then(() => {
+    if (serieActiva && serieActiva.id === ev.serieId) abrirCalendario(ev.serieId);
+  });
+}
+
+$('#btnGenerarSerie')?.addEventListener('click', async () => {
+  if (!marcaActual) { alert('Seleccioná una marca'); return; }
+  if ($('#btnGenerar')?.disabled) { alert('Ya hay una generación en curso'); return; }
+  const nombre = $('#serieNombre').value.trim();
+  if (!nombre) { alert('Escribí un nombre/tema para la campaña'); return; }
+  const payload = {
+    marca: marcaActual,
+    nombre,
+    tipo: $('#serieTipo').value,
+    piezas: Number($('#seriePiezas').value) || 3,
+    arco: $('#serieArco').value,
+    fechaInicio: $('#serieFechaInicio').value || new Date().toISOString().slice(0, 10),
+    frecuencia: $('#serieFrecuencia').value,
+  };
+  const res = await fetch('/api/series', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) { alert(data.error || 'Error al crear la serie'); return; }
+  setRunning(true);
+  toggleSerieForm(false);
+  $('#serieNombre').value = '';
+  appendLog(`\n▶ Generando serie "${nombre}" (${payload.piezas} piezas)...\n`);
+});
 
 // ── INIT ──────────────────────────────────────────────
 (async () => {
