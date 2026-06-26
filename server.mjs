@@ -18,6 +18,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWriteStream } from 'node:fs';
 import { deflateRawSync, crc32 } from 'node:zlib';
+import { registrarSeñal, reconstruirMemoria } from './memoria.mjs';
 
 // Clientes SSE que se desconectan emiten ECONNRESET — no debe crashear el proceso
 process.on('uncaughtException', (err) => {
@@ -720,6 +721,30 @@ app.put('/api/marcas/:id/marca', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Memoria de marca real — leer el resumen agregado de señales de calidad.
+app.get('/api/marcas/:id/memoria', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  try {
+    res.json(JSON.parse(await readFile(path.join(__dirname, 'marcas', id, 'memoria.json'), 'utf-8')));
+  } catch {
+    res.json({ marca: id, tandas_analizadas: 0, ganadores: {}, descartados: {} });
+  }
+});
+
+// Memoria de marca real — reconstruir memoria.json desde cero recorriendo todas
+// las tandas de la marca. Útil para marcas con historial previo. Sin IA.
+app.post('/api/marcas/:id/reconstruir-memoria', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
+  try {
+    const mem = await reconstruirMemoria(id);
+    res.json({ ok: true, memoria: mem });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/marcas/:id/diseno', async (req, res) => {
   const { id } = req.params;
   if (!isValidMarcaId(id)) return res.status(400).json({ error: 'Marca inválida' });
@@ -1045,6 +1070,8 @@ app.put('/api/tandas/:id/contenido', async (req, res) => {
   try {
     await mkdir(path.join(__dirname, 'tandas', id), { recursive: true });
     await writeFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), JSON.stringify(req.body, null, 2), 'utf-8');
+    // Memoria de marca real: editar el contenido = la base fue buena pero necesitó ajuste.
+    registrarSeñal(id, 'editado').catch(e => console.warn(`⚠ memoria (edición ${id}):`, e.message));
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1192,6 +1219,9 @@ app.get('/api/tandas/:id/zip', async (req, res) => {
   res.setHeader('Content-Type', 'application/zip');
   res.setHeader('Content-Disposition', `attachment; filename="carrusel-${slug}.zip"`);
   res.send(zip);
+
+  // Memoria de marca real: descargar el ZIP = intención de usar = señal fuerte.
+  registrarSeñal(id, 'descargado').catch(e => console.warn(`⚠ memoria (descarga ${id}):`, e.message));
 });
 
 app.post('/api/tandas/:id/caption', async (req, res) => {
@@ -1261,6 +1291,10 @@ app.put('/api/tandas/:id/estado', async (req, res) => {
   const { estado } = req.body;
   if (!['nuevo', 'guardado', 'descartado'].includes(estado)) return res.status(400).json({ error: 'estado inválido' });
   await writeFile(path.join(__dirname, 'tandas', id, 'estado.json'), JSON.stringify({ estado }, null, 2), 'utf-8');
+
+  // Memoria de marca real: guardar/descartar es una señal de calidad. Reconstruir
+  // la memoria de la marca en background — barato (agregación local, sin IA).
+  registrarSeñal(id, estado).catch(e => console.warn(`⚠ memoria (estado ${id}):`, e.message));
 
   // Al aprobar: subir slides a Cloudinary si todavía no están subidos
   if (estado === 'guardado' && CLD_CLOUD && CLD_PRESET) {
@@ -1818,6 +1852,7 @@ app.post('/api/consola', async (req, res) => {
         const estado = cmd === 'guardar' ? 'guardado' : 'descartado';
         try {
           await writeFile(path.join(__dirname, 'tandas', id, 'estado.json'), JSON.stringify({ estado }, null, 2));
+          registrarSeñal(id, estado).catch(e => console.warn(`⚠ memoria (consola ${id}):`, e.message));
           return res.json({ lines: [`  ✓ Tanda ${id} marcada como ${estado}.`] });
         } catch {
           return res.json({ lines: [`  ✗ No se pudo actualizar: tanda no encontrada`] });

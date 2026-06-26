@@ -13,6 +13,7 @@ import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validarYCorregir } from './validar-contenido.mjs';
+import { memoriaParaPrompt } from './memoria.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -399,12 +400,12 @@ Elegí 2-3 slides (de las 6) para que usen estas fotos con alguno de estos tipos
 El resto de las slides seguí el formato clásico de abajo, sin campo "photo".`;
 }
 
-async function generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria) {
+async function generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria, memoriaMarca = '') {
   const promptText = `Generá el contenido completo de un carrusel de Instagram de 6 slides sobre el siguiente tema.
 
 TEMA: ${tema}
 ${marcaContext(marca)}
-${memoriaContext(memoria)}GUÍAS DE COPY (aplicá lo que tenga sentido para este tema, no todo a la fuerza):
+${memoriaContext(memoria)}${memoriaMarca}GUÍAS DE COPY (aplicá lo que tenga sentido para este tema, no todo a la fuerza):
 ${skillsDocs}
 ${referenciasIG ? `\nESTILO DE REFERENCIA (notas sobre perfiles de IG que le gustan al cliente):\n${referenciasIG}\n` : ''}
 ${USER_ESTILO_ID && ESTILOS_HINTS[USER_ESTILO_ID] ? `\nESTILO VISUAL ELEGIDO POR EL USUARIO — aplicá esto al sistema de diseño:\n${ESTILOS_HINTS[USER_ESTILO_ID]}\n` : ''}
@@ -592,17 +593,19 @@ async function main() {
   const marcaId = process.argv[4] || 'squadteam';
   const fotos = (process.argv[5] || '').split(',').map(f => f.trim()).filter(Boolean);
 
-  const [marca, skillsDocs, referenciasIG, memoria] = await Promise.all([
+  const [marca, skillsDocs, referenciasIG, memoria, memoriaMarca] = await Promise.all([
     loadMarca(marcaId),
     loadSkills(tema),
     loadReferenciasIG(marcaId),
     loadMemoria(marcaId),
+    memoriaParaPrompt(marcaId).catch(() => ''),
   ]);
 
   console.log(`✍️  Generando contenido para: "${tema}" (marca: ${marcaId}${fotos.length ? `, ${fotos.length} foto(s)` : ''})...`);
   if (skillsDocs) console.log('📚 Skills de copy cargadas.');
   if (memoria.length) console.log(`🧠 Memoria: ${memoria.length} carrusel(es) previos cargados.`);
-  let contenido = await generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria);
+  if (memoriaMarca) console.log('🧠 Memoria de marca real: señales de calidad inyectadas en el prompt.');
+  let contenido = await generarContenido(tema, marca, skillsDocs, referenciasIG, fotos, memoria, memoriaMarca);
 
   // Validación de esquema post-generación (campos obligatorios + íconos +
   // reintento individual de slides rotos con fallback). No bloquea el pipeline.

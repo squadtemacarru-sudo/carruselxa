@@ -1,0 +1,25 @@
+{
+  "marca": "personal",
+  "actualizado": "2026-06-26T01:18:12.600Z",
+  "tandas_analizadas": 0,
+  "señales": {
+    "descargado": 0,
+    "guardado": 0,
+    "editado": 0,
+    "descartado": 0,
+    "nuevo": 1
+  },
+  "ganadores": {
+    "paletas": [],
+    "tipografias": [],
+    "sistemas": [],
+    "tipos_slide": [],
+    "angulos": []
+  },
+  "descartados": {
+    "paletas": [],
+    "tipografias": [],
+    "sistemas": [],
+    "tipos_slide": []
+  }
+}
