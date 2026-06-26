@@ -104,10 +104,13 @@
       <div id="planWrap" class="pw-wrap hidden">
         <div class="pw-header">
           <span class="pw-title">Plan del carrusel <span id="planCount" class="pw-count"></span></span>
-          <button id="btnCancelarRender" class="pw-cancel" type="button">Cancelar render</button>
         </div>
-        <p class="pw-sub">Vista previa mientras se renderiza. Las imágenes reales reemplazan este panel al terminar.</p>
+        <p class="pw-sub">Revisá el plan antes de generar. Tocá el texto para editarlo, o ✕ para sacar un slide que no querés. Cuando esté listo, generá.</p>
         <div id="planGrid" class="pw-grid"></div>
+        <div class="pw-actions">
+          <button id="btnDescartarPlan" class="pw-cancel" type="button">✗ Descartar</button>
+          <button id="btnAprobarPlan" class="pw-approve" type="button">✓ Generar así</button>
+        </div>
       </div>
 
       <!-- Panel de progreso (modo usuario) -->

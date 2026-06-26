@@ -356,32 +356,74 @@ function planTextoPrincipal(s) {
   return limpiar(s.body || s.detail || s.sub || s.label || '');
 }
 
-function renderPlanPreview(contenido) {
-  const wrap = document.getElementById('planWrap');
+// Estado editable del plan — copia que el usuario modifica antes de generar
+let planSlides = [];
+
+// Mapea texto editado de vuelta al campo principal del slide (mismo orden de
+// prioridad que planTextoPrincipal). Devuelve false si no hay campo simple.
+function setPlanPrimaryText(s, text) {
+  if (typeof s.headline === 'string') { s.headline = text; return true; }
+  if (typeof s.stat === 'string')     { s.stat = text; return true; }
+  if (typeof s.quote === 'string')    { s.quote = text; return true; }
+  if (typeof s.title === 'string')    { s.title = text; return true; }
+  if (typeof s.eyebrow === 'string')  { s.eyebrow = text; return true; }
+  return false;
+}
+function planEditable(s) {
+  return ['headline', 'stat', 'quote', 'title', 'eyebrow'].some(k => typeof s[k] === 'string');
+}
+
+function drawPlanGrid() {
   const grid = document.getElementById('planGrid');
   const count = document.getElementById('planCount');
-  if (!wrap || !grid) return;
-  const slides = Array.isArray(contenido?.slides) ? contenido.slides : [];
-  if (!slides.length) return;
-
-  if (count) count.textContent = `· ${slides.length} slides`;
-  grid.innerHTML = slides.map((s, i) => {
+  if (!grid) return;
+  if (count) count.textContent = `· ${planSlides.length} slides`;
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  grid.innerHTML = planSlides.map((s, i) => {
     const meta  = PLAN_TIPOS[s.type] || { label: s.type || '?', glyph: '▢', color: '#8a8aa0' };
     const num   = String(i + 1).padStart(2, '0');
     const texto = planTextoPrincipal(s) || '—';
-    const esc   = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const editable = planEditable(s);
     return `
       <div class="pw-card" style="--pw-accent:${meta.color}">
         <div class="pw-card-top">
           <span class="pw-card-num">${num}</span>
           <span class="pw-card-badge">${esc(meta.label)}</span>
+          <button class="pw-card-del" data-idx="${i}" type="button" title="Sacar este slide">✕</button>
         </div>
         <div class="pw-card-glyph">${meta.glyph}</div>
-        <p class="pw-card-text">${esc(texto)}</p>
+        <p class="pw-card-text${editable ? ' editable' : ''}"${editable ? ` contenteditable="true" data-idx="${i}"` : ''}>${esc(texto)}</p>
       </div>`;
   }).join('');
 
+  // Wire delete buttons
+  grid.querySelectorAll('.pw-card-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      if (planSlides.length <= 1) return; // no dejar el plan vacío
+      planSlides.splice(idx, 1);
+      drawPlanGrid();
+    });
+  });
+  // Wire inline editing
+  grid.querySelectorAll('.pw-card-text.editable').forEach(p => {
+    p.addEventListener('blur', () => {
+      const idx = parseInt(p.dataset.idx);
+      if (planSlides[idx]) setPlanPrimaryText(planSlides[idx], p.textContent.trim());
+    });
+  });
+}
+
+function renderPlanPreview(contenido) {
+  const wrap = document.getElementById('planWrap');
+  const slides = Array.isArray(contenido?.slides) ? contenido.slides : [];
+  if (!wrap || !slides.length) return;
+  // Copia profunda para que las ediciones no toquen el contenido original
+  planSlides = JSON.parse(JSON.stringify(slides));
+  drawPlanGrid();
   wrap.classList.remove('hidden');
+  logStatus.style.color = 'var(--acc)';
+  logStatus.textContent = 'Esperando tu aprobación';
 }
 
 function hidePlanPreview() {
@@ -389,15 +431,31 @@ function hidePlanPreview() {
   if (wrap) wrap.classList.add('hidden');
 }
 
-document.getElementById('btnCancelarRender')?.addEventListener('click', () => {
-  // Cierra el stream del lado del cliente y detiene la carga en curso.
-  if (jobStream) { try { jobStream.close(); } catch {} jobStream = null; }
-  try { window.stop(); } catch {}
+document.getElementById('btnAprobarPlan')?.addEventListener('click', async () => {
+  const btn = document.getElementById('btnAprobarPlan');
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando...'; }
+  try {
+    await fetch('/api/aprobar-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slides: planSlides })
+    });
+    hidePlanPreview();
+    logStatus.style.color = 'var(--acc)';
+    logStatus.textContent = 'Renderizando...';
+  } catch {
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Generar así'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Generar así'; }
+  }
+});
+
+document.getElementById('btnDescartarPlan')?.addEventListener('click', async () => {
+  try { await fetch('/api/descartar-plan', { method: 'POST' }); } catch {}
   hidePlanPreview();
   setRunning(false);
   logStatus.style.color = 'var(--sub)';
-  logStatus.textContent = 'Render cancelado (seguirá en el servidor)';
-  appendLog('\n⏹ Render cancelado por el usuario.\n');
+  logStatus.textContent = 'Plan descartado';
 });
 
 $('#logToggle').addEventListener('click', () => {

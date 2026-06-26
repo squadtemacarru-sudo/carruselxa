@@ -13,7 +13,7 @@
 
 import express from 'express';
 import { spawn } from 'node:child_process';
-import { readFile, writeFile, readdir, mkdir, unlink, copyFile } from 'node:fs/promises';
+import { readFile, writeFile, readdir, mkdir, unlink, copyFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWriteStream } from 'node:fs';
@@ -179,6 +179,41 @@ app.get('/api/job/status', (req, res) => {
   res.json({ running: jobRunning });
 });
 
+// ── Gate de aprobación del plan ───────────────────────────────────────
+// Tras crear.mjs, el pipeline emite __PLAN__ y se detiene acá hasta que el
+// usuario apruebe (con slides opcionalmente editados) o descarte el plan
+// desde el frontend. Solo hay un job a la vez (jobRunning), así que un único
+// estado pendiente alcanza.
+let pendingApproval = null; // { resolve, reject, timer }
+
+function waitForPlanApproval() {
+  return new Promise((resolve, reject) => {
+    // Timeout de seguridad: si nadie responde en 10 min, seguir con el plan
+    // original para no dejar el job colgado.
+    const timer = setTimeout(() => {
+      if (pendingApproval) { pendingApproval = null; resolve(null); }
+    }, 10 * 60 * 1000);
+    pendingApproval = { resolve, reject, timer };
+  });
+}
+
+app.post('/api/aprobar-plan', (req, res) => {
+  if (!pendingApproval) return res.status(409).json({ error: 'No hay ningún plan esperando aprobación' });
+  const { slides } = req.body || {};
+  const p = pendingApproval; pendingApproval = null;
+  clearTimeout(p.timer);
+  p.resolve(Array.isArray(slides) ? slides : null);
+  res.json({ ok: true });
+});
+
+app.post('/api/descartar-plan', (req, res) => {
+  if (!pendingApproval) return res.status(409).json({ error: 'No hay ningún plan esperando aprobación' });
+  const p = pendingApproval; pendingApproval = null;
+  clearTimeout(p.timer);
+  p.reject(new Error('PLAN_DESCARTADO'));
+  res.json({ ok: true });
+});
+
 app.post('/api/generar', async (req, res) => {
   if (jobRunning) return res.status(409).json({ error: 'Ya hay una generación en curso' });
   const tema = (req.body.tema || '').trim();
@@ -190,9 +225,10 @@ app.post('/api/generar', async (req, res) => {
   jobLog = [];
   res.json({ ok: true });
 
+  let carpeta = null;
   (async () => {
     try {
-      const carpeta = path.join('tandas', `${Date.now()}_${slugify(tema)}`);
+      carpeta = path.join('tandas', `${Date.now()}_${slugify(tema)}`);
       broadcast(`\n=== Generando: ${tema} (marca: ${marcaId}) ===\n`);
 
       // Pasar solo nombres de archivo a crear.mjs — FOTOS_MAP resuelve URLs después.
@@ -269,13 +305,26 @@ app.post('/api/generar', async (req, res) => {
         await writeFile(contenidoPath, JSON.stringify(contenido, null, 2), 'utf-8');
       }
 
-      // Preview del plan: emitir el contenido recién generado ANTES de
-      // arrancar Puppeteer (analizar + generar), para que el usuario vea un
-      // wireframe de los slides mientras se renderiza (o pueda cancelar).
+      // Gate de aprobación: emitir el plan y esperar a que el usuario lo
+      // apruebe (con slides editados) o lo descarte ANTES de renderizar.
+      const contenidoPath = path.join(__dirname, carpeta, 'contenido.json');
       try {
-        const contenidoPlan = JSON.parse(await readFile(path.join(__dirname, carpeta, 'contenido.json'), 'utf-8'));
+        const contenidoPlan = JSON.parse(await readFile(contenidoPath, 'utf-8'));
         broadcast(`__PLAN__:${JSON.stringify(contenidoPlan)}`);
-      } catch { /* preview es opcional — no bloquea el pipeline */ }
+        broadcast('⏸ Esperando tu aprobación del plan...\n');
+        const editedSlides = await waitForPlanApproval();
+        if (editedSlides && Array.isArray(editedSlides)) {
+          const contenido = JSON.parse(await readFile(contenidoPath, 'utf-8'));
+          contenido.slides = editedSlides;
+          await writeFile(contenidoPath, JSON.stringify(contenido, null, 2), 'utf-8');
+          broadcast(`✓ Plan aprobado (${editedSlides.length} slides). Renderizando...\n`);
+        } else {
+          broadcast('✓ Plan aprobado. Renderizando...\n');
+        }
+      } catch (e) {
+        if (e.message === 'PLAN_DESCARTADO') throw e;
+        /* preview es opcional — si falla la lectura, seguir igual */
+      }
 
       await runStep(['analizar.mjs', `${carpeta}/contenido.json`], extraEnv);
       await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
@@ -293,9 +342,15 @@ app.post('/api/generar', async (req, res) => {
 
       broadcast(`\n✅ Listo: ${carpeta}\n`);
     } catch (e) {
-      broadcast(`\n❌ Error: ${e.message}\n`);
+      if (e.message === 'PLAN_DESCARTADO') {
+        broadcast('\n⏹ Plan descartado.\n');
+        if (carpeta) { try { await rm(path.join(__dirname, carpeta), { recursive: true, force: true }); } catch {} }
+      } else {
+        broadcast(`\n❌ Error: ${e.message}\n`);
+      }
     } finally {
       jobRunning = false;
+      pendingApproval = null;
     }
   })();
 });
@@ -311,9 +366,10 @@ app.post('/api/generar-story', async (req, res) => {
   jobLog = [];
   res.json({ ok: true });
 
+  let carpeta = null;
   (async () => {
     try {
-      const carpeta = path.join('stories', `${Date.now()}_story_${slugify(tema)}`);
+      carpeta = path.join('stories', `${Date.now()}_story_${slugify(tema)}`);
       broadcast(`\n=== Story: ${tema} (marca: ${marcaId}) ===\n`);
 
       const extraEnv = {};
@@ -335,14 +391,40 @@ app.post('/api/generar-story', async (req, res) => {
       } catch {}
 
       await runStep(['crear-story.mjs', tema, carpeta, marcaId, extraEnv.USER_FOTOS || ''], extraEnv);
+
+      // Gate de aprobación del plan (igual que en carruseles)
+      const contenidoPath = path.join(__dirname, carpeta, 'contenido.json');
+      try {
+        const contenidoPlan = JSON.parse(await readFile(contenidoPath, 'utf-8'));
+        broadcast(`__PLAN__:${JSON.stringify(contenidoPlan)}`);
+        broadcast('⏸ Esperando tu aprobación del plan...\n');
+        const editedSlides = await waitForPlanApproval();
+        if (editedSlides && Array.isArray(editedSlides)) {
+          const contenido = JSON.parse(await readFile(contenidoPath, 'utf-8'));
+          contenido.slides = editedSlides;
+          await writeFile(contenidoPath, JSON.stringify(contenido, null, 2), 'utf-8');
+          broadcast(`✓ Plan aprobado (${editedSlides.length} slides). Renderizando...\n`);
+        } else {
+          broadcast('✓ Plan aprobado. Renderizando...\n');
+        }
+      } catch (e) {
+        if (e.message === 'PLAN_DESCARTADO') throw e;
+      }
+
       await runStep(['analizar.mjs', `${carpeta}/contenido.json`], { ...extraEnv, STORY_FORMAT: '1' });
       await runStep(['generar-story.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
 
       broadcast(`\n✅ Story lista: ${carpeta}\n`);
     } catch (e) {
-      broadcast(`\n❌ Error: ${e.message}\n`);
+      if (e.message === 'PLAN_DESCARTADO') {
+        broadcast('\n⏹ Plan descartado.\n');
+        if (carpeta) { try { await rm(path.join(__dirname, carpeta), { recursive: true, force: true }); } catch {} }
+      } else {
+        broadcast(`\n❌ Error: ${e.message}\n`);
+      }
     } finally {
       jobRunning = false;
+      pendingApproval = null;
     }
   })();
 });
