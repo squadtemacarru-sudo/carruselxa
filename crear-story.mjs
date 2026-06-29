@@ -478,9 +478,13 @@ Reglas generales:
   // Si la IA devolvió menos slides de lo pedido, reintentamos una vez
   if (!contenido.slides || contenido.slides.length < Math.max(2, slideCount - 1)) {
     console.warn(`⚠ Solo ${contenido.slides?.length ?? 0} slides — reintentando...`);
-    const text2 = await callBlackbox(promptText);
-    const retry  = parse(text2);
-    if ((retry.slides?.length ?? 0) > (contenido.slides?.length ?? 0)) contenido = retry;
+    try {
+      const text2 = await callBlackbox(promptText);
+      const retry  = parse(text2);
+      if ((retry.slides?.length ?? 0) > (contenido.slides?.length ?? 0)) contenido = retry;
+    } catch (e) {
+      console.warn(`⚠ Reintento de slides también falló: ${e.message}`);
+    }
   }
 
   if (USER_OVERLAY !== null && !isNaN(USER_OVERLAY)) contenido.overlay = USER_OVERLAY;
