@@ -457,11 +457,23 @@ Reglas generales:
 - RESALTADO DE COLOR (opcional). Dos sintaxis, solo en campos body/sub (NUNCA en headline): [palabra]{#hex} pinta el texto de UNA palabra; [palabra]{bg:#hex} pone una caja de fondo detrás de UNA palabra (ej: “Nadie me regaló [nada]{bg:#00cc00}.”). Una sola palabra por resaltado, máximo 1 resaltado por slide. Si dudás, no resaltes.
 `;
 
-  const parse = (raw) => JSON.parse(sanitizeJson(raw.replace(/```json|```/g, '').trim()));
+  const parse = (raw) => {
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    try {
+      return JSON.parse(sanitizeJson(cleaned));
+    } catch {
+      const norm = cleaned.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+      return JSON.parse(sanitizeJson(norm));
+    }
+  };
 
-  let contenido;
-  const text = await callBlackbox(promptText);
-  contenido = parse(text);
+  // Parse con reintento: una sola respuesta malformada no debe tumbar el job.
+  let contenido, lastErr;
+  for (let intento = 1; intento <= 2; intento++) {
+    try { contenido = parse(await callBlackbox(promptText)); break; }
+    catch (e) { lastErr = e; console.warn(`⚠ Respuesta no parseable (intento ${intento}/2): ${e.message}`); }
+  }
+  if (!contenido) throw new Error(`La IA devolvió JSON inválido tras 2 intentos: ${lastErr?.message || 'desconocido'}`);
 
   // Si la IA devolvió menos slides de lo pedido, reintentamos una vez
   if (!contenido.slides || contenido.slides.length < Math.max(2, slideCount - 1)) {
