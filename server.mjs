@@ -150,9 +150,15 @@ function broadcast(line) {
 function runStep(args, extraEnv = {}) {
   return new Promise((resolve, reject) => {
     const proc = spawn('node', args, { cwd: __dirname, env: { ...process.env, ...extraEnv } });
+    let lastErr = '';
     proc.stdout.on('data', (d) => broadcast(d.toString()));
-    proc.stderr.on('data', (d) => broadcast(d.toString()));
-    proc.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`${args.join(' ')} → exit ${code}`))));
+    proc.stderr.on('data', (d) => { broadcast(d.toString()); lastErr += d.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0) return resolve();
+      const script = args[0];
+      const hint = lastErr.trim().split('\n').filter(l => l && !l.startsWith('  at ')).pop() || '';
+      reject(new Error(hint ? `${script}: ${hint}` : `${script} falló (código ${code})`));
+    });
   });
 }
 
