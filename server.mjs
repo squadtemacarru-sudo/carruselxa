@@ -1165,6 +1165,146 @@ app.put('/api/marcas/:id/temas', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ─────────────────────────────────────────────────────────────────────
+// LABORATORIO — bandeja de ideas de carrusel sin renderizar.
+// La IA propone una semana de ideas (tema + plan + encargo de foto); el
+// usuario las cura (edita/aprueba/descarta) y al aprobar se renderizan.
+// Cada idea vive en laboratorio/<marca>/<id>.json
+// ─────────────────────────────────────────────────────────────────────
+
+function labDir(marcaId) {
+  return path.join(__dirname, 'laboratorio', marcaId);
+}
+
+// Generar ideas de la semana (corre generar-ideas.mjs y devuelve las ideas creadas)
+app.post('/api/laboratorio/:marca/generar', async (req, res) => {
+  const { marca } = req.params;
+  if (!isValidMarcaId(marca)) return res.status(400).json({ error: 'Marca inválida' });
+  const cantidad = Math.max(1, Math.min(7, parseInt(req.body?.cantidad, 10) || 5));
+
+  const proc = spawn('node', ['generar-ideas.mjs', marca, String(cantidad)], { cwd: __dirname, env: { ...process.env } });
+  let err = '';
+  proc.stdout.on('data', (d) => process.stdout.write(d));
+  proc.stderr.on('data', (d) => { err += d.toString(); });
+  proc.on('close', async (code) => {
+    if (code !== 0) {
+      const hint = err.trim().split('\n').filter(l => l && !l.startsWith('  at ')).pop() || '';
+      return res.status(500).json({ error: hint || `generar-ideas falló (código ${code})` });
+    }
+    try { res.json({ ok: true, ideas: await leerIdeas(marca) }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+});
+
+async function leerIdeas(marcaId) {
+  const dir = labDir(marcaId);
+  let files;
+  try { files = (await readdir(dir)).filter(f => f.endsWith('.json')); }
+  catch { return []; }
+  const ideas = [];
+  for (const f of files) {
+    try { ideas.push(JSON.parse(await readFile(path.join(dir, f), 'utf-8'))); } catch {}
+  }
+  const ORDEN = { lun: 0, mar: 1, mie: 2, jue: 3, vie: 4, sab: 5, dom: 6 };
+  ideas.sort((a, b) => (ORDEN[a.dia] ?? 9) - (ORDEN[b.dia] ?? 9) || (a.creado < b.creado ? -1 : 1));
+  return ideas;
+}
+
+// Listar ideas de una marca
+app.get('/api/laboratorio/:marca', async (req, res) => {
+  const { marca } = req.params;
+  if (!isValidMarcaId(marca)) return res.status(400).json({ error: 'Marca inválida' });
+  try { res.json(await leerIdeas(marca)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Editar una idea (merge superficial de los campos enviados)
+app.put('/api/laboratorio/:marca/:id', async (req, res) => {
+  const { marca, id } = req.params;
+  if (!isValidMarcaId(marca)) return res.status(400).json({ error: 'Marca inválida' });
+  if (!/^[\w.-]+$/.test(id)) return res.status(400).json({ error: 'ID inválido' });
+  const file = path.join(labDir(marca), `${id}.json`);
+  try {
+    const idea = JSON.parse(await readFile(file, 'utf-8'));
+    const campos = ['tema', 'dia', 'hook', 'necesita_foto', 'shot', 'plan', 'estado', 'foto'];
+    for (const k of campos) if (k in req.body) idea[k] = req.body[k];
+    await writeFile(file, JSON.stringify(idea, null, 2), 'utf-8');
+    res.json({ ok: true, idea });
+  } catch (e) { res.status(404).json({ error: 'Idea no encontrada' }); }
+});
+
+// Borrar una idea
+app.delete('/api/laboratorio/:marca/:id', async (req, res) => {
+  const { marca, id } = req.params;
+  if (!isValidMarcaId(marca)) return res.status(400).json({ error: 'Marca inválida' });
+  if (!/^[\w.-]+$/.test(id)) return res.status(400).json({ error: 'ID inválido' });
+  try { await unlink(path.join(labDir(marca), `${id}.json`)); res.json({ ok: true }); }
+  catch { res.status(404).json({ error: 'Idea no encontrada' }); }
+});
+
+// Aprobar y renderizar una idea — usa su plan como USER_PLAN y su foto si tiene.
+app.post('/api/laboratorio/:marca/:id/generar', async (req, res) => {
+  const { marca, id } = req.params;
+  if (!isValidMarcaId(marca)) return res.status(400).json({ error: 'Marca inválida' });
+  if (!/^[\w.-]+$/.test(id)) return res.status(400).json({ error: 'ID inválido' });
+  if (jobRunning) return res.status(409).json({ error: 'Ya hay una generación en curso' });
+
+  const file = path.join(labDir(marca), `${id}.json`);
+  let idea;
+  try { idea = JSON.parse(await readFile(file, 'utf-8')); }
+  catch { return res.status(404).json({ error: 'Idea no encontrada' }); }
+
+  jobRunning = true;
+  jobLog = [];
+  res.json({ ok: true });
+
+  let carpeta = null;
+  (async () => {
+    try {
+      const tema = idea.tema;
+      carpeta = path.join('tandas', `${Date.now()}_${slugify(tema)}`);
+      broadcast(`\n=== Laboratorio: Generando "${tema}" (marca: ${marca}) ===\n`);
+
+      const extraEnv = {};
+      if (Array.isArray(idea.plan) && idea.plan.length) extraEnv.USER_PLAN = JSON.stringify(idea.plan);
+
+      // Handle de la marca
+      try {
+        const mData = JSON.parse(await readFile(path.join(__dirname, 'marcas', marca, 'marca.json'), 'utf-8'));
+        if (mData.handle) extraEnv.USER_HANDLE = mData.handle;
+      } catch {}
+
+      // Foto asignada a la idea (si tiene): resolver nombre → URL y pasarla a crear.mjs
+      const fotoNombre = req.body?.foto || idea.foto || null;
+      let fotos = [];
+      if (fotoNombre) {
+        fotos = [fotoNombre];
+        if (fotosCloud.size > 0) {
+          const mapObj = {};
+          for (const [nombre, { url }] of fotosCloud.entries()) mapObj[nombre] = url;
+          extraEnv.FOTOS_MAP = JSON.stringify(mapObj);
+        }
+      }
+
+      const crearArgs = ['crear.mjs', tema, carpeta, marca];
+      if (fotos.length) crearArgs.push(fotos.join(','));
+      await runStep(crearArgs, extraEnv);
+      await runStep(['analizar.mjs', `${carpeta}/contenido.json`], extraEnv);
+      await runStep(['generar.mjs', `${carpeta}/contenido.analizado.json`], extraEnv);
+
+      idea.estado = 'generada';
+      idea.tanda = carpeta;
+      await writeFile(file, JSON.stringify(idea, null, 2), 'utf-8');
+
+      broadcast(`\n✅ Listo: ${carpeta}\n`);
+    } catch (e) {
+      broadcast(`\n❌ Error: ${e.message}\n`);
+    } finally {
+      jobRunning = false;
+    }
+  })();
+});
+
 // Logo: subida como data URL (base64) en JSON, se guarda como marcas/<id>/logo.png
 app.post('/api/marcas/:id/logo', async (req, res) => {
   const { id } = req.params;

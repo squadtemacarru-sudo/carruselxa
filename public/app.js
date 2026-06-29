@@ -29,6 +29,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (tabId === 'tab-galeria') { cargarGaleria(); if (typeof cargarStoriesGaleria === 'function') cargarStoriesGaleria(); }
     if (tabId === 'tab-fotos')   cargarFotosGrid();
     if (tabId === 'tab-series' && typeof cargarSeries === 'function') cargarSeries();
+    if (tabId === 'tab-laboratorio' && typeof cargarLaboratorio === 'function') cargarLaboratorio();
   });
 });
 

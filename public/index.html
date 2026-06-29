@@ -32,6 +32,10 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <span>Series</span>
       </button>
+      <button class="nav-btn" data-tab="tab-laboratorio">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6.5L5.2 18a2 2 0 0 0 1.8 3h10a2 2 0 0 0 1.8-3L14 9.5V3"/><line x1="7" y1="15" x2="17" y2="15"/></svg>
+        <span>Laboratorio</span>
+      </button>
       <button class="nav-btn" data-tab="tab-chat">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span>Asistente</span>
@@ -271,6 +275,34 @@
         </div>
         <div id="calendarGrid" class="calendar-grid"></div>
       </div>
+    </section>
+
+    <!-- ── TAB: LABORATORIO ────────────────────────── -->
+    <section class="tab" id="tab-laboratorio">
+      <div class="lab-head">
+        <div>
+          <h2 class="lab-title">🧪 Laboratorio</h2>
+          <p class="lab-sub">La IA propone ideas de la semana. Vos editás, aprobás y sabés qué foto sacar.</p>
+        </div>
+        <div class="lab-gen">
+          <select id="labCantidad">
+            <option value="3">3 ideas</option>
+            <option value="5" selected>5 ideas</option>
+            <option value="7">7 ideas (semana)</option>
+          </select>
+          <button id="btnGenerarIdeas" class="btn-primary btn-sm">✨ Generar ideas</button>
+        </div>
+      </div>
+
+      <!-- Lista de fotos del día -->
+      <div id="labShotList" class="lab-shotlist hidden">
+        <div class="lab-shotlist-title">📷 Fotos para sacar</div>
+        <div id="labShotGroups" class="lab-shot-groups"></div>
+      </div>
+
+      <div id="labLoading" class="lab-loading hidden">Pensando ideas para tu semana…</div>
+      <div id="labEmpty" class="lab-empty">Todavía no hay ideas. Tocá <b>Generar ideas</b> para que la IA te arme la semana.</div>
+      <div id="labGrid" class="lab-grid"></div>
     </section>
 
     <!-- ── TAB: ASISTENTE ──────────────────────────── -->
@@ -705,6 +737,7 @@
   </div>
 
   <script src="app.js"></script>
+  <script src="lab.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
   <script src="animations.js"></script>
   <script src="consola.js"></script>
