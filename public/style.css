@@ -2304,53 +2304,88 @@ body.modal-open { overflow: hidden; }
   margin-bottom: 16px;
 }
 
+/* Mini-slide demo — cada card ES una slide */
 .estilo-card {
-  border: 1.5px solid var(--line);
+  border: 2px solid transparent;
   border-radius: var(--r);
-  padding: 12px;
   cursor: pointer;
-  transition:
-    border-color var(--fast) var(--ease),
-    background   var(--fast) var(--ease),
-    transform    var(--fast) var(--spring);
+  overflow: hidden;
+  transition: transform var(--fast) var(--spring), box-shadow var(--fast);
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
 }
 
 .estilo-card:hover {
-  border-color: var(--sub);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
 }
 
 .estilo-card.selected {
   border-color: var(--acc);
-  background: var(--acc-lo);
+  box-shadow: 0 0 0 1px var(--acc), var(--shadow-acc);
 }
 
-.estilo-paleta {
-  display: flex;
-  gap: 3px;
-  margin-bottom: 8px;
-}
-
-.estilo-paleta span {
+.ec-inner {
   flex: 1;
-  height: 16px;
-  border-radius: 3px;
+  padding: 14px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
-.estilo-nombre {
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
+.ec-tag {
+  font-size: 9px;
   font-weight: 700;
-  color: var(--text);
-  margin-bottom: 2px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: 3px;
+  padding: 2px 6px;
+  align-self: flex-start;
 }
 
-.estilo-desc {
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  color: var(--sub);
-  line-height: 1.4;
+.ec-hook {
+  font-size: 20px;
+  line-height: 1.05;
+  flex: 1;
 }
+
+.ec-rule {
+  width: 24px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.ec-sub {
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.ec-footer {
+  padding: 8px 14px;
+  border-top: 1px solid;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ec-nombre {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+}
+
+.ec-desc {
+  font-size: 10px;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Legado — mantener por si algo lo usa */
+.estilo-paleta { display:none; }
+.estilo-nombre { display:none; }
+.estilo-desc   { display:none; }
 
 .fuente-grid {
   display: grid;

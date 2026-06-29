@@ -533,20 +533,95 @@ let wizardFuenteId    = null;
 let wizardPaletaId    = null;
 let fontLinksLoaded   = false;
 
+// Datos visuales completos de cada estilo — usados para la mini-slide demo
+const ESTILOS_DEMO = {
+  'minimal': {
+    bg: '#f8f8f6', texto: '#0a0a0a', acento: '#1a1a2e', acento2: '#e8e8e4',
+    font: "'Inter', sans-serif", fontW: '800',
+    hook: 'Menos es\nmás.',
+    sub: 'El minimalismo no es decoración. Es disciplina.',
+    tag: 'MINIMAL',
+  },
+  'bold': {
+    bg: '#0a0a0a', texto: '#ffffff', acento: '#ff3c00', acento2: '#222',
+    font: "'Barlow Condensed', 'Oswald', sans-serif", fontW: '900',
+    hook: 'SIN\nEXCUSAS.',
+    sub: 'El único límite sos vos.',
+    tag: 'BOLD IMPACT',
+  },
+  'editorial': {
+    bg: '#faf7f2', texto: '#1c1c1c', acento: '#c8a97e', acento2: '#8c7b6b',
+    font: "'Playfair Display', 'DM Serif Display', serif", fontW: '700',
+    hook: 'El arte\nde elegir\nbien.',
+    sub: 'Calidad sobre cantidad, siempre.',
+    tag: 'EDITORIAL',
+  },
+  'vibrant': {
+    bg: '#6c2bd9', texto: '#ffffff', acento: '#f7e94b', acento2: '#ff6b8a',
+    font: "'Syne', 'Unbounded', sans-serif", fontW: '800',
+    hook: 'ROMPÉ\nEL MOLDE.',
+    sub: 'Diseñado para destacar.',
+    tag: 'VIBRANT',
+  },
+  'dark-luxury': {
+    bg: '#0d0d0d', texto: '#e8d5b0', acento: '#c9a84c', acento2: '#1a1a1a',
+    font: "'Cormorant Garamond', 'Instrument Serif', serif", fontW: '600',
+    hook: 'Excelencia\nsin\ncompromiso.',
+    sub: 'Para quienes entienden la diferencia.',
+    tag: 'DARK LUXURY',
+  },
+  'nature': {
+    bg: '#f0f4ed', texto: '#1e3a2f', acento: '#4a8c5c', acento2: '#b8d4c0',
+    font: "'Fraunces', 'DM Serif Display', serif", fontW: '700',
+    hook: 'Volvé\na lo\nesencial.',
+    sub: 'Bienestar que se siente de verdad.',
+    tag: 'NATURE',
+  },
+};
+
+function estiloMiniSlide(e) {
+  const d = ESTILOS_DEMO[e.id] || ESTILOS_DEMO['minimal'];
+  const isLight = d.bg.startsWith('#f') || d.bg.startsWith('#fa') || d.bg === '#ffffff';
+  const lineColor = isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.10)';
+  const hookLines = d.hook.split('\n').map(l =>
+    `<div style="line-height:1.1;letter-spacing:-0.02em">${l}</div>`
+  ).join('');
+
+  return `
+  <div class="estilo-card" data-id="${e.id}" style="background:${d.bg};border-color:${lineColor}">
+    <div class="ec-inner">
+      <div class="ec-tag" style="color:${d.acento};border-color:${d.acento}40">${d.tag}</div>
+      <div class="ec-hook" style="color:${d.texto};font-family:${d.font};font-weight:${d.fontW}">${hookLines}</div>
+      <div class="ec-rule" style="background:${d.acento}"></div>
+      <div class="ec-sub" style="color:${d.texto}99;font-family:'Inter',sans-serif">${d.sub}</div>
+    </div>
+    <div class="ec-footer" style="border-color:${lineColor}">
+      <span class="ec-nombre" style="color:${d.texto}cc">${e.nombre}</span>
+      <span class="ec-desc" style="color:${d.texto}66">${e.desc}</span>
+    </div>
+  </div>`;
+}
+
 function abrirWizardEstilo(tema) {
   wizardTema     = tema;
   wizardEstiloId = null;
   wizardFuenteId = null;
   wizardPaletaId = null;
 
+  // Cargar fuentes para las previews
+  if (!fontLinksLoaded) {
+    FUENTES.forEach(f => {
+      if (!document.querySelector(`link[data-font="${f.id}"]`)) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet'; link.href = f.url; link.dataset.font = f.id;
+        document.head.appendChild(link);
+      }
+    });
+    fontLinksLoaded = true;
+  }
+
   const grid = $('#estiloGrid');
-  grid.innerHTML = ESTILOS.map(e => `
-    <div class="estilo-card" data-id="${e.id}">
-      <div class="estilo-paleta">${e.paleta.map(c => `<span style="background:${c}"></span>`).join('')}</div>
-      <p class="estilo-nombre">${e.nombre}</p>
-      <p class="estilo-desc">${e.desc}</p>
-    </div>
-  `).join('');
+  grid.innerHTML = ESTILOS.map(e => estiloMiniSlide(e)).join('');
 
   grid.querySelectorAll('.estilo-card').forEach(card => {
     card.addEventListener('click', () => {
