@@ -2997,3 +2997,45 @@ body.modal-open { overflow: hidden; }
 .lab-btn-del:hover { color:var(--red); border-color:var(--red); }
 .lab-btn-ok { flex:1; background:var(--acc); border:none; color:#07070a; border-radius:var(--r-sm); padding:8px 12px; font-size:12px; font-weight:700; cursor:pointer; }
 .lab-btn-ok:disabled { opacity:0.5; cursor:default; }
+
+/* ── LABORATORIO QW2: dropzone de foto ─────────────────── */
+.lab-dropzone { display:flex; align-items:center; justify-content:center; gap:8px; min-height:54px; border:1.5px dashed var(--line); border-radius:var(--r-sm); padding:10px; cursor:pointer; transition:border-color var(--fast), background var(--fast); flex-wrap:wrap; position:relative; }
+.lab-dropzone:hover { border-color:var(--acc); background:var(--acc-lo); }
+.lab-dropzone.drag-over { border-color:var(--acc); background:var(--acc-lo); }
+.lab-dropzone.uploading { opacity:.6; pointer-events:none; }
+.lab-dropzone.has-foto { border-color:var(--green); padding:4px; }
+.lab-dz-icon { font-size:18px; }
+.lab-dz-text { font-size:12px; color:var(--sub); }
+.lab-foto-thumb { width:100%; max-height:90px; object-fit:cover; border-radius:var(--r-xs); display:block; }
+.lab-foto-del { position:absolute; top:4px; right:4px; background:rgba(0,0,0,.7); border:none; color:#fff; border-radius:50%; width:20px; height:20px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.lab-toggle-row { display:flex; }
+
+/* ── QW1: progreso inline ───────────────────────────────── */
+.lab-progress { display:flex; align-items:center; gap:10px; padding:12px 0; }
+.lab-spinner { width:18px; height:18px; border:2px solid var(--line); border-top-color:var(--acc); border-radius:50%; animation:lab-spin .7s linear infinite; flex-shrink:0; }
+@keyframes lab-spin { to { transform:rotate(360deg); } }
+.lab-progress-text { font-size:12px; color:var(--sub); }
+.lab-thumb { width:100%; border-radius:var(--r-sm); display:block; margin:4px 0; }
+.lab-btn-ver { flex:1; background:var(--s2); border:1px solid var(--line); color:var(--acc); border-radius:var(--r-sm); padding:8px 12px; font-size:12px; font-weight:700; cursor:pointer; text-align:center; text-decoration:none; display:flex; align-items:center; justify-content:center; }
+
+/* ── QW3: skeleton shimmer ──────────────────────────────── */
+.lab-skeleton { pointer-events:none; }
+.lab-sk-line, .lab-sk-block { border-radius:var(--r-xs); background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%); background-size:200% 100%; animation:lab-shimmer 1.4s infinite; }
+.lab-sk-sm { height:10px; width:40%; margin-bottom:10px; }
+.lab-sk-md { height:14px; width:70%; margin-bottom:8px; }
+.lab-sk-lg { height:22px; width:90%; margin-bottom:12px; }
+.lab-sk-block { height:48px; width:100%; margin-top:4px; }
+@keyframes lab-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ── Estado vacío con preview ───────────────────────────── */
+.lab-estado-vacio { grid-column:1/-1; display:flex; flex-direction:column; align-items:center; gap:20px; padding:32px 16px; text-align:center; }
+.lab-ev-preview { width:100%; max-width:280px; }
+.lab-ev-card { background:var(--s1); border:1px solid var(--line); border-radius:var(--r); padding:16px; text-align:left; opacity:.6; }
+.lab-ev-dia { font-size:10px; font-weight:700; text-transform:uppercase; color:var(--acc); margin-bottom:8px; }
+.lab-ev-hook { font-size:14px; font-weight:800; margin-bottom:8px; line-height:1.3; }
+.lab-ev-shot { font-size:11px; color:var(--sub); }
+.lab-ev-texto { color:var(--sub); font-size:13px; max-width:36ch; line-height:1.6; }
+
+/* ── Badge "guardado" ───────────────────────────────────── */
+.lab-saved-badge { font-size:10px; color:var(--green); opacity:0; transition:opacity var(--fast); margin-left:auto; }
+.lab-saved-badge.visible { opacity:1; }

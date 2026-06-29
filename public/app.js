@@ -288,6 +288,12 @@ function connectStream() {
     const isDone  = line.includes('✅') || line.includes('Listo');
     const isError = line.includes('❌');
 
+    // Laboratorio consume el evento — no redirigir a Galería si Lab está renderizando
+    if (typeof labOnStreamLine === 'function' && labOnStreamLine(line)) {
+      if (isDone || isError) { setRunning(false); hidePlanPreview(); }
+      return;
+    }
+
     // Actualizar panel de progreso (modo usuario)
     if (isError)      setProgressError(null, line);
     else if (isDone)  setProgressStep('listo');
