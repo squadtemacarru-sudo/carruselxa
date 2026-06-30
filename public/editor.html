@@ -211,7 +211,7 @@ input[type="range"] {
     <!-- Elemento seleccionado -->
     <div class="ed-section">
       <div class="ed-section-title">Elemento seleccionado</div>
-      <div id="noSel" class="sel-none">Hacé clic en un texto del slide para seleccionarlo.</div>
+      <div id="noSel" class="sel-none">Hacé clic en un texto del slide para seleccionarlo. El texto se puede arrastrar para reposicionarlo.</div>
       <div id="selControls" style="display:none">
 
         <div class="ctrl-row">
@@ -237,6 +237,28 @@ input[type="range"] {
           <button class="toggle-btn" id="ctrlBold">B</button>
         </div>
 
+      </div>
+    </div>
+
+    <!-- Foto del slide -->
+    <div class="ed-section" id="fotoSection" style="display:none">
+      <div class="ed-section-title">Foto del slide</div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">Oscurecido</span>
+        <input type="range" id="ctrlOverlay" min="0" max="0.9" step="0.05" value="0.45">
+        <span class="ctrl-val" id="ctrlOverlayVal">45%</span>
+      </div>
+      <div style="font-size:11px;color:var(--sec);margin-top:6px">Bajalo si la foto se ve muy tapada, subilo si el texto no se lee.</div>
+    </div>
+
+    <!-- Chat IA sobre este slide -->
+    <div class="ed-section" id="chatSection" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+      <div class="ed-section-title">Preguntale a la IA sobre este slide</div>
+      <div id="chatMsgs" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px; max-height:260px;"></div>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="chatInput" placeholder="Ej: la foto se ve muy oscura..."
+          style="flex:1; background:var(--surf2); border:1px solid var(--brd); color:var(--txt); border-radius:6px; padding:6px 10px; font-size:12px; font-family:'Inter',sans-serif;">
+        <button class="ed-btn ed-btn-ghost" id="chatSend" style="padding:0 12px;">→</button>
       </div>
     </div>
 
@@ -315,6 +337,15 @@ window.addEventListener('message', e => {
     setStatus('Listo. Hacé clic en el texto para seleccionar.', '');
     $('btnExport').disabled = false;
     buildThumbs();
+
+    $('fotoSection').style.display = d.hasPhoto ? '' : 'none';
+    if (d.hasPhoto) {
+      const ov = d.overlay ?? 0.45;
+      $('ctrlOverlay').value = ov;
+      $('ctrlOverlayVal').textContent = Math.round(ov * 100) + '%';
+    }
+    chatMsgs = [];
+    renderChat();
   }
 
   if (d.type === 'selected') {
@@ -371,9 +402,64 @@ $('ctrlBold').addEventListener('click', () => {
   send('toggleBold');
 });
 
+$('ctrlOverlay').addEventListener('input', () => {
+  const v = +$('ctrlOverlay').value;
+  $('ctrlOverlayVal').textContent = Math.round(v * 100) + '%';
+  send('setOverlay', v);
+});
+
 function send(type, v) {
   frame.contentWindow.postMessage({ type, v }, '*');
 }
+
+// ── Chat IA sobre el slide actual ────────────────────────────────────────
+let chatMsgs = [];
+
+function renderChat() {
+  const box = $('chatMsgs');
+  if (!chatMsgs.length) {
+    box.innerHTML = '<div class="sel-none">Contale a la IA qué te gustaría cambiar de este slide (la foto, el texto, lo que sea) y te va a sugerir ajustes.</div>';
+    return;
+  }
+  box.innerHTML = chatMsgs.map(m => `
+    <div style="align-self:${m.role === 'user' ? 'flex-end' : 'flex-start'}; max-width:90%;
+      background:${m.role === 'user' ? 'var(--acc)' : 'var(--surf2)'}; color:${m.role === 'user' ? '#000' : 'var(--txt)'};
+      border-radius:8px; padding:6px 10px; font-size:12px; white-space:pre-wrap;">${m.text}</div>
+  `).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+async function enviarChat() {
+  const input = $('chatInput');
+  const mensaje = input.value.trim();
+  if (!mensaje) return;
+  input.value = '';
+  chatMsgs.push({ role: 'user', text: mensaje });
+  chatMsgs.push({ role: 'ai', text: '…pensando' });
+  renderChat();
+
+  try {
+    const res = await fetch(`${API_BASE}/${tandaId}/slide-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idx: curSlide,
+        mensaje,
+        historial: chatMsgs.slice(0, -2).map(m => ({ role: m.role, text: m.text })),
+      }),
+    });
+    const data = await res.json();
+    chatMsgs.pop();
+    chatMsgs.push({ role: 'ai', text: data.respuesta || data.error || 'No pude responder.' });
+  } catch (e) {
+    chatMsgs.pop();
+    chatMsgs.push({ role: 'ai', text: 'Error: ' + e.message });
+  }
+  renderChat();
+}
+
+$('chatSend').addEventListener('click', enviarChat);
+$('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') enviarChat(); });
 
 // ── Navegación de slides ─────────────────────────────────────────────────
 function goSlide(idx) {

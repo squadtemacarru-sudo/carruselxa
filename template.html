@@ -1159,6 +1159,7 @@
       const slide = document.getElementById(slideId);
       if (!slide) return;
       Object.entries(overrides).forEach(([sel, styles]) => {
+        if (sel === '__overlay') { slide.style.setProperty('--overlay', String(styles.value)); return; }
         const el = slide.querySelector(sel);
         if (!el) return;
         const { textContent: tc, ...css } = styles;
@@ -1207,6 +1208,7 @@
       // Aplicar overrides guardados antes de convertir a absolute
       const ov = (data._userOverrides || {})[`slide-${idx + 1}`] || {};
       Object.entries(ov).forEach(([sel, styles]) => {
+        if (sel === '__overlay') { slide.style.setProperty('--overlay', String(styles.value)); return; }
         const el = slide.querySelector(sel);
         if (!el) return;
         const { textContent: tc, ...css } = styles;
@@ -1217,7 +1219,9 @@
       // Convertir todos los elementos editables a position:absolute
       EDIT_SEL.forEach(s => slide.querySelectorAll(s).forEach(el => attach(el, slide)));
 
-      window.parent.postMessage({ type: 'ready', total: data.slides.length }, '*');
+      const hasPhoto = slide.classList.contains('has-photo');
+      const curOverlay = parseFloat(getComputedStyle(slide).getPropertyValue('--overlay')) || (data.slides[idx]?._overlay ?? RC.gOverlay);
+      window.parent.postMessage({ type: 'ready', total: data.slides.length, hasPhoto, overlay: curOverlay }, '*');
     }
 
     function attach(el, slide) {
@@ -1310,6 +1314,8 @@
       const slide = document.getElementById(`slide-${curIdx + 1}`);
       if (!slide) return {};
       const map = {};
+      const ovStr = slide.style.getPropertyValue('--overlay');
+      if (ovStr) map['__overlay'] = { value: parseFloat(ovStr) };
       EDIT_SEL.forEach(s => {
         slide.querySelectorAll(s).forEach(el => {
           if (!el._editAttached) return;
@@ -1364,6 +1370,10 @@
         push();
       }
       if (d.type === 'deselect') { if (selEl) { selEl.style.outline = ''; selEl = null; } }
+      if (d.type === 'setOverlay') {
+        const slide = document.getElementById(`slide-${curIdx + 1}`);
+        if (slide) { slide.style.setProperty('--overlay', String(d.v)); push(); }
+      }
     });
 
     wrapper.addEventListener('click', e => {

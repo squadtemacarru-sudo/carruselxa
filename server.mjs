@@ -2153,6 +2153,51 @@ app.post('/api/tandas/:id/switch-design', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Chat con IA sobre un slide específico del editor (texto + foto si tiene)
+app.post('/api/tandas/:id/slide-chat', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
+  const { idx, mensaje, historial } = req.body || {};
+  if (!mensaje || typeof mensaje !== 'string') return res.status(400).json({ error: 'Falta mensaje' });
+
+  let contenido;
+  try {
+    contenido = JSON.parse(await readFile(path.join(__dirname, 'tandas', id, 'contenido.analizado.json'), 'utf-8'));
+  } catch {
+    return res.status(404).json({ error: 'Tanda no encontrada o sin analizar' });
+  }
+  const slide = contenido.slides?.[idx];
+  if (!slide) return res.status(404).json({ error: 'Slide no encontrado' });
+
+  let photoUrl = null;
+  if (slide.photo) {
+    const base = path.basename(slide.photo);
+    photoUrl = slide.photo.startsWith('http') ? slide.photo : (fotosCloud.get(base)?.url || null);
+  }
+
+  const histTexto = (historial || []).map(m => `${m.role === 'user' ? 'Usuario' : 'Vos'}: ${m.text}`).join('\n');
+  const prompt = `Sos un diseñador senior ayudando a un usuario a ajustar UN slide específico de un carrusel de Instagram ya renderizado.
+
+Datos del slide (JSON, tal cual está hoy):
+${JSON.stringify(slide, null, 2)}
+
+${photoUrl ? 'Este slide tiene una foto de fondo (te la adjunto).' : 'Este slide es 100% tipográfico, sin foto.'}
+
+${histTexto ? `Conversación previa:\n${histTexto}\n` : ''}
+El usuario dice ahora: "${mensaje}"
+
+Respondé en español rioplatense, corto y concreto (máx 4 líneas), como si fueras un diseñador dándole una recomendación práctica al usuario. Si la sugerencia implica un cambio que el usuario puede hacer con los controles del editor (oscurecido de la foto, arrastrar el texto, color, tamaño, negrita), decile exactamente qué control tocar y en qué dirección. No devuelvas JSON, solo texto plano conversacional.`;
+
+  try {
+    const respuesta = photoUrl
+      ? await callBlackboxVision([photoUrl], prompt)
+      : await callBlackboxText(prompt, 500);
+    res.json({ respuesta: respuesta.trim() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Guarda overrides del editor y dispara re-render de los slides modificados
 app.post('/api/tandas/:id/save-overrides', async (req, res) => {
   const { id } = req.params;
