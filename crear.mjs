@@ -102,7 +102,6 @@ FORMATO DE SALIDA — REGLA INQUEBRANTABLE: respondés ÚNICAMENTE con JSON puro
 const FALLBACK_MODELS = [
   'claude-sonnet-4-5-20250514',
   'claude-haiku-4-5-20251001',
-  'blackboxai/anthropic/claude-sonnet-4.6',
 ];
 
 async function callBlackbox(content, attempt = 0) {
