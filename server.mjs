@@ -1322,7 +1322,9 @@ app.post('/api/marcas/:id/logo', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────
 
 const BB_FALLBACK_MODELS = [
-  'claude-sonnet-4-5-20250514',
+  'blackboxai/anthropic/claude-nemotron',
+  'blackboxai/openai/gpt-5.4',
+  'blackboxai/deepseek/deepseek-v4-flash',
   'claude-haiku-4-5-20251001',
 ];
 
@@ -1336,7 +1338,7 @@ async function bbFetch(body, attempt = 0) {
     const ac = new AbortController();
     const abortTimer = setTimeout(() => ac.abort(), 90000);
     try {
-      res = await fetch('https://api.blackbox.ai/chat/completions', {
+      res = await fetch('https://api.blackbox.ai/v1/chat/completions', {
         signal: ac.signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },

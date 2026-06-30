@@ -30,9 +30,10 @@ Pensás como un estratega: variás los temas para que no se repita el mismo áng
 FORMATO DE SALIDA — REGLA INQUEBRANTABLE: respondés ÚNICAMENTE con JSON puro válido. Sin markdown, sin comentarios, sin texto antes ni después. El primer carácter es { y el último es }.`;
 
 const FALLBACK_MODELS = [
-  'claude-sonnet-4-5-20250514',
+  'blackboxai/anthropic/claude-nemotron',
+  'blackboxai/openai/gpt-5.4',
+  'blackboxai/deepseek/deepseek-v4-flash',
   'claude-haiku-4-5-20251001',
-  'blackboxai/anthropic/claude-sonnet-4.6',
 ];
 
 function sanitizeJson(text) {
@@ -69,7 +70,7 @@ async function callBlackbox(content, attempt = 0) {
     const ac = new AbortController();
     const abortTimer = setTimeout(() => ac.abort(), 90000);
     try {
-      response = await fetch('https://api.blackbox.ai/chat/completions', {
+      response = await fetch('https://api.blackbox.ai/v1/chat/completions', {
         signal: ac.signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },

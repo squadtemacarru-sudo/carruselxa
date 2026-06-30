@@ -43,11 +43,11 @@ Reglas estrictas:
 - text_y_nuevo: si el texto tapa la cara/cuerpo del sujeto → el % vertical (0-100) donde debería ir el TOPE del bloque de texto para no taparlo. Ejemplo: 75 = texto en zona inferior (sujeto arriba), 8 = texto en zona superior (sujeto abajo). Si no hay persona en la foto o el texto ya está bien posicionado → null.
 - Solo devolvé ajuste si el problema es CLARO y OBVIO. Ante la duda, devolvé null.`;
 
-  const res = await fetch('https://api.blackbox.ai/chat/completions', {
+  const res = await fetch('https://api.blackbox.ai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-sonnet-4.6',
+      model: process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-nemotron',
       max_tokens: 200,
       messages: [{ role: 'user', content: [
         { type: 'image_url', image_url: { url: imageDataUrl, detail: 'low' } },
@@ -92,11 +92,11 @@ Reglas:
     image_url: { url, detail: 'low' }
   }));
 
-  const res = await fetch('https://api.blackbox.ai/chat/completions', {
+  const res = await fetch('https://api.blackbox.ai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-sonnet-4.6',
+      model: process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-nemotron',
       max_tokens: 300,
       messages: [{ role: 'user', content: [
         ...imageContent,

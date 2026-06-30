@@ -162,9 +162,10 @@ Tus respuestas son siempre específicas y accionables — nunca genéricas, nunc
 FORMATO DE SALIDA — REGLA INQUEBRANTABLE: respondés ÚNICAMENTE con JSON puro válido. Sin \`\`\`markdown\`\`\` ni texto antes o después del JSON, sin explicaciones. El primer carácter de tu respuesta es { y el último es }.`;
 
 const FALLBACK_MODELS = [
-  'claude-sonnet-4-5-20250514',
+  'blackboxai/anthropic/claude-nemotron',
+  'blackboxai/openai/gpt-5.4',
+  'blackboxai/deepseek/deepseek-v4-flash',
   'claude-haiku-4-5-20251001',
-  'blackboxai/anthropic/claude-sonnet-4.6',
 ];
 
 // Llama a Blackbox AI (API OpenAI-compatible) y devuelve el texto de la respuesta
@@ -179,7 +180,7 @@ async function callBlackbox(content, attempt = 0) {
     const ac = new AbortController();
     const abortTimer = setTimeout(() => ac.abort(), 90000);
     try {
-      response = await fetch('https://api.blackbox.ai/chat/completions', {
+      response = await fetch('https://api.blackbox.ai/v1/chat/completions', {
         signal: ac.signal,
         method: 'POST',
         headers: {
