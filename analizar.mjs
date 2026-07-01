@@ -407,6 +407,42 @@ const FONT_PAIRS = {
       body:    { familia: 'Outfit', url_import: 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&display=swap', pesos: [300,400,500], uso: 'cuerpo liviano', css_body: "font-family:'Outfit',sans-serif;font-weight:400;letter-spacing:0.02em;" },
       mono:    { familia: 'Outfit', url_import: null, uso: 'handles, tags' }
     }
+  },
+  'fraunces-jost': {
+    mood: 'orgánico, auténtico, bienestar real, storytelling con carácter, anti-genérico',
+    estilos: ['photo_lifestyle', 'luxury_minimal', 'editorial_magazine', 'coaching_premium'],
+    tipografia: {
+      display: { familia: 'Fraunces', url_import: 'https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;0,900;1,700&display=swap', pesos: [700,900], uso: 'headlines con personalidad, italic para énfasis', css_headline: "font-family:'Fraunces',serif;font-weight:900;letter-spacing:-0.02em;" },
+      body:    { familia: 'Jost', url_import: 'https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&display=swap', pesos: [300,400,500,600], uso: 'cuerpo moderno y limpio', css_body: "font-family:'Jost',sans-serif;font-weight:400;letter-spacing:0.01em;" },
+      mono:    { familia: 'Jost', url_import: null, uso: 'tags, datos' }
+    }
+  },
+  'plus-jakarta-inter': {
+    mood: 'startup moderno, coaching next-gen, profesional sin ser corporativo, despierto',
+    estilos: ['coaching_premium', 'tech_modern', 'editorial_magazine'],
+    tipografia: {
+      display: { familia: 'Plus Jakarta Sans', url_import: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap', pesos: [600,700,800], uso: 'headlines con presencia pero sin grito', css_headline: "font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;letter-spacing:-0.025em;" },
+      body:    { familia: 'Inter', url_import: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap', pesos: [400,500,600], uso: 'cuerpo claro', css_body: "font-family:'Inter',sans-serif;font-weight:400;" },
+      mono:    { familia: 'Inter', url_import: null, uso: 'tags, handles' }
+    }
+  },
+  'cormorant-lato': {
+    mood: 'alta costura, coaching de alto valor, lujo discreto, sofisticación sin esfuerzo',
+    estilos: ['luxury_minimal', 'editorial_magazine'],
+    tipografia: {
+      display: { familia: 'Cormorant Garamond', url_import: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&display=swap', pesos: [600,700], uso: 'headlines de alto contraste visual', css_headline: "font-family:'Cormorant Garamond',serif;font-weight:700;letter-spacing:0.01em;" },
+      body:    { familia: 'Lato', url_import: 'https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap', pesos: [300,400,700], uso: 'cuerpo legible, contraste con serif', css_body: "font-family:'Lato',sans-serif;font-weight:400;letter-spacing:0.02em;" },
+      mono:    { familia: 'Lato', url_import: null, uso: 'handles, kickers' }
+    }
+  },
+  'poppins-poppins': {
+    mood: 'amigable, vibrante, millennial, wellness accesible, sin pretensiones',
+    estilos: ['photo_lifestyle', 'coaching_premium', 'editorial_magazine'],
+    tipografia: {
+      display: { familia: 'Poppins', url_import: 'https://fonts.googleapis.com/css2?family=Poppins:wght@700;800;900&display=swap', pesos: [700,800,900], uso: 'headlines redondos y amigables', css_headline: "font-family:'Poppins',sans-serif;font-weight:900;letter-spacing:-0.01em;" },
+      body:    { familia: 'Poppins', url_import: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap', pesos: [400,500,600], uso: 'cuerpo cálido y claro', css_body: "font-family:'Poppins',sans-serif;font-weight:400;" },
+      mono:    { familia: 'Poppins', url_import: null, uso: 'tags, etiquetas' }
+    }
   }
 };
 
@@ -447,7 +483,7 @@ Devolvé SOLO JSON (sin markdown):
   try {
     return JSON.parse(sanitizeJson(text.replace(/```json|```/g, '').trim()));
   } catch {
-    return { tema: 'fitness', tono: 'motivacional', estilo_visual_ideal: 'editorial_brutal', palabras_clave_visuales: ['bold', 'oscuro', 'premium'] };
+    return { tema: 'lifestyle', tono: 'aspiracional', estilo_visual_ideal: 'photo_lifestyle', palabras_clave_visuales: ['auténtico', 'claro', 'con carácter'] };
   }
 }
 
@@ -487,16 +523,26 @@ El carrusel que tenés que diseñar es:
 
 Definí el sistema de diseño COMPLETO y ESPECÍFICO. Sé milimétrico, no genérico.
 ${marca ? 'La paleta debe sentirse parte de la familia visual de la marca (ver paleta de referencia arriba), aunque puede variar según el tema/tono de este carrusel específico.' : ''}
+
+ANTI-CLICHÉS DE COLOR — estas combinaciones gritan "hecho con IA" y deben evitarse salvo razón muy específica:
+- Fondo negro + texto blanco + acento verde lima o amarillo neón → la combinación más usada en carruseles de IA. Buscá alternativas.
+- Fondo negro + acento naranja o rojo fuerte → segunda más usada.
+- Fondo completamente negro en estilos de lifestyle o coaching personal → genera frialdad, no conexión.
+Apostá por: blancos rotos, grises cálidos, fondos crema/hueso, azules profundos, verdes naturales, tonos tierra — colores que parecen diseñados por una persona, no generados.
 ${referencias?.length ? 'Te paso además imágenes de carruseles que le gustaron al cliente. Extraé de ahí el lenguaje visual (paleta, composición, iconografía, densidad) y aplicalo a este sistema — no los copies literal, usalos como dirección de arte.' : ''}
 
 TIPOGRAFÍA — elegí EXACTAMENTE UNO de estos pares validados (devolvé solo el id):
 ${FONT_PAIRS_INDEX}
 
-REGLA DE TIPOGRAFÍA SEGÚN ESTILO (independiente de la industria): La elección del par debe responder al estilo_visual_ideal y al tono, no al rubro.
-- Estilos de impacto crudo (editorial_brutal, street_urban) o tono agresivo/directo/motivacional → condensadas y pesadas: barlow-condensed-black, oswald-dm, anton-inter, bebas-inter, barlow-barlow. NO uses serifs ni display suaves acá.
-- Estilos premium/editorial/aspiracional (luxury_minimal, editorial_magazine, photo_lifestyle con tono reflexivo o íntimo) → serif o display refinada: playfair-dm, dm-serif-dm, instrument-dm, raleway-outfit.
-- Estilos de datos/tech (infografico_premium, tech_modern) → geométricas/mono: space-space, syne-inter, montserrat-montserrat.
-Lo que importa es la coherencia estilo↔tipografía, no el sector de la marca.
+REGLA ANTI-CLICHÉ (CRÍTICA): Las fuentes Barlow Condensed, Bebas Neue, Oswald y Anton son las más usadas en carruseles de IA genéricos. Si las elegís sin una razón muy específica, el resultado va a verse exactamente como todos los carruseles de IA que existen. SOLO usalas si el cliente pidió explícitamente ese estilo o si es el único que realmente funciona para el contenido. En todos los demás casos, elegí otro par.
+
+CRITERIOS PARA ELEGIR: pensá qué tipografía haría este carrusel RECONOCIBLE y DIFERENTE. La pregunta no es "¿cuál encaja con el tono?" sino "¿cuál haría que alguien detenga el scroll porque no lo esperaba?".
+- Contenido de alto valor personal (coaching, mentalidad, transformación) + marca con foto real → fraunces-jost, playfair-dm, dm-serif-dm, instrument-dm. Los serifs con carácter generan confianza y diferenciación inmediata.
+- Contenido de negocio/servicios + tono profesional pero cercano → plus-jakarta-inter, archivo-inter, space-space, syne-inter.
+- Contenido de bienestar, lifestyle, nutrición → poppins-poppins, raleway-outfit, fraunces-jost, cormorant-lato.
+- Contenido de impacto real y datos → montserrat-montserrat, space-space, archivo-inter.
+- Contenido donde TODO lo demás fracasó y necesitás máximo impacto sin otra opción → barlow-condensed-black, bebas-inter, anton-inter (últimas opciones, no primeras).
+Lo que importa es la DISTINCIÓN, no la convención.
 
 VARIEDAD VISUAL — el carrusel NO debe verse uniforme. Cada tipo de slide tiene un tratamiento distinto:
 - Cover (portada): headline enorme, foto con overlay suave, impacto máximo
