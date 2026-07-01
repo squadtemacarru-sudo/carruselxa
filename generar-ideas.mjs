@@ -30,8 +30,8 @@ Pensás como un estratega: variás los temas para que no se repita el mismo áng
 FORMATO DE SALIDA — REGLA INQUEBRANTABLE: respondés ÚNICAMENTE con JSON puro válido. Sin markdown, sin comentarios, sin texto antes ni después. El primer carácter es { y el último es }.`;
 
 const FALLBACK_MODELS = [
-  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
   'blackboxai/deepseek/deepseek-v4-pro',
+  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
   'blackboxai/anthropic/claude-nemotron',
 ];
 
@@ -63,9 +63,12 @@ async function callBlackbox(content, attempt = 0) {
   const apiKey = process.env.BLACKBOX_API_KEY;
   if (!apiKey) throw new Error('Falta la variable de entorno BLACKBOX_API_KEY');
   const preferredModel = process.env.USER_MODEL || process.env.BLACKBOX_MODEL || '';
-  const modelPool = preferredModel
-    ? [preferredModel, ...FALLBACK_MODELS.filter(m => m !== preferredModel)]
-    : FALLBACK_MODELS;
+  const primaryModel = preferredModel || FALLBACK_MODELS[0];
+  const modelPool = [
+    primaryModel,
+    primaryModel,
+    ...FALLBACK_MODELS.filter(m => m !== primaryModel),
+  ];
   const model = modelPool[Math.min(attempt, modelPool.length - 1)];
 
   let response;

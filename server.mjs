@@ -1322,8 +1322,8 @@ app.post('/api/marcas/:id/logo', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────
 
 const BB_TEXT_FALLBACK_MODELS = [
-  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
   'blackboxai/deepseek/deepseek-v4-pro',
+  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
   'blackboxai/anthropic/claude-nemotron',
 ];
 

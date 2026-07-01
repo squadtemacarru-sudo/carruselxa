@@ -81,8 +81,8 @@ Tus respuestas son siempre específicas y accionables — nunca genéricas, nunc
 FORMATO DE SALIDA — REGLA INQUEBRANTABLE: respondés ÚNICAMENTE con JSON puro válido. Sin \`\`\`markdown\`\`\`, sin comentarios, sin texto antes ni después del JSON, sin explicaciones. El primer carácter de tu respuesta es { y el último es }.`;
 
 const FALLBACK_MODELS = [
-  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
   'blackboxai/deepseek/deepseek-v4-pro',
+  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
   'blackboxai/anthropic/claude-nemotron',
 ];
 
@@ -91,9 +91,12 @@ async function callBlackbox(content, attempt = 0) {
   if (!apiKey) throw new Error('Falta la variable de entorno BLACKBOX_API_KEY');
 
   const preferredModel = process.env.USER_MODEL || process.env.BLACKBOX_MODEL || '';
-  const modelPool = preferredModel
-    ? [preferredModel, ...FALLBACK_MODELS.filter(m => m !== preferredModel)]
-    : FALLBACK_MODELS;
+  const primaryModel = preferredModel || FALLBACK_MODELS[0];
+  const modelPool = [
+    primaryModel,
+    primaryModel,
+    ...FALLBACK_MODELS.filter(m => m !== primaryModel),
+  ];
   const model = modelPool[Math.min(attempt, modelPool.length - 1)];
 
   let response;
@@ -110,7 +113,7 @@ async function callBlackbox(content, attempt = 0) {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 3500,
+          max_tokens: 5000,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content }

@@ -42,30 +42,61 @@ function sanitizeJson(text) {
     .replace(/[‘’]/g, "'");
 }
 
+function wordCount(value) {
+  if (typeof value === 'string') return value.trim().split(/\s+/).filter(Boolean).length;
+  if (Array.isArray(value)) return value.reduce((sum, item) => sum + wordCount(item), 0);
+  if (value && typeof value === 'object') {
+    return Object.entries(value)
+      .filter(([key]) => !['type', 'icon'].includes(key))
+      .reduce((sum, [, item]) => sum + wordCount(item), 0);
+  }
+  return 0;
+}
+
 function scoreRespuesta(parsed, ms) {
   const slides = Array.isArray(parsed?.slides) ? parsed.slides : [];
   let score = 0;
   const reasons = [];
 
-  if (slides.length === 6) { score += 30; reasons.push('6 slides'); }
-  else if (slides.length >= 5) { score += 18; reasons.push(`${slides.length} slides`); }
+  if (slides.length === 6) { score += 15; reasons.push('6 slides'); }
+  else if (slides.length >= 5) { score += 8; reasons.push(`${slides.length} slides`); }
 
-  if (slides[0]?.type === 'cover') { score += 15; reasons.push('cover inicial'); }
-  if (slides.at(-1)?.type === 'cta') { score += 15; reasons.push('cta final'); }
+  if (slides[0]?.type === 'cover') { score += 10; reasons.push('cover inicial'); }
+  if (slides.at(-1)?.type === 'cta') { score += 10; reasons.push('cta final'); }
 
   const types = slides.map(s => s?.type).filter(Boolean);
   const uniqueTypes = new Set(types);
-  score += Math.min(uniqueTypes.size * 4, 20);
+  score += Math.min(uniqueTypes.size * 3, 12);
   if (uniqueTypes.size >= 4) reasons.push('variedad');
 
   const text = JSON.stringify(parsed).toLowerCase();
   const generico = ['transforma tu vida', 'al siguiente nivel', 'desbloquea tu potencial', 'éxito garantizado'];
   const genericHits = generico.filter(w => text.includes(w));
-  if (!genericHits.length) { score += 12; reasons.push('sin clichés obvios'); }
+  if (!genericHits.length) { score += 10; reasons.push('sin clichés obvios'); }
   else score -= genericHits.length * 5;
 
-  if (ms < 8000) score += 8;
-  else if (ms > 25000) score -= 8;
+  const development = slides.slice(1, -1);
+  const denseSlides = development.filter(slide => {
+    const hasStructuredDepth = ['items', 'steps', 'rows', 'cells']
+      .some(key => Array.isArray(slide?.[key]) && slide[key].length >= 4 && wordCount(slide[key]) >= 30);
+    return hasStructuredDepth || wordCount(slide) >= 38;
+  });
+  if (development.length) {
+    score += Math.round(30 * denseSlides.length / development.length);
+    reasons.push(`${denseSlides.length}/${development.length} slides con sustancia`);
+  }
+
+  const actionPattern = /\b(creá|definí|revisá|medí|probá|cambiá|usá|evitá|hacé|pedí|mostrá|anotá|compará)\b/i;
+  const mechanismPattern = /\b(porque|cuando|si|provoca|genera|consecuencia|por eso|hace que)\b/i;
+  const actionable = development.filter(slide => actionPattern.test(JSON.stringify(slide))).length;
+  const explanatory = development.filter(slide => mechanismPattern.test(JSON.stringify(slide))).length;
+  score += Math.round(10 * actionable / Math.max(development.length, 1));
+  score += Math.round(10 * explanatory / Math.max(development.length, 1));
+  if (actionable >= 3) reasons.push('acciones concretas');
+  if (explanatory >= 3) reasons.push('explica mecanismos');
+
+  if (ms < 8000) score += 3;
+  else if (ms > 35000) score -= 3;
 
   return { score, reasons };
 }

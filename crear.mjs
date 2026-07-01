@@ -100,8 +100,8 @@ Tus respuestas son siempre específicas y accionables — nunca genéricas, nunc
 FORMATO DE SALIDA — REGLA INQUEBRANTABLE: respondés ÚNICAMENTE con JSON puro válido. Sin \`\`\`markdown\`\`\`, sin comentarios, sin texto antes ni después del JSON, sin explicaciones. El primer carácter de tu respuesta es { y el último es }.`;
 
 const FALLBACK_MODELS = [
-  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
   'blackboxai/deepseek/deepseek-v4-pro',
+  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
   'blackboxai/anthropic/claude-nemotron',
 ];
 
@@ -110,9 +110,12 @@ async function callBlackbox(content, attempt = 0) {
   if (!apiKey) throw new Error('Falta la variable de entorno BLACKBOX_API_KEY');
 
   const preferredModel = process.env.USER_MODEL || process.env.BLACKBOX_MODEL || '';
-  const modelPool = preferredModel
-    ? [preferredModel, ...FALLBACK_MODELS.filter(m => m !== preferredModel)]
-    : FALLBACK_MODELS;
+  const primaryModel = preferredModel || FALLBACK_MODELS[0];
+  const modelPool = [
+    primaryModel,
+    primaryModel,
+    ...FALLBACK_MODELS.filter(m => m !== primaryModel),
+  ];
   const model = modelPool[Math.min(attempt, modelPool.length - 1)];
 
   let response;
@@ -129,7 +132,7 @@ async function callBlackbox(content, attempt = 0) {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 3500,
+          max_tokens: 6000,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content }
@@ -457,7 +460,7 @@ TIPOS BASE (la columna vertebral de la mayoría de los carruseles):
      CUÁNDO USAR cover-impact: cuando el hook tiene un número, una cifra, una palabra-concepto o un contraste fuerte que gana siendo enorme (ej: “EL 90% FALLA”, “NADIE TE LO DIJO”). CUÁNDO NO: cuando el hook es una pregunta larga, una frase reflexiva o narrativa — ahí el cover clásico lee mejor. No lo uses por defecto; elegí según el hook real.
 - statement: afirmación desarrollada. { “type”: “statement”, “headline”: “afirmación\\ncorta y rotunda”, “body”: “desarrollo breve\\n\\ncon párrafos cortos” }
 - list: lista de ítems (3 a 5). { “type”: “list”, “eyebrow”: “frase de contexto en mayúsculas”, “items”: [“ítem 1”, “ítem 2”, “ítem 3”, “ítem 4”, “ítem 5”] }
-- quote: cita o frase de autoridad. { “type”: “quote”, “quote”: “”cita corta y potente””, “attr”: “remate de la cita”, “note”: “nota breve que la conecta con la marca” }
+- quote: usalo ÚNICAMENTE si el pedido o el contexto trae una cita/fuente real. Nunca inventes frases de autoridad ni atribuciones. { “type”: “quote”, “quote”: “cita real provista”, “attr”: “fuente real”, “note”: “por qué importa para este tema” }
 - cta: llamado a la acción final (slide 6). { “type”: “cta”, “headline”: “llamado\\na la acción”, “sub”: “una línea que invita\\na escribir por DM”, “handle”: “${USER_HANDLE || '@tumarca'}” }
 
 TIPOS DE ALTO IMPACTO (usá al menos uno cuando el tema lo permita — dan variedad visual):
@@ -475,14 +478,20 @@ ${USER_PLAN.map(s => `  Slide ${s.position}: [${s.type}] ${s.title}${s.notes ? `
 El JSON debe tener EXACTAMENTE ${USER_PLAN.length} slides en ese orden.` : `ESTRUCTURA Y VARIEDAD: el slide 1 siempre es “cover”, el slide 6 siempre es “cta”. Los 4 del medio (2-5) los elegís vos siguiendo esta guía según la NATURALEZA del tema:
 - Tema con datos/estadísticas → usá big_number o grid_stats en slide 2 o 3.
 - Tema de proceso/método/“cómo se hace” → usá timeline o steps en slide 3 o 4.
-- Tema reflexivo/emocional/de mentalidad → usá statement + quote; EVITÁ grids y tablas (rompen el tono).
+- Tema reflexivo/emocional/de mentalidad → usá statement + list o timeline; quote sólo si el contexto incluye una cita real. EVITÁ grids y tablas (rompen el tono).
 - Tema comparativo (esto vs aquello, mito vs realidad) → usá comparison o split en slide 3.
 - Tema que presenta múltiples ítems/beneficios → usá list O icon_list, NUNCA ambos en el mismo carrusel.
 Reglas de variedad inquebrantables: NO repitas el mismo type en dos slides consecutivos. NO uses más de dos slides del mismo type en todo el carrusel. El arco debe leerse: cover (hook) → desarrollo variado → remate → cta.`}
 ${fotos?.length ? '' : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
 Reglas generales:
 - El tema debe tratarse con un ángulo específico, no genérico.
+- El TEMA manda sobre el contenido. El contexto de marca define voz, perspectiva y CTA, pero no metas el rubro de la marca en cada ejemplo si no corresponde al tema.
 - Evitá totalmente las palabras/clichés listados como “Avoid”.
+- CONTRATO DE VALOR: los slides 2 a 5 no pueden ser frases decorativas ni repetir el titular con otras palabras. Cada uno debe aportar una idea nueva y verificable.
+- Cada slide de desarrollo debe incluir al menos DOS de estos elementos: mecanismo (por qué pasa), ejemplo observable, consecuencia concreta, acción aplicable.
+- Densidad mínima por tipo: statement con body de 30-60 palabras; list con 4-5 ítems de 8-18 palabras; timeline/steps con 3-4 pasos y detalle; comparison con 3-4 filas; grid/icon_list con 4 elementos que tengan explicación, no sólo etiquetas; quote con note que explique por qué importa.
+- La portada y el CTA sí son breves. El desarrollo no: priorizá valor útil y especificidad antes que frases de impacto vacías.
+- No inventes porcentajes, resultados, testimonios, citas ni datos que no aparezcan en el contexto de marca o en el pedido.
 - Usá “\\n” dentro de los textos para cortar líneas como en un carrusel real (nunca un solo párrafo largo en headlines).
 - Nunca uses comillas dobles rectas (“) dentro de un valor de texto — para citas o términos entre comillas usá comillas tipográficas “ “ curvas.
 - RESALTADO DE COLOR (opcional, usalo con criterio — no es obligatorio). Hay exactamente dos sintaxis y se aplican SOLO en campos body, detail o sub (NUNCA en headline ni title):
@@ -558,13 +567,96 @@ Reglas generales:
 // Slides que fallen en alguna dimensión se reescriben en la misma llamada.
 // Una sola llamada a la IA, ~600 tokens. No bloquea si la IA no devuelve JSON válido.
 
+function contenidoAuditable(slide) {
+  if (Array.isArray(slide)) return slide.map(contenidoAuditable);
+  if (!slide || typeof slide !== 'object') return slide;
+  return Object.fromEntries(
+    Object.entries(slide)
+      .filter(([key]) =>
+        !key.startsWith('_') &&
+        !key.toLowerCase().includes('photo') &&
+        !['type', 'icon', 'handle'].includes(key)
+      )
+      .map(([key, value]) => [key, contenidoAuditable(value)])
+  );
+}
+
+function contarPalabras(value) {
+  if (typeof value === 'string') {
+    return value
+      .replace(/\[[^\]]+\]\{[^}]+\}/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .length;
+  }
+  if (Array.isArray(value)) return value.reduce((total, item) => total + contarPalabras(item), 0);
+  if (value && typeof value === 'object') {
+    return Object.values(value).reduce((total, item) => total + contarPalabras(item), 0);
+  }
+  return 0;
+}
+
+function alertaDensidad(slide, idx, totalSlides) {
+  if (idx === 0 || idx === totalSlides - 1) return null;
+  const words = contarPalabras(contenidoAuditable(slide));
+  const amount = key => Array.isArray(slide[key]) ? slide[key].length : 0;
+
+  switch (slide.type) {
+    case 'statement':
+      return contarPalabras(slide.body) < 28 ? 'body con menos de 28 palabras útiles' : null;
+    case 'list':
+      return amount('items') < 4 || contarPalabras(slide.items) < 32
+        ? 'lista con menos de 4 ítems desarrollados'
+        : null;
+    case 'quote':
+      return contarPalabras([slide.quote, slide.attr, slide.note]) < 22
+        ? 'cita sin desarrollo o consecuencia suficiente'
+        : null;
+    case 'timeline':
+      return amount('steps') < 3 || contarPalabras(slide.steps) < 24
+        ? 'timeline sin 3 pasos suficientemente explicados'
+        : null;
+    case 'steps':
+      return amount('items') < 3 || contarPalabras(slide.items) < 24
+        ? 'pasos sin explicación práctica suficiente'
+        : null;
+    case 'comparison':
+      return amount('rows') < 3 || contarPalabras(slide.rows) < 18
+        ? 'comparación con menos de 3 filas útiles'
+        : null;
+    case 'grid':
+      return amount('cells') < 4 || contarPalabras(slide.cells) < 24
+        ? 'grilla con celdas demasiado breves'
+        : null;
+    case 'icon_list':
+      return amount('items') < 4 || contarPalabras(slide.items) < 28
+        ? 'lista visual con menos de 4 ideas desarrolladas'
+        : null;
+    case 'split':
+      return (slide.left?.items?.length || 0) < 3 ||
+        (slide.right?.items?.length || 0) < 3 ||
+        words < 28
+        ? 'columnas con poco contenido comparativo'
+        : null;
+    case 'big_number':
+      return contarPalabras(slide.body) < 12 ? 'dato sin contexto o explicación' : null;
+    default:
+      return words < 26 ? `slide de desarrollo con sólo ${words} palabras útiles` : null;
+  }
+}
+
 async function scoreYCorregir(contenido, marca, tema) {
   const evitar = marca.evitar?.length ? marca.evitar.join(', ') : null;
   const slidesResumen = contenido.slides.map((s, i) => {
-    const textos = [s.headline, s.detail, s.body, s.quote, s.sub, s.kicker, s.eyebrow]
-      .filter(Boolean).map(t => t.replace(/\\n/g, ' ')).join(' | ');
-    return `Slide ${i + 1} (${s.type}): ${textos.slice(0, 200)}`;
+    return `Slide ${i + 1}: ${JSON.stringify(contenidoAuditable(s))}`;
   }).join('\n');
+  const alertasDensidad = contenido.slides
+    .map((slide, idx) => {
+      const alerta = alertaDensidad(slide, idx, contenido.slides.length);
+      return alerta ? `- Slide ${idx + 1}: ${alerta}` : null;
+    })
+    .filter(Boolean);
 
   const tiposSecuencia = contenido.slides.map((s, i) => `${i + 1}:${s.type}`).join(' → ');
 
@@ -580,9 +672,16 @@ SLIDES GENERADOS:
 ${slidesResumen}
 
 PLANO 1 — COPY POR SLIDE. Para cada slide asigná:
-- "ok": true si el copy es específico, respeta la voz y no usa palabras prohibidas. false si falla en algo.
-- "problema": (solo si ok=false) qué falla en una línea: genérico / cliché / voz incorrecta / otro.
+- "ok": true sólo si el copy es específico, respeta la voz, no usa palabras prohibidas Y entrega suficiente valor útil. false si falla en algo.
+- Un slide de desarrollo debe aportar una idea nueva e incluir al menos dos de estos elementos: mecanismo, ejemplo observable, consecuencia, acción aplicable.
+- El texto secundario debe desarrollar el titular, nunca repetirlo con sinónimos.
+- No inventes estadísticas, resultados, citas ni testimonios no presentes en el contexto.
+- "problema": (solo si ok=false) qué falla en una línea: genérico / cliché / voz incorrecta / poco contenido / repetición / dato inventado / otro.
 - "fix": (solo si ok=false) reescribí SOLO el campo o campos que fallan, en el mismo formato JSON del slide original. Mantenés el type y los campos que no cambian.
+${alertasDensidad.length ? `
+ALERTAS AUTOMÁTICAS DE DENSIDAD — estos slides NO pueden marcarse ok=true sin enriquecerlos:
+${alertasDensidad.join('\n')}
+` : ''}
 
 PLANO 2 — ARCO NARRATIVO. Evaluá el carrusel como una historia con principio, medio y fin:
 - Slide 1 (cover): ¿el hook PARA el scroll? Debe ser una pregunta, una tensión, un dato impactante o una afirmación contraintuitiva. Si es tibio o genérico, falla.
