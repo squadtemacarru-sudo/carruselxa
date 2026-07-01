@@ -455,6 +455,7 @@ Todos los campos “icon” usan nombres de Material Symbols de Google en snake_
 TIPOS BASE (la columna vertebral de la mayoría de los carruseles):
 - cover: portada (slide 1). Tiene dos formatos:
   a) Formato clásico — para hooks que son una frase corrida, una pregunta o una afirmación: { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto”, “kicker”: “frase corta” }
+     ⚠ REGLA CRÍTICA DE LA PORTADA CON FOTO: si el slide cover lleva “photo” como fondo, usá ÚNICAMENTE el campo “headline” (máx 4-5 palabras por línea, 2-3 líneas). NO pongas “detail” ni “kicker” — la foto ya cuenta la historia, el texto encima debe ser mínimo y de máximo impacto. Si añadís detail o kicker sobre una foto, el slide queda ilegible y sobrecargado. Tratalo como cartel, no como párrafo.
   b) Formato hero multi-línea (“_layout”: “cover-impact”) — para hooks construidos sobre un dato/número/palabra clave que merece tamaño gigante: { “type”: “cover”, “_layout”: “cover-impact”, “headline_lines”: [{“text”:”TEXTO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”EL DATO O CONCEPTO CLAVE”,”size”:”hero”,”color”:”#e8000d”,”stroke”:true},{“text”:”OTRO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”IMPACTO”,”size”:”hero”,”color”:”#e8000d”}] }
      Tamaños: “hero” = enorme (la palabra/dato que para el scroll), “md” = mediano, “connector” = pequeño conector entre líneas grandes. stroke:true agrega subrayado decorativo.
      CUÁNDO USAR cover-impact: cuando el hook tiene un número, una cifra, una palabra-concepto o un contraste fuerte que gana siendo enorme (ej: “EL 90% FALLA”, “NADIE TE LO DIJO”). CUÁNDO NO: cuando el hook es una pregunta larga, una frase reflexiva o narrativa — ahí el cover clásico lee mejor. No lo uses por defecto; elegí según el hook real.
@@ -482,7 +483,11 @@ El JSON debe tener EXACTAMENTE ${USER_PLAN.length} slides en ese orden.` : `ESTR
 - Tema comparativo (esto vs aquello, mito vs realidad) → usá comparison o split en slide 3.
 - Tema que presenta múltiples ítems/beneficios → usá list O icon_list, NUNCA ambos en el mismo carrusel.
 Reglas de variedad inquebrantables: NO repitas el mismo type en dos slides consecutivos. NO uses más de dos slides del mismo type en todo el carrusel. El arco debe leerse: cover (hook) → desarrollo variado → remate → cta.`}
-${fotos?.length ? '' : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
+${fotos?.length ? `
+REGLAS OBLIGATORIAS PARA SLIDES CON FOTO DE FONDO:
+- Cover con foto: SOLO headline (2-3 líneas cortas). PROHIBIDO incluir "detail", "kicker" o cualquier texto secundario. La foto es el mensaje, el headline es el gancho.
+- Cualquier slide que lleve "photo" como fondo: el texto debe ser MÍNIMO. Para statement/quote con foto: headline breve + 1 línea de body como máximo. No pongas párrafos: la foto ya dice la mitad.
+- La regla de oro: si podés eliminar un campo de texto de un slide con foto y el slide sigue funcionando, eliminalo.` : '\nReglas:\n- NO incluyas el campo "photo" en ninguna slide — este carrusel es 100% tipográfico.'}
 Reglas generales:
 - El tema debe tratarse con un ángulo específico, no genérico.
 - El TEMA manda sobre el contenido. El contexto de marca define voz, perspectiva y CTA, pero no metas el rubro de la marca en cada ejemplo si no corresponde al tema.

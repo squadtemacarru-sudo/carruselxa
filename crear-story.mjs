@@ -442,6 +442,7 @@ TIPOS DE SLIDE disponibles — elegí el más adecuado para cada posición:
 Tipos base (siempre disponibles):
 - cover: portada. Dos formatos posibles:
   a) Formato clásico: { “type”: “cover”, “headline”: “línea 1\\nlínea 2\\nlínea 3”, “detail”: “detalle corto”, “kicker”: “frase corta” }
+     ⚠ Si el cover lleva “photo” como fondo: usá SOLO “headline”. Sin “detail” ni “kicker” — la foto ya habla, el texto debe ser mínimo e impactante.
   b) Formato hero multi-línea (PREFERIDO para temas con dato o número fuerte): { “type”: “cover”, “_layout”: “cover-impact”, “headline_lines”: [{“text”:”TEXTO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”EL DATO”,”size”:”hero”,”color”:”#e8000d”,”stroke”:true},{“text”:”OTRO CONECTOR”,”size”:”connector”,”color”:”#ffffff”},{“text”:”IMPACTO”,”size”:”hero”,”color”:”#e8000d”}] }
      Tamaños de línea: “hero” = enorme (el dato/número), “md” = mediano, “connector” = pequeño conector
      stroke:true agrega subrayado decorativo debajo de esa línea
