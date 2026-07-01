@@ -1321,17 +1321,33 @@ app.post('/api/marcas/:id/logo', async (req, res) => {
 // Helpers IA — texto y visión
 // ─────────────────────────────────────────────────────────────────────
 
-const BB_FALLBACK_MODELS = [
+const BB_TEXT_FALLBACK_MODELS = [
+  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
+  'blackboxai/deepseek/deepseek-v4-pro',
   'blackboxai/anthropic/claude-nemotron',
-  'blackboxai/openai/gpt-5.4',
-  'blackboxai/deepseek/deepseek-v4-flash',
-  'claude-haiku-4-5-20251001',
+];
+
+const BB_VISION_FALLBACK_MODELS = [
+  'blackboxai/anthropic/claude-nemotron',
+  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
+  'blackboxai/deepseek/deepseek-v4-pro',
 ];
 
 async function bbFetch(body, attempt = 0) {
   const apiKey = process.env.BLACKBOX_API_KEY;
   if (!apiKey) throw new Error('Falta BLACKBOX_API_KEY');
-  const model = process.env.BLACKBOX_MODEL || BB_FALLBACK_MODELS[Math.min(attempt, BB_FALLBACK_MODELS.length - 1)];
+  const isVision = body.messages?.some(message =>
+    Array.isArray(message.content) &&
+    message.content.some(item => item?.type === 'image_url')
+  );
+  const fallbackModels = isVision ? BB_VISION_FALLBACK_MODELS : BB_TEXT_FALLBACK_MODELS;
+  const preferredModel = isVision
+    ? process.env.BLACKBOX_VISION_MODEL || ''
+    : process.env.BLACKBOX_MODEL || '';
+  const modelPool = preferredModel
+    ? [preferredModel, ...fallbackModels.filter(m => m !== preferredModel)]
+    : fallbackModels;
+  const model = modelPool[Math.min(attempt, modelPool.length - 1)];
 
   let res;
   try {
@@ -1348,9 +1364,9 @@ async function bbFetch(body, attempt = 0) {
       clearTimeout(abortTimer);
     }
   } catch (netErr) {
-    if (attempt < 3) {
+    if (attempt < modelPool.length - 1) {
       const delay = [5000, 12000, 25000][attempt];
-      console.warn(`⏳ Error de red Blackbox servidor (intento ${attempt + 1}): ${netErr.message} — reintentando en ${delay / 1000}s...`);
+      console.warn(`⏳ Error de red Blackbox servidor con ${model}: ${netErr.message} — probando fallback en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return bbFetch(body, attempt + 1);
     }
@@ -1362,9 +1378,9 @@ async function bbFetch(body, attempt = 0) {
   try {
     data = JSON.parse(rawText);
   } catch {
-    if (attempt < 3) {
+    if (attempt < modelPool.length - 1) {
       const delay = [5000, 12000, 25000][attempt];
-      console.warn(`⏳ Respuesta no-JSON de Blackbox servidor (intento ${attempt + 1}, status ${res.status}) — reintentando en ${delay / 1000}s...`);
+      console.warn(`⏳ Respuesta no-JSON de Blackbox servidor con ${model} (status ${res.status}) — probando fallback en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return bbFetch(body, attempt + 1);
     }
@@ -1374,15 +1390,20 @@ async function bbFetch(body, attempt = 0) {
   if (!res.ok) {
     const bodyStr = JSON.stringify(data);
     const is429 = res.status === 429 || bodyStr.includes('RESOURCE_EXHAUSTED') || bodyStr.includes('429');
-    if (is429 && attempt < 3) {
+    if ((is429 || res.status >= 400) && attempt < modelPool.length - 1) {
       const delay = [5000, 12000, 25000][attempt];
-      console.warn(`⏳ Rate limit servidor (intento ${attempt + 1}) — reintentando en ${delay / 1000}s...`);
+      console.warn(`⏳ Blackbox servidor ${res.status} con ${model} — probando fallback en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return bbFetch(body, attempt + 1);
     }
     throw new Error(`Blackbox: ${data.error?.message || bodyStr}`);
   }
-  return data.choices?.[0]?.message?.content || '';
+  const output = data.choices?.[0]?.message?.content || '';
+  if (!output.trim() && attempt < modelPool.length - 1) {
+    console.warn(`⏳ Blackbox servidor devolvió contenido vacío con ${model} — probando fallback...`);
+    return bbFetch(body, attempt + 1);
+  }
+  return output;
 }
 
 async function callBlackboxText(promptText, maxTokens = 600) {

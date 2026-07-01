@@ -30,10 +30,9 @@ Pensás como un estratega: variás los temas para que no se repita el mismo áng
 FORMATO DE SALIDA — REGLA INQUEBRANTABLE: respondés ÚNICAMENTE con JSON puro válido. Sin markdown, sin comentarios, sin texto antes ni después. El primer carácter es { y el último es }.`;
 
 const FALLBACK_MODELS = [
+  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
+  'blackboxai/deepseek/deepseek-v4-pro',
   'blackboxai/anthropic/claude-nemotron',
-  'blackboxai/openai/gpt-5.4',
-  'blackboxai/deepseek/deepseek-v4-flash',
-  'claude-haiku-4-5-20251001',
 ];
 
 function sanitizeJson(text) {
@@ -63,7 +62,11 @@ function sanitizeJson(text) {
 async function callBlackbox(content, attempt = 0) {
   const apiKey = process.env.BLACKBOX_API_KEY;
   if (!apiKey) throw new Error('Falta la variable de entorno BLACKBOX_API_KEY');
-  const model = process.env.USER_MODEL || process.env.BLACKBOX_MODEL || FALLBACK_MODELS[Math.min(attempt, FALLBACK_MODELS.length - 1)];
+  const preferredModel = process.env.USER_MODEL || process.env.BLACKBOX_MODEL || '';
+  const modelPool = preferredModel
+    ? [preferredModel, ...FALLBACK_MODELS.filter(m => m !== preferredModel)]
+    : FALLBACK_MODELS;
+  const model = modelPool[Math.min(attempt, modelPool.length - 1)];
 
   let response;
   try {
@@ -85,9 +88,9 @@ async function callBlackbox(content, attempt = 0) {
       });
     } finally { clearTimeout(abortTimer); }
   } catch (netErr) {
-    if (attempt < 3) {
+    if (attempt < modelPool.length - 1) {
       const delay = [5000, 12000, 25000][attempt];
-      console.warn(`⏳ Error de red Blackbox (intento ${attempt + 1}): ${netErr.message} — reintentando en ${delay / 1000}s...`);
+      console.warn(`⏳ Error de red Blackbox con ${model}: ${netErr.message} — probando fallback en ${delay / 1000}s...`);
       await new Promise(r => setTimeout(r, delay));
       return callBlackbox(content, attempt + 1);
     }
@@ -99,9 +102,9 @@ async function callBlackbox(content, attempt = 0) {
   try { data = JSON.parse(rawText); }
   catch {
     const preview = rawText.slice(0, 300).replace(/\n/g, ' ');
-    if (attempt < 3) {
+    if (attempt < modelPool.length - 1) {
       const delay = [5000, 12000, 25000][attempt];
-      console.warn(`⏳ Respuesta no-JSON de Blackbox (intento ${attempt + 1}, status ${response.status}) — reintentando...`);
+      console.warn(`⏳ Respuesta no-JSON de Blackbox con ${model} (status ${response.status}) — probando fallback...`);
       await new Promise(r => setTimeout(r, delay));
       return callBlackbox(content, attempt + 1);
     }
@@ -111,15 +114,20 @@ async function callBlackbox(content, attempt = 0) {
   if (!response.ok) {
     const body = JSON.stringify(data);
     const is429 = response.status === 429 || body.includes('RESOURCE_EXHAUSTED') || body.includes('429');
-    if (is429 && attempt < 3) {
+    if ((is429 || response.status >= 400) && attempt < modelPool.length - 1) {
       const delay = [5000, 12000, 25000][attempt];
-      console.warn(`⏳ Rate limit (intento ${attempt + 1}) — reintentando...`);
+      console.warn(`⏳ Blackbox ${response.status} con ${model} — probando fallback...`);
       await new Promise(r => setTimeout(r, delay));
       return callBlackbox(content, attempt + 1);
     }
     throw new Error(`Blackbox API error: ${data.error?.message || body}`);
   }
-  return data.choices?.[0]?.message?.content || '';
+  const output = data.choices?.[0]?.message?.content || '';
+  if (!output.trim() && attempt < modelPool.length - 1) {
+    console.warn(`⏳ Blackbox devolvió contenido vacío con ${model} — probando fallback...`);
+    return callBlackbox(content, attempt + 1);
+  }
+  return output;
 }
 
 function parseJson(raw) {

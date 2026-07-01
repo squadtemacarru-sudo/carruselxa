@@ -15,10 +15,77 @@ import sharp from 'sharp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-async function callVision(imageDataUrl) {
+const FALLBACK_MODELS = [
+  'blackboxai/anthropic/claude-nemotron',
+  'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
+  'blackboxai/deepseek/deepseek-v4-pro',
+];
+
+async function callVisionPrompt(content, maxTokens, attempt = 0) {
   const apiKey = process.env.BLACKBOX_API_KEY;
   if (!apiKey) return null;
 
+  const preferredModel = process.env.BLACKBOX_VISION_MODEL || '';
+  const modelPool = preferredModel
+    ? [preferredModel, ...FALLBACK_MODELS.filter(m => m !== preferredModel)]
+    : FALLBACK_MODELS;
+  const model = modelPool[Math.min(attempt, modelPool.length - 1)];
+
+  let res;
+  try {
+    const ac = new AbortController();
+    const abortTimer = setTimeout(() => ac.abort(), 90000);
+    try {
+      res = await fetch('https://api.blackbox.ai/v1/chat/completions', {
+        signal: ac.signal,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          messages: [{ role: 'user', content }]
+        })
+      });
+    } finally {
+      clearTimeout(abortTimer);
+    }
+  } catch (err) {
+    if (attempt < modelPool.length - 1) {
+      console.warn(`⏳ Error de red Blackbox crítica con ${model}: ${err.message} — probando fallback...`);
+      return callVisionPrompt(content, maxTokens, attempt + 1);
+    }
+    return null;
+  }
+
+  const rawText = await res.text();
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    if (attempt < modelPool.length - 1) {
+      console.warn(`⏳ Respuesta no-JSON Blackbox crítica con ${model} — probando fallback...`);
+      return callVisionPrompt(content, maxTokens, attempt + 1);
+    }
+    return null;
+  }
+
+  if (!res.ok) {
+    if (attempt < modelPool.length - 1) {
+      console.warn(`⏳ Blackbox crítica ${res.status} con ${model} — probando fallback...`);
+      return callVisionPrompt(content, maxTokens, attempt + 1);
+    }
+    return null;
+  }
+
+  const output = data.choices?.[0]?.message?.content?.trim() || '';
+  if (!output && attempt < modelPool.length - 1) {
+    console.warn(`⏳ Blackbox crítica devolvió contenido vacío con ${model} — probando fallback...`);
+    return callVisionPrompt(content, maxTokens, attempt + 1);
+  }
+  return output || null;
+}
+
+async function callVision(imageDataUrl) {
   const prompt = `Sos director de arte senior especializado en Instagram. Analizá este slide de carrusel.
 
 Evaluá estos 4 aspectos:
@@ -43,27 +110,14 @@ Reglas estrictas:
 - text_y_nuevo: si el texto tapa la cara/cuerpo del sujeto → el % vertical (0-100) donde debería ir el TOPE del bloque de texto para no taparlo. Ejemplo: 75 = texto en zona inferior (sujeto arriba), 8 = texto en zona superior (sujeto abajo). Si no hay persona en la foto o el texto ya está bien posicionado → null.
 - Solo devolvé ajuste si el problema es CLARO y OBVIO. Ante la duda, devolvé null.`;
 
-  const res = await fetch('https://api.blackbox.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-nemotron',
-      max_tokens: 200,
-      messages: [{ role: 'user', content: [
-        { type: 'image_url', image_url: { url: imageDataUrl, detail: 'low' } },
-        { type: 'text', text: prompt }
-      ]}]
-    })
-  });
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() || null;
+  return callVisionPrompt([
+    { type: 'image_url', image_url: { url: imageDataUrl, detail: 'low' } },
+    { type: 'text', text: prompt }
+  ], 200);
 }
 
 async function callVisionCoherencia(imageDataUrls) {
-  const apiKey = process.env.BLACKBOX_API_KEY;
-  if (!apiKey || !imageDataUrls.length) return null;
+  if (!imageDataUrls.length) return null;
 
   const prompt = `Sos director de arte senior. Estás viendo los ${imageDataUrls.length} slides de un carrusel de Instagram en orden.
 
@@ -92,22 +146,10 @@ Reglas:
     image_url: { url, detail: 'low' }
   }));
 
-  const res = await fetch('https://api.blackbox.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: process.env.BLACKBOX_MODEL || 'blackboxai/anthropic/claude-nemotron',
-      max_tokens: 300,
-      messages: [{ role: 'user', content: [
-        ...imageContent,
-        { type: 'text', text: prompt }
-      ]}]
-    })
-  });
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() || null;
+  return callVisionPrompt([
+    ...imageContent,
+    { type: 'text', text: prompt }
+  ], 300);
 }
 
 async function main() {
