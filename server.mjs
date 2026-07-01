@@ -1328,9 +1328,9 @@ const BB_TEXT_FALLBACK_MODELS = [
 ];
 
 const BB_VISION_FALLBACK_MODELS = [
-  'blackboxai/anthropic/claude-nemotron',
   'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
   'blackboxai/deepseek/deepseek-v4-pro',
+  'blackboxai/anthropic/claude-nemotron',
 ];
 
 async function bbFetch(body, attempt = 0) {
@@ -2175,12 +2175,53 @@ app.post('/api/tandas/:id/switch-design', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Chat con IA sobre un slide específico del editor (texto + foto si tiene)
+const SLIDE_AI_EDITABLE_FIELDS = new Set([
+  'headline', 'headline_lines', 'subheadline', 'kicker', 'eyebrow', 'body',
+  'detail', 'caption', 'stat', 'label', 'sub', 'quote', 'author', 'attr',
+  'note', 'line1', 'line2', 'footer_text', 'handle', 'cta', 'title',
+  'contrast_top', 'contrast_bottom', 'label_top', 'label_bottom',
+  'label_before', 'label_after', 'items', 'steps', 'rows', 'cells',
+  'left', 'right', 'col_a', 'col_b', '_overlay', '_textY', '_photoPos',
+  '_textPosition', '_headlineAjuste', '_colorHeadline', '_colorBody',
+]);
+
+function sanitizeSlideAiPatch(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const patch = Object.fromEntries(
+    Object.entries(value).filter(([key]) => SLIDE_AI_EDITABLE_FIELDS.has(key))
+  );
+  if ('_overlay' in patch) {
+    const overlay = Number(patch._overlay);
+    if (Number.isFinite(overlay)) patch._overlay = Math.min(0.9, Math.max(0.1, overlay));
+    else delete patch._overlay;
+  }
+  if ('_textY' in patch) {
+    const textY = Number(patch._textY);
+    if (Number.isFinite(textY)) patch._textY = Math.round(Math.min(90, Math.max(5, textY)));
+    else delete patch._textY;
+  }
+  if ('_headlineAjuste' in patch && !['normal', 'small', 'xsmall'].includes(patch._headlineAjuste)) {
+    delete patch._headlineAjuste;
+  }
+  if ('_textPosition' in patch && !['top', 'center', 'bottom'].includes(patch._textPosition)) {
+    delete patch._textPosition;
+  }
+  if ('_photoPos' in patch && !/^center \d{1,3}%$/.test(patch._photoPos)) {
+    delete patch._photoPos;
+  }
+  for (const colorKey of ['_colorHeadline', '_colorBody']) {
+    if (colorKey in patch && !/^#[0-9a-f]{6}$/i.test(patch[colorKey])) delete patch[colorKey];
+  }
+  return patch;
+}
+
+// Consola IA sobre un slide específico (texto + foto si tiene).
 app.post('/api/tandas/:id/slide-chat', async (req, res) => {
   const { id } = req.params;
   if (!isValidTandaId(id)) return res.status(400).json({ error: 'id inválido' });
-  const { idx, mensaje, historial } = req.body || {};
+  const { idx, mensaje, historial, slide: clientSlide, slides: clientSlides } = req.body || {};
   if (!mensaje || typeof mensaje !== 'string') return res.status(400).json({ error: 'Falta mensaje' });
+  if (mensaje.length > 1200) return res.status(400).json({ error: 'El mensaje es demasiado largo' });
 
   let contenido;
   try {
@@ -2188,17 +2229,44 @@ app.post('/api/tandas/:id/slide-chat', async (req, res) => {
   } catch {
     return res.status(404).json({ error: 'Tanda no encontrada o sin analizar' });
   }
-  const slide = contenido.slides?.[idx];
-  if (!slide) return res.status(404).json({ error: 'Slide no encontrado' });
+  const savedSlide = contenido.slides?.[idx];
+  if (!savedSlide) return res.status(404).json({ error: 'Slide no encontrado' });
+  const slide = clientSlide && typeof clientSlide === 'object' && !Array.isArray(clientSlide)
+    ? { ...savedSlide, ...clientSlide, type: savedSlide.type }
+    : savedSlide;
 
   let photoUrl = null;
   if (slide.photo) {
     const base = path.basename(slide.photo);
     photoUrl = slide.photo.startsWith('http') ? slide.photo : (fotosCloud.get(base)?.url || null);
   }
+  let renderedSlideUrl = null;
+  try {
+    const slideNumber = String(Number(idx) + 1).padStart(2, '0');
+    const rendered = await readFile(path.join(__dirname, 'tandas', id, 'output', `slide-${slideNumber}.png`));
+    renderedSlideUrl = `data:image/png;base64,${rendered.toString('base64')}`;
+  } catch {}
 
-  const histTexto = (historial || []).map(m => `${m.role === 'user' ? 'Usuario' : 'Vos'}: ${m.text}`).join('\n');
-  const prompt = `Sos un diseñador senior ayudando a un usuario a ajustar UN slide específico de un carrusel de Instagram ya renderizado.
+  const safeHistory = Array.isArray(historial) ? historial.slice(-8) : [];
+  const histTexto = safeHistory
+    .map(m => `${m.role === 'user' ? 'Usuario' : 'Asistente'}: ${String(m.text || '').slice(0, 500)}`)
+    .join('\n');
+  const slidesForContext = Array.isArray(clientSlides) ? clientSlides.slice(0, 12) : contenido.slides;
+  const carouselContext = slidesForContext.map((item, slideIdx) => ({
+    slide: slideIdx + 1,
+    type: item?.type,
+    headline: item?.headline || item?.title || item?.stat || item?.quote || '',
+    body: item?.body || item?.sub || item?.detail || '',
+  }));
+
+  const prompt = `Sos un director creativo senior editando UN slide de un carrusel de Instagram.
+
+${renderedSlideUrl
+  ? 'La PRIMERA imagen adjunta es el slide final ya renderizado: usala para detectar dónde están el texto, las caras y los cuerpos. La segunda, si existe, es la foto original.'
+  : 'Si hay una imagen adjunta, es la foto original del slide.'}
+
+Contexto breve del carrusel:
+${JSON.stringify(carouselContext, null, 2)}
 
 Datos del slide (JSON, tal cual está hoy):
 ${JSON.stringify(slide, null, 2)}
@@ -2208,15 +2276,42 @@ ${photoUrl ? 'Este slide tiene una foto de fondo (te la adjunto).' : 'Este slide
 ${histTexto ? `Conversación previa:\n${histTexto}\n` : ''}
 El usuario dice ahora: "${mensaje}"
 
-Respondé en español rioplatense, corto y concreto (máx 4 líneas), como si fueras un diseñador dándole una recomendación práctica al usuario. Si la sugerencia implica un cambio que el usuario puede hacer con los controles del editor (oscurecido de la foto, arrastrar el texto, color, tamaño, negrita), decile exactamente qué control tocar y en qué dirección. No devuelvas JSON, solo texto plano conversacional.`;
+Aplicá el pedido al slide. Conservá su type, identidad visual, intención y datos correctos.
+No cambies fotos ni inventes métricas. Para pedidos visuales podés usar:
+- _overlay: 0.1 a 0.9
+- _textY: 5 a 90
+- _photoPos: "center N%"
+- _headlineAjuste: "normal", "small" o "xsmall"
+- _colorHeadline y _colorBody: color hexadecimal
+
+Regla crítica para personas:
+- El rectángulo completo de texto no puede cruzar una cara.
+- Si hay espacio limpio arriba de las caras, preferí _textY entre 6 y 14.
+- Si no entra arriba, buscá una zona libre debajo y mantené un margen visible.
+- No pongas el texto en el centro de un rostro aunque siga siendo legible.
+
+Respondé ÚNICAMENTE JSON válido:
+{
+  "respuesta": "confirmación breve en español rioplatense",
+  "patch": { "campo_a_cambiar": "nuevo valor" }
+}
+
+El patch contiene solo campos modificados. Si el usuario pregunta algo sin pedir un cambio, usá patch vacío.`;
 
   try {
-    const respuesta = photoUrl
-      ? await callBlackboxVision([photoUrl], prompt)
-      : await callBlackboxText(prompt, 500);
-    res.json({ respuesta: respuesta.trim() });
+    const visionImages = [renderedSlideUrl, photoUrl].filter(Boolean);
+    const raw = visionImages.length
+      ? await callBlackboxVision(visionImages, prompt)
+      : await callBlackboxText(prompt, 1000);
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+    const patch = sanitizeSlideAiPatch(parsed.patch);
+    res.json({
+      respuesta: String(parsed.respuesta || (Object.keys(patch).length ? 'Listo, lo apliqué.' : 'No hice cambios.')).slice(0, 500),
+      patch,
+    });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: `La IA no pudo editar este slide: ${e.message}` });
   }
 });
 

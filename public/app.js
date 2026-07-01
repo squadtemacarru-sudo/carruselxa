@@ -1575,6 +1575,8 @@ let editorTandaId   = null;
 let editorContenido = null;
 let editorSlideIdx  = 0;
 let editorTs        = Date.now();
+let editorAiHistory = new Map();
+const editorAiPending = new Set();
 // ── Undo / Redo ──────────────────────────────────────
 const UNDO_LIMIT = 30;
 let undoStack = [];  // snapshots anteriores
@@ -1631,6 +1633,8 @@ async function editarTanda(tandaId) {
   }
   editorSlideIdx  = 0;
   editorTs        = Date.now();
+  editorAiHistory = new Map();
+  editorAiPending.clear();
   undoStack = [];
   redoStack = [];
   editorTemplateHtml = null;
@@ -1726,9 +1730,116 @@ function renderEditorChips() {
   });
 }
 
+function renderEditorAiConsole() {
+  const title = $('#editorAiTitle');
+  const state = $('#editorAiState');
+  const box = $('#editorAiMessages');
+  const send = $('#editorAiSend');
+  if (!title || !state || !box || !send) return;
+
+  const idx = editorSlideIdx;
+  const pending = editorAiPending.has(idx);
+  const history = editorAiHistory.get(idx) || [];
+  title.textContent = `Slide ${String(idx + 1).padStart(2, '0')}`;
+  state.textContent = pending ? 'Pensando...' : 'Listo';
+  state.className = `editor-ai-state${pending ? ' busy' : ''}`;
+  send.disabled = pending;
+
+  box.replaceChildren();
+  if (!history.length) {
+    const empty = document.createElement('div');
+    empty.className = 'editor-ai-empty';
+    empty.textContent = '¿Qué querés ajustar?';
+    box.appendChild(empty);
+    return;
+  }
+
+  history.forEach(item => {
+    const msg = document.createElement('div');
+    msg.className = `editor-ai-message ${item.role}`;
+    msg.textContent = item.text;
+    box.appendChild(msg);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+async function enviarEditorAi(promptText = '') {
+  const input = $('#editorAiInput');
+  const idx = editorSlideIdx;
+  const mensaje = (promptText || input?.value || '').trim();
+  if (!mensaje || !editorContenido?.slides?.[idx] || editorAiPending.has(idx)) return;
+
+  if (input) input.value = '';
+  const history = editorAiHistory.get(idx) || [];
+  history.push({ role: 'user', text: mensaje });
+  editorAiHistory.set(idx, history);
+  editorAiPending.add(idx);
+  renderEditorAiConsole();
+
+  const snapshot = JSON.stringify(editorContenido);
+  const originalType = editorContenido.slides[idx].type;
+
+  try {
+    const res = await fetch(`/api/tandas/${editorTandaId}/slide-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idx,
+        mensaje,
+        slide: editorContenido.slides[idx],
+        slides: editorContenido.slides,
+        historial: history.slice(0, -1),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'No pude aplicar el cambio');
+
+    const patch = data.patch && typeof data.patch === 'object' ? data.patch : {};
+    if (Object.keys(patch).length) {
+      undoStack.push(snapshot);
+      if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+      redoStack = [];
+      Object.assign(editorContenido.slides[idx], patch);
+      editorContenido.slides[idx].type = originalType;
+      updateUndoButtons();
+      sendLiveUpdate(idx);
+
+      const status = $('#editorStatus');
+      if (status) {
+        status.textContent = 'Cambios listos para re-renderizar';
+        status.className = 'status ok';
+      }
+    }
+
+    history.push({
+      role: 'assistant',
+      text: data.respuesta || (Object.keys(patch).length ? 'Listo, cambio aplicado.' : 'No hice cambios.'),
+    });
+  } catch (error) {
+    history.push({ role: 'assistant', text: `No pude hacerlo: ${error.message}` });
+  } finally {
+    editorAiPending.delete(idx);
+    if (editorSlideIdx === idx) {
+      renderEditorSlide(idx);
+    }
+  }
+}
+
+$('#editorAiSend')?.addEventListener('click', () => enviarEditorAi());
+$('#editorAiInput')?.addEventListener('keydown', event => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    enviarEditorAi();
+  }
+});
+document.querySelectorAll('[data-ai-prompt]').forEach(button => {
+  button.addEventListener('click', () => enviarEditorAi(button.dataset.aiPrompt));
+});
+
 function renderEditorSlide(idx) {
   const slide = editorContenido.slides[idx];
   const num   = String(idx + 1).padStart(2, '0');
+  renderEditorAiConsole();
   loadLivePreview(idx);
 
   const hasPhotoPos = !!slide.photo;

@@ -16,9 +16,9 @@ import sharp from 'sharp';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const FALLBACK_MODELS = [
-  'blackboxai/anthropic/claude-nemotron',
   'blackboxai/x-ai/grok-4.1-fast-non-reasoning',
   'blackboxai/deepseek/deepseek-v4-pro',
+  'blackboxai/anthropic/claude-nemotron',
 ];
 
 async function callVisionPrompt(content, maxTokens, attempt = 0) {
@@ -92,7 +92,7 @@ Evaluá estos 4 aspectos:
 1. LEGIBILIDAD: ¿El texto principal es legible sobre el fondo?
 2. IMPACTO: ¿El headline tiene suficiente tamaño/peso para detener el scroll en mobile?
 3. OVERLAY: ¿La foto está tan oscura que perdió información visual importante, o tan clara que el texto no se lee?
-4. TEXTO SOBRE PERSONA: ¿El bloque de texto (headline, párrafo) tapa la cara, torso, o zona central del sujeto principal de la foto?
+4. TEXTO SOBRE PERSONA: detectá primero las caras y el rectángulo completo del texto. ¿Se cruzan aunque sea parcialmente?
 
 Si TODO está bien → devolvé exactamente: null
 
@@ -107,7 +107,7 @@ Si hay un problema CLARO → devolvé SOLO este JSON:
 Reglas estrictas:
 - overlay_delta: entre -0.20 y 0.15. Positivo = más oscuro (si texto ilegible). Negativo = aclarar (si foto destruida, muy oscura). 0 si el contraste está bien.
 - headline_ajuste: "subir" | "bajar" | "ok"
-- text_y_nuevo: si el texto tapa la cara/cuerpo del sujeto → el % vertical (0-100) donde debería ir el TOPE del bloque de texto para no taparlo. Ejemplo: 75 = texto en zona inferior (sujeto arriba), 8 = texto en zona superior (sujeto abajo). Si no hay persona en la foto o el texto ya está bien posicionado → null.
+- text_y_nuevo: si el texto cruza una cara → el % vertical (0-100) donde debería ir el TOPE del bloque completo. Preferí 6-14 si hay espacio limpio arriba de las caras; si no entra, usá una zona libre debajo con margen. Nunca muevas el texto al centro de otra cara o cuerpo. Si no hay cruce → null.
 - Solo devolvé ajuste si el problema es CLARO y OBVIO. Ante la duda, devolvé null.`;
 
   return callVisionPrompt([

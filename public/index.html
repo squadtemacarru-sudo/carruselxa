@@ -570,7 +570,7 @@
       <button id="lightboxZip"      class="lightbox-download hidden">⬇ ZIP</button>
       <button id="lightboxCaption"  class="lightbox-edit hidden">✍ Caption</button>
       <button id="lightboxDuplicar" class="lightbox-edit hidden">⊕ Clonar</button>
-      <button id="lightboxEdit"     class="lightbox-edit hidden">✎ Editar</button>
+      <button id="lightboxEdit"     class="lightbox-edit hidden">✦ Consola IA</button>
     </div>
   </div>
 
@@ -605,6 +605,28 @@
       </div>
 
       <div class="editor-chips" id="editorChips"></div>
+
+      <section class="editor-ai-console" aria-labelledby="editorAiTitle">
+        <div class="editor-ai-head">
+          <div>
+            <span class="editor-ai-kicker">Consola IA</span>
+            <strong id="editorAiTitle">Slide 01</strong>
+          </div>
+          <span class="editor-ai-state" id="editorAiState">Listo</span>
+        </div>
+        <div class="editor-ai-quick">
+          <button type="button" data-ai-prompt="Reubicá el bloque de texto completo para que no tape ninguna cara. Analizá el slide renderizado y usá una zona limpia, preferentemente arriba si entra.">Liberar caras</button>
+          <button type="button" data-ai-prompt="Hacé el titular más corto, claro y potente.">Más directo</button>
+          <button type="button" data-ai-prompt="Reducí el texto sin perder la idea central.">Acortar</button>
+          <button type="button" data-ai-prompt="Mejorá este slide para que conecte mejor con el anterior y el siguiente.">Más coherencia</button>
+          <button type="button" data-ai-prompt="Dale más impacto visual sin cambiar la identidad del carrusel.">Más impacto</button>
+        </div>
+        <div class="editor-ai-messages" id="editorAiMessages" aria-live="polite"></div>
+        <div class="editor-ai-compose">
+          <textarea id="editorAiInput" rows="2" placeholder="Decime qué cambiar en este slide..."></textarea>
+          <button type="button" id="editorAiSend" class="editor-ai-send" title="Aplicar cambio" aria-label="Aplicar cambio">↑</button>
+        </div>
+      </section>
 
       <div class="editor-preview-wrap" id="editorPreviewWrap">
         <img id="editorSlideImg" style="display:none" alt="" class="editor-slide-img">
